@@ -2,13 +2,8 @@ use druid::{Widget, WidgetExt, piet::D2DTextLayout, Vec2, WidgetPod, widget::{Co
 use force_graph::DefaultNodeIdx;
 
 use crate::constants::*;
-pub struct VMNodeLayoutContainer {
-    pub layout: Option<D2DTextLayout>,
-    pub parent: Option<u16>, 
-    #[allow(dead_code)]
-    pub index: u16,
-}
 
+#[derive(Debug)]
 pub struct VMNode {
     pub label: String,
     pub edges: Vec<u16>,
@@ -17,6 +12,47 @@ pub struct VMNode {
     pub pos: Vec2,
     pub container: VMNodeLayoutContainer,
     pub is_active: bool,
+    //The index to the internal 'edges' array that corresponds to the target edge. 
+    // Reference the main edges HashMap filter out the non local node to determine target.
+    pub targeted_internal_edge_idx: Option<usize>,
+}
+
+impl VMNode {
+    pub fn cycle_target(&mut self) -> Option<u16> {
+        if let Some(target) = self.targeted_internal_edge_idx {
+            if self.edges.is_empty() {
+                return None;
+            } else if self.edges.len() == 1 {
+                let edge_idx = self.edges[target];
+                return Some(edge_idx);
+            } else {
+                if self.targeted_internal_edge_idx.unwrap() == self.edges.len()-1 {
+                    self.targeted_internal_edge_idx = Some(0);
+                    let edge_idx = self.edges[target];
+                    return Some(edge_idx);
+                } else {
+                    self.targeted_internal_edge_idx = Some(target+1);
+                    return Some(self.edges[target]);
+                }
+            }
+        } else {
+            if self.edges.is_empty() {
+                None
+            } else {
+                self.targeted_internal_edge_idx = Some(0);
+                return Some(self.edges[self.targeted_internal_edge_idx.unwrap()]);
+            }
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct VMEdge {
+    pub label: Option<String>,
+    pub from: u16,
+    pub to: u16,
+    pub index: u16,
 }
 
 pub struct VMNodeEditor {
@@ -26,8 +62,41 @@ pub struct VMNodeEditor {
     pub title_text: String,
 }
 
-pub struct VMNodeEditorController {
+impl VMNodeEditor {
+    pub fn new() -> VMNodeEditor {
+        let widget = Container::new(
+            TextBox::<String>::new().controller(
+                VMNodeEditorController::new()
+            ).expand_width()
+        );
+            
+        let nodeeditor = VMNodeEditor {
+            container: WidgetPod::new(widget),
+            is_visible: false,
+            title_text: "".to_string(),
+        };
+        nodeeditor
+    }
 }
+
+#[derive(Debug)]
+pub struct VMNodeLayoutContainer {
+    pub layout: Option<D2DTextLayout>,
+    #[allow(dead_code)]
+    pub index: u16,
+}
+
+impl VMNodeLayoutContainer {
+    pub fn new(_label: String, index: u16) -> VMNodeLayoutContainer {
+        let new_layout = VMNodeLayoutContainer {
+            layout: None,
+            index,
+        };
+        new_layout
+    }
+}
+
+pub struct VMNodeEditorController {}
 
 impl VMNodeEditorController {
     pub fn new() -> VMNodeEditorController {
@@ -43,27 +112,24 @@ impl Controller<String, TextBox<String>> for VMNodeEditorController {
                 ctx.resign_focus();
                 ctx.set_handled();
             }
-            Event::KeyUp(event) if event.key == Key::Enter => {
+            Event::KeyDown(event) if event.key == Key::Escape => {
+                ctx.submit_notification(CANCEL_CHANGES);
+                ctx.resign_focus();
                 ctx.set_handled();
             }
-            Event::KeyDown(event) if event.key == Key::ArrowDown => {
+            Event::Command(command) if command.is(TAKE_FOCUS) => {
+                ctx.request_focus();
                 ctx.set_handled();
-            }
-            Event::Command(command) => {
-                if command.is(TAKE_FOCUS) {
-                    ctx.request_focus();
-                    ctx.set_handled();
-                    let mut selection = Selection::new(0,1000);
-                    if let Some(text) = child.editor().layout().text() {
-                        selection = selection.constrained(text);
-                        println!("{:?}", selection);
-                        selection.end = selection.max();
-                    }
-                    child.set_selection(selection);
+                let mut selection = Selection::new(0,1000);
+                if let Some(text) = child.editor().layout().text() {
+                    selection = selection.constrained(text);
+                    selection.end = selection.max();
                 }
+                child.set_selection(selection);
             }
             Event::MouseDown(_event) => {
                 ctx.submit_notification(TAKEN_FOCUS);
+                child.event(ctx, event, data, env);
                 ctx.set_handled();
             }
             _ => {
@@ -71,42 +137,17 @@ impl Controller<String, TextBox<String>> for VMNodeEditorController {
             }
         }
     }
-}
-
-impl VMNodeEditor {
-    pub fn new() -> VMNodeEditor {
-        let padding = WidgetPod::<String, Container<String>>::new(
-            Container::new(TextBox::<String>::multiline().controller(VMNodeEditorController::new())));
-            
-        let nodeeditor = VMNodeEditor {
-            container: padding,
-            is_visible: false,
-            title_text: "".to_string(),
-        };
-        nodeeditor
+    fn lifecycle(
+            &mut self,
+            child: &mut TextBox<String>,
+            ctx: &mut druid::LifeCycleCtx,
+            event: &druid::LifeCycle,
+            data: &String,
+            env: &Env,
+        ) {
+        child.lifecycle(ctx, event, data, env);
     }
-}
-
-#[allow(dead_code)]
-pub struct VMEdge {
-    pub label: Option<String>,
-    pub from: u16,
-    pub to: u16,
-    pub index: u16,
-}
-
-impl VMNodeLayoutContainer {
-    pub fn new(_label: String, index: u16) -> VMNodeLayoutContainer {
-        let new_layout = VMNodeLayoutContainer {
-            layout: None,
-            parent: None,
-            index,
-        };
-        new_layout
-    }
-
-    #[allow(dead_code)]
-    pub fn set_parent(&mut self, parent: u16) {
-        self.parent = Some(parent)
+    fn update(&mut self, child: &mut TextBox<String>, ctx: &mut druid::UpdateCtx, old_data: &String, data: &String, env: &Env) {
+        child.update(ctx, old_data, data, env);
     }
 }
