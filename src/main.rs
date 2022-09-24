@@ -3,7 +3,7 @@ use druid::kurbo::{Line, TranslateScale, Circle};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout};
 use force_graph::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::{prelude::*, Label, Flex, Button, MainAxisAlignment, SizedBox, ControllerHost};
-use druid::{AppLauncher, Color, WindowDesc, FileDialogOptions, FontFamily, Affine, Point, Vec2, Rect, WindowState, TimerToken, Command, Target, WidgetPod, WidgetExt, MenuDesc, LocalizedString};
+use druid::{AppLauncher, Color, WindowDesc, FileDialogOptions, FontFamily, Affine, Point, Vec2, Rect, WindowState, TimerToken, Command, Target, WidgetPod, WidgetExt, MenuDesc, LocalizedString, MenuItem, FileSpec};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{PathBuf, Path};
@@ -887,7 +887,10 @@ impl Widget<()> for VMCanvas {
                 } else {
                     ctx.submit_command(Command::new(
                         druid::commands::SHOW_SAVE_PANEL,
-                        FileDialogOptions::new(),
+                        FileDialogOptions::new()
+                            .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])])
+                            .default_type(FileSpec::new("VimMapper File", &["vmd"]))
+                            .default_name(DEFAULT_SAVE_NAME),
                         Target::Auto
                     ));
                 }
@@ -952,18 +955,52 @@ impl Widget<()> for VMCanvas {
 }
 
 pub fn main() {
-    let canvas = VMCanvas::new();
-    let file: MenuDesc<()> = MenuDesc::new(LocalizedString::new("file-menu").with_placeholder("File"))
+    let mut canvas = VMCanvas::new();
+
+    let open_dialog_options = FileDialogOptions::new()
+    .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])]);
+    let save_dialog_options = FileDialogOptions::new()
+    .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])])
+    .default_type(FileSpec::new("VimMapper File", &["vmd"]))
+    .default_name(DEFAULT_SAVE_NAME);
+
+    let file_menu: MenuDesc<()> = MenuDesc::new(LocalizedString::new("file-menu").with_placeholder("File"))
     .append(druid::platform_menus::win::file::new())
-    .append(druid::platform_menus::win::file::open())
+    .append(
+        MenuItem::new(
+            LocalizedString::new("common-menu-file-open"),
+            druid::commands::SHOW_OPEN_PANEL.with(open_dialog_options),
+        )
+        .hotkey(druid::SysMods::Cmd, "o")
+    )
     .append(druid::platform_menus::win::file::save())
-    .append(druid::platform_menus::win::file::save_as())
+    .append(
+        MenuItem::new(
+            LocalizedString::new("common-menu-file-save-as"),
+            druid::commands::SHOW_SAVE_PANEL.with(save_dialog_options),
+        )
+        .hotkey(druid::SysMods::CmdShift, "s")
+    )
     .append_separator()
     .append(druid::platform_menus::win::file::exit());
+
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(str) = args.get(1) {
+        let path = Path::new(str);
+        if path.exists() {
+            if let Some(ext) = path.extension() {
+                if ext == "vmd" {
+                    if let Ok(_) = canvas.open_file(path.display().to_string()) {
+                        println!("Launching with open sheet: {}.", path.display());
+                    }
+                }
+            }
+        }
+    }
     let window = WindowDesc::new(|| canvas)
     .title("VimMapper")
     .set_window_state(WindowState::MAXIMIZED)
-    .menu(MenuDesc::empty().append(file));
+    .menu(MenuDesc::empty().append(file_menu));
     AppLauncher::with_window(window)
     .use_simple_logger()
     .launch(())

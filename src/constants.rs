@@ -37,3 +37,5 @@ pub const TAKEN_FOCUS: Selector = Selector::new("taken-focus");
 pub const SUBMIT_CHANGES: Selector = Selector::new("submit-changes");
 
 pub const CANCEL_CHANGES: Selector = Selector::new("cancel-changes");
+
+pub const DEFAULT_SAVE_NAME: &str = "NewSheet.vmd";
