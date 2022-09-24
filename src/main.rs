@@ -1,3 +1,17 @@
+// Copyright 2022 Doug Powers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #![windows_subsystem = "windows"]
 use druid::keyboard_types::Key;
 use druid::kurbo::{Line, TranslateScale, Circle};
@@ -165,7 +179,7 @@ impl VimMapper {
                 index: v.index, 
                 });
         }
-        let vm = VimMapper {
+        let mut vm = VimMapper {
             graph,
             animating: true,
             nodes,
@@ -196,6 +210,7 @@ impl VimMapper {
             translate_at_drag: None,
             is_hot: true,
         };
+        vm.set_active_node(0);
         vm
     }
 
@@ -526,17 +541,41 @@ impl<'a> Widget<()> for VimMapper {
             }
             Event::KeyDown(event) if self.is_focused => {
                 match &event.key {
-                    Key::ArrowLeft => {
+                    Key::Character(char) if *char == 'h'.to_string() => {
                         self.offset_x += 10.0;
                     }
-                    Key::ArrowRight => {
+                    Key::Character(char) if *char == 'l'.to_string() => {
                         self.offset_x -= 10.0;
                     }
-                    Key::ArrowDown => {
-                        self.offset_y -= 10.0;
+                    Key::Character(char) if *char == 'j'.to_string() => {
+                        if event.mods.ctrl() {
+                            self.scale = self.scale.clone()*TranslateScale::scale(0.75);
+                        } else {
+                            self.offset_y -= 10.0;
+                        }
                     }
-                    Key::ArrowUp => {
-                        self.offset_y += 10.0;
+                    Key::Character(char) if *char == 'k'.to_string() => {
+                        if event.mods.ctrl() {
+                            self.scale = self.scale.clone()*TranslateScale::scale(1.25);
+                        } else {
+                            self.offset_y += 10.0;
+                        }
+                    }
+                    Key::Character(char) if *char == 'H'.to_string() => {
+                        self.offset_x += 100.0;
+                    }
+                    Key::Character(char) if *char == 'L'.to_string() => {
+                        self.offset_x -= 100.0;
+                    }
+                    Key::Character(char) if *char == 'J'.to_string() => {
+                        self.offset_y -= 100.0;
+                    }
+                    Key::Character(char) if *char == 'K'.to_string() => {
+                        self.offset_y += 100.0;
+                    }
+                    Key::Character(char) if *char == 'G'.to_string() => {
+                        self.offset_x = 0.;
+                        self.offset_y = 0.;
                     }
                     Key::Character(char) if *char == "o".to_string() => {
                         if let Some(idx) = self.get_active_node() {
@@ -714,10 +753,10 @@ impl<'a> Widget<()> for VimMapper {
                 let border = druid::piet::kurbo::RoundedRect::from_rect(rect, DEFAULT_BORDER_RADIUS);
                 let mut border_color = Color::BLACK;
                 if node.is_active {
-                    border_color = Color::GREEN;
+                    border_color = ACTIVE_BORDER_COLOR;
                 } else if let Some(idx) = target_node {
                     if idx == node.index {
-                        border_color = Color::RED;
+                        border_color = TARGET_BORDER_COLOR;
                     }
                 }
                 ctx.fill(border, &Color::grey8(200));
@@ -883,26 +922,30 @@ impl Widget<()> for VMCanvas {
                 }
             }
             Event::Command(command) if command.is(druid::commands::SAVE_FILE) => {
-                if let Some(_) = self.path {
-                    self.save_file();
-                } else {
-                    ctx.submit_command(Command::new(
-                        druid::commands::SHOW_SAVE_PANEL,
-                        FileDialogOptions::new()
-                            .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])])
-                            .default_type(FileSpec::new("VimMapper File", &["vmd"]))
-                            .default_name(DEFAULT_SAVE_NAME),
-                        Target::Auto
-                    ));
+                if let Some(_) = self.inner {
+                    if let Some(_) = self.path {
+                        self.save_file();
+                    } else {
+                        ctx.submit_command(Command::new(
+                            druid::commands::SHOW_SAVE_PANEL,
+                            FileDialogOptions::new()
+                                .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])])
+                                .default_type(FileSpec::new("VimMapper File", &["vmd"]))
+                                .default_name(DEFAULT_SAVE_NAME),
+                            Target::Auto
+                        ));
+                    }
                 }
             }
             Event::Command(command) if command.is(druid::commands::SAVE_FILE_AS) => {
-                let payload = command.get_unchecked(druid::commands::SAVE_FILE_AS);
-                let res = self.set_path(payload.path().to_path_buf());
-                if let Ok(_path) = res {
-                    self.save_file();
-                } else if let Err(err) = res {
-                    panic!("{}", err);
+                if let Some(_) = self.inner {
+                    let payload = command.get_unchecked(druid::commands::SAVE_FILE_AS);
+                    let res = self.set_path(payload.path().to_path_buf());
+                    if let Ok(_path) = res {
+                        self.save_file();
+                    } else if let Err(err) = res {
+                        panic!("{}", err);
+                    }
                 }
             }
             _ => {

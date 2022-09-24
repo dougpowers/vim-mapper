@@ -1,6 +1,20 @@
+// Copyright 2022 Doug Powers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use std::time::Duration;
 
-use druid::{kurbo::TranslateScale, Selector, Vec2};
+use druid::{kurbo::TranslateScale, Selector, Vec2, Color};
 use force_graph::SimulationParameters;
 
 pub const DEFAULT_BORDER_SIZE: f64 = 3.;
@@ -15,6 +29,9 @@ pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParamet
     node_speed: 7000.,
     damping_factor: 0.5
 };
+
+pub const ACTIVE_BORDER_COLOR: Color = Color::rgb8(125, 125, 255);
+pub const TARGET_BORDER_COLOR: Color = Color::rgb8(255, 125, 125);
 
 pub const DEFAULT_TRANSLATE: TranslateScale = TranslateScale::new(
     Vec2::new(0., 0.), 1.
