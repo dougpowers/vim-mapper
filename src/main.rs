@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 use druid::keyboard_types::Key;
 use druid::kurbo::{Line, TranslateScale, Circle};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout};
