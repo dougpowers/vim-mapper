@@ -39,4 +39,4 @@ Nodes can be activated by single left click. They can be edited by double left c
 ## Contact
 Doug Powers - dougpowers@gmail.com - [LinkedIn](https://www.linkedin.com/in/douglas-powers-537380104)
 
-Project Link: [https://github.com/dougpowers/LinkLocker](https://github.com/dougpowers/vim-mapper)
+Project Link: [https://github.com/dougpowers/vim-mapper](https://github.com/dougpowers/vim-mapper)
