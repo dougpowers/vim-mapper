@@ -9,6 +9,8 @@ Vim-Mapper presents a simple interface. All new sheets will start with a single,
 
 The active node is outlined in blue. The current targetted child node is outlined in light red. Press the 'n' key to cycle to the desired child node and then press 'Enter' to make that node active.
 
+When executing Vim-Mapper from the command line, the user can open a sheet by specifying a valid .vmd file as the first argument.
+
 ## Keybindings
 | Key Combination | Context                         | Description                                   |
 |-----------------|---------------------------------|-----------------------------------------------|
