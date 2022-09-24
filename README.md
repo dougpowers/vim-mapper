@@ -14,7 +14,7 @@ When executing Vim-Mapper from the command line, the user can open a sheet by sp
 ## Keybindings
 | Key Combination | Context                         | Description                                   |
 |-----------------|---------------------------------|-----------------------------------------------|
-| Ctrl-n          | Any                             | Create new sheet (WARNING: WILL NOT SAVE CURRENT SHEET)                             |
+| Ctrl-n          | Any                             | Create new sheet, discarding the current sheet |
 | Ctrl-s          | Any                             | Save sheet                                    |
 | Ctrl-Shift-s    | Any                             | Save sheet to a file                          |
 | Enter           | Editor focused                  | Submit node change                            |
@@ -28,6 +28,10 @@ When executing Vim-Mapper from the command line, the user can open a sheet by sp
 | G               | Sheet focused                   | Center viewport on root node                  |
 | j / J           | Sheet focused                   | Pan the viewport down by a little / a lot     |
 | k / K           | Sheet focused                   | Pan the viewport up by a little / a lot       |
+| h / H           | Sheet focused                   | Pan the viewport left by a little / a lot     |
+| l / L           | Sheet focused                   | Pan the viewport right by a little / a lot    |
+| Ctrl-j          | Sheet focused                   | Zoom the viewport out                         |
+| Ctrl-k          | Sheet focused                   | Zoom the viewport in                          |
 
 ## Mouse Controls
 Nodes can be activated by single left click. They can be edited by double left click. New child nodes can be created by right-clicking on the desired parent. The viewport panned by dragging while holding left click. The viewport can also be panned vertically by scrolling and horizontally by holding 'Shift' while scrolling. The viewport can be zoomed by holding right click or 'Ctrl' while scrolling.
