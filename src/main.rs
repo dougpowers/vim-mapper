@@ -6,6 +6,7 @@ use druid::widget::{prelude::*, Label, Flex, Button, MainAxisAlignment, SizedBox
 use druid::{AppLauncher, Color, WindowDesc, FileDialogOptions, FontFamily, Affine, Point, Vec2, Rect, WindowState, TimerToken, Command, Target, WidgetPod, WidgetExt, MenuDesc, LocalizedString};
 use std::collections::HashMap;
 use std::fs;
+use std::path::{PathBuf, Path};
 
 mod vmnode;
 use vmnode::{VMEdge, VMNode, VMNodeEditor, VMNodeLayoutContainer};
@@ -118,8 +119,7 @@ impl VimMapper {
         let mut nodes: HashMap<u16, VMNode> = HashMap::with_capacity(50);
         let mut edges: HashMap<u16, VMEdge> = HashMap::with_capacity(100);
         for (_k ,v) in save.nodes {
-            #[allow(unused_assignments)]
-            let mut fg_index: Option<DefaultNodeIdx> = None;
+            let fg_index: Option<DefaultNodeIdx>;
             if v.index == 0 {
                 fg_index = Some(graph.add_node(NodeData {
                     is_anchor: true,
@@ -307,21 +307,16 @@ impl VimMapper {
                 }
                 self.graph.remove_node(node.fg_index.unwrap());
                 let removed_edge = node.edges[0].clone();
-                println!("Removing edge {}", removed_edge);
                 self.edges.remove(&removed_edge);
                 self.nodes.remove(&idx);
                 let r_node = self.nodes.get_mut(&remainder).unwrap();
                 r_node.targeted_internal_edge_idx = None;
-                println!("{:?}", r_node.edges);
                 for i in 0..r_node.edges.len().clone() {
-                    println!("examining {}th extra-nodal edge {}", i, r_node.edges[i]);
                     if r_node.edges[i] == removed_edge {
-                        println!("removing {}th extra-nodal edge {}", i, r_node.edges[i]);
                         r_node.edges.remove(i);
                         break;
                     }
                 }
-                println!("{:?}", r_node.edges);
                 self.target_edge = None;
                 return Ok(remainder);
             }
@@ -353,12 +348,6 @@ impl VimMapper {
                 item.1.is_active = false;
             }
         });
-        if let Some(node) = self.nodes.get(&idx) {
-            if node.edges.len() > 0 {
-                if let Some(edge) = self.edges.get(&node.edges[0]) {
-                }
-            }
-        }
     }
 
     pub fn get_new_node_idx(&mut self) -> u16 {
@@ -432,9 +421,9 @@ impl VimMapper {
         self.is_focused = false;
         self.node_editor.title_text = self.nodes.get(&idx).unwrap().label.clone();
         self.node_editor.is_visible = true;
-        ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Auto));
-        ctx.request_update();
         ctx.request_layout();
+        ctx.request_update();
+        ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Auto));
 
     }
     pub fn close_editor(&mut self, ctx: &mut EventCtx, save: bool) {
@@ -471,14 +460,17 @@ impl<'a> Widget<()> for VimMapper {
         if self.is_focused {
             ctx.request_focus();
         }
-        self.node_editor.container.event(ctx, event, &mut self.node_editor.title_text, _env);
+        if self.node_editor.is_visible {
+            self.node_editor.container.event(ctx, event, &mut self.node_editor.title_text, _env);
+        }
         match event {
-            Event::AnimFrame(interval) => {
+            Event::AnimFrame(_interval) => {
                 ctx.request_paint();
                 ctx.request_layout();
                 if self.is_hot {
                     for _ in 0..10 {
-                        self.graph.update(((*interval as f32)) * 1e-9);
+                        // self.graph.update(((*interval as f32)) * 1e-9);
+                        self.graph.update(0.016);
                     }
                 }
                 self.update_node_coords();
@@ -593,12 +585,16 @@ impl<'a> Widget<()> for VimMapper {
                 if let Some(token) = self.double_click_timer {
                     ctx.set_handled();
                     if token == *event && self.double_click {
-                        if let Some(idx) = self.does_point_collide(self.last_click_point.unwrap()) {
-                            self.open_editor(ctx, idx);
+                        if let Some(point) = self.last_click_point {
+                            if let Some(idx) = self.does_point_collide(point) {
+                                self.open_editor(ctx, idx);
+                            }
                         }
                     } else if token == *event {
-                        if let Some(idx) = self.does_point_collide(self.last_click_point.unwrap()) {
-                            self.set_active_node(idx);
+                        if let Some(point) = self.last_click_point {
+                            if let Some(idx) = self.does_point_collide(point) {
+                                self.set_active_node(idx);
+                            }
                         }
                     }
                     self.double_click_timer = None;
@@ -617,6 +613,11 @@ impl<'a> Widget<()> for VimMapper {
                 self.close_editor(ctx, false);
                 ctx.set_handled();
             }
+            Event::Notification(note) if note.is(TAKE_FOCUS) => {
+                if !self.node_editor.is_visible {
+                    self.node_editor.container.event(ctx, event, &mut self.node_editor.title_text, _env);
+                }
+            }
             _ => {
             }
         }
@@ -625,6 +626,7 @@ impl<'a> Widget<()> for VimMapper {
         }
     }
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, _data: &(), _env: &Env) {
+        self.node_editor.container.lifecycle(ctx, event, &self.node_editor.title_text, _env);
         match event {
             LifeCycle::WidgetAdded => {
                 ctx.children_changed();
@@ -636,7 +638,6 @@ impl<'a> Widget<()> for VimMapper {
             _ => {
             }
         }
-        self.node_editor.container.lifecycle(ctx, event, &self.node_editor.title_text, _env);
     }
     fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &(), _data: &(), _env: &Env) {
         self.node_editor.container.update(ctx, &self.node_editor.title_text, _env);
@@ -653,17 +654,19 @@ impl<'a> Widget<()> for VimMapper {
         });
 
         //Layout editor
+        // let mut ne_bc = BoxConstraints::new(Size::new(0., 0.), Size::new(0., 0.));
+        // if self.node_editor.is_visible {
+        //     ne_bc = BoxConstraints::new(Size::new(0., 0.), Size::new(200., 200.));
+        // }
+        let ne_bc = BoxConstraints::new(Size::new(0., 0.), Size::new(200., 200.));
+        self.node_editor.container.layout(ctx, &ne_bc, &self.node_editor.title_text, _env);
         if let Some(idx) = self.get_active_node() {
-
-            let mut ne_bc = BoxConstraints::new(Size::new(0., 0.), Size::new(0., 0.));
-            if self.node_editor.is_visible {
-                ne_bc = BoxConstraints::new(Size::new(0., 0.), Size::new(200., 200.));
-            }
-            self.node_editor.container.layout(ctx, &ne_bc, &self.node_editor.title_text, _env);
             let node = self.nodes.get(&idx).unwrap();
             let size = node.container.layout.as_ref().unwrap().size().clone();
             let bottom_left = Point::new(node.pos.x-(size.width/2.), node.pos.y+(size.height/2.)+DEFAULT_BORDER_SIZE);
-            self.node_editor.container.set_origin(ctx, &"".to_string(), _env, self.translate*bottom_left);
+            self.node_editor.container.set_origin(ctx, &self.node_editor.title_text, _env, self.translate*self.scale*bottom_left);
+        } else {
+            self.node_editor.container.set_origin(ctx, &self.node_editor.title_text, _env, Point::new(0., 0.));
         }
 
         return bc.max();
@@ -697,9 +700,11 @@ impl<'a> Widget<()> for VimMapper {
 
         self.graph.visit_nodes(|node| {
             ctx.with_save(|ctx| {
-                let node = self.nodes.get_mut(&node.data.user_data).unwrap();
+                let node = self.nodes.get_mut(&node.data.user_data)
+                .expect("Attempted to retrieve a non-existent node.");
                 // if root is 0,0 translate to place that in center
-                let label_size = node.container.layout.as_mut().unwrap().size();
+                let label_size = node.container.layout.as_mut()
+                .expect("Node layout container was empty.").size();
                 ctx.transform(Affine::from(self.translate));
                 ctx.transform(Affine::from(self.scale));
                 ctx.transform(Affine::from(TranslateScale::new(-1.0*(label_size.to_vec2())/2.0, 1.0)));
@@ -723,9 +728,7 @@ impl<'a> Widget<()> for VimMapper {
         //Paint editor dialog
         if self.node_editor.is_visible {
             if let Some(_idx) = self.get_active_node() {
-                ctx.with_save(|ctx| {
-                    self.node_editor.container.paint(ctx, &self.node_editor.title_text, _env);
-                });
+                self.node_editor.container.paint(ctx, &self.node_editor.title_text, _env);
             }
         }
 
@@ -746,6 +749,7 @@ struct VMCanvas {
     inner: Option<WidgetPod<(), VimMapper>>,
     dialog: WidgetPod<(), Flex<()>>,
     dialog_visible: bool,
+    path: Option<PathBuf>,
 }
 
 impl VMCanvas {
@@ -754,7 +758,54 @@ impl VMCanvas {
             inner: None,
             dialog: VMCanvas::make_dialog(),
             dialog_visible: true,
+            path: None,
         }
+    }
+
+    pub fn open_file(&mut self, path: String) -> Result<(), String> {
+        if let Ok(string) = fs::read_to_string(path.clone()) {
+            if let Ok(save) = serde_json::from_str::<VMSave>(string.as_str()) {
+                if let Ok(path) = Path::new(&path.clone()).canonicalize() {
+                    self.path = Some(path);
+                    self.load_new_mapper(VimMapper::from_save(save));
+                    Ok(())
+                } else {
+                    Err("Not a valid path.".to_string())
+                }
+            } else {
+                Err("Not a valid path.".to_string())
+            }
+        } else {
+        Err("Couldn't load file.".to_string())
+        }
+    }
+
+    pub fn save_file(&mut self) -> Result<String, String> {
+        if let Some(mapper_pod) = &self.inner {
+            match &self.path {
+                Some(path) => {
+                    if let Ok(string) = serde_json::to_string(&mapper_pod.widget().to_save()) {
+                        if let Ok(_) = fs::write(path, string) {
+                            Ok("File saved".to_string())
+                        } else {
+                            Err("Could not save to file.".to_string())
+                        }
+                    } else {
+                        Err("Could not serialize map".to_string())
+                    }
+                }
+                None => {
+                    Err("No path set.".to_string())
+                }
+            }
+        } else {
+            Err("No sheet was openend.".to_string())
+        }
+    }
+
+    pub fn set_path(&mut self, path: PathBuf) -> Result<PathBuf, String> {
+        self.path = Some(path.clone());
+        Ok(path.clone())
     }
 
     pub fn load_new_mapper(&mut self, mapper: VimMapper) {
@@ -819,25 +870,35 @@ impl Widget<()> for VMCanvas {
         match event {
             Event::Command(command) if command.is(druid::commands::NEW_FILE) => {
                 self.load_new_mapper(VimMapper::new());
+                self.path = None;
                 ctx.children_changed();
                 ctx.request_layout();
             }
             Event::Command(command) if command.is(druid::commands::OPEN_FILE) => {
                 let payload = command.get_unchecked(druid::commands::OPEN_FILE);
-                if let Ok(string) = fs::read_to_string(payload.path()) {
-                    if let Ok(save) = serde_json::from_str::<VMSave>(string.as_str()) {
-                        self.load_new_mapper(VimMapper::from_save(save));
-                        ctx.children_changed();
-                        ctx.request_layout();
-                    }
+                if let Ok(_) = self.open_file(payload.path().to_str().unwrap().to_string()) {
+                    ctx.children_changed();
+                    ctx.request_layout();
+                }
+            }
+            Event::Command(command) if command.is(druid::commands::SAVE_FILE) => {
+                if let Some(_) = self.path {
+                    self.save_file();
+                } else {
+                    ctx.submit_command(Command::new(
+                        druid::commands::SHOW_SAVE_PANEL,
+                        FileDialogOptions::new(),
+                        Target::Auto
+                    ));
                 }
             }
             Event::Command(command) if command.is(druid::commands::SAVE_FILE_AS) => {
                 let payload = command.get_unchecked(druid::commands::SAVE_FILE_AS);
-                if let Some(inner) = &self.inner {
-                    if let Ok(write_string) = serde_json::to_string(&inner.widget().to_save()) {
-                        fs::write(payload.path(), write_string);
-                    }
+                let res = self.set_path(payload.path().to_path_buf());
+                if let Ok(_path) = res {
+                    self.save_file();
+                } else if let Err(err) = res {
+                    panic!("{}", err);
                 }
             }
             _ => {
@@ -895,6 +956,7 @@ pub fn main() {
     let file: MenuDesc<()> = MenuDesc::new(LocalizedString::new("file-menu").with_placeholder("File"))
     .append(druid::platform_menus::win::file::new())
     .append(druid::platform_menus::win::file::open())
+    .append(druid::platform_menus::win::file::save())
     .append(druid::platform_menus::win::file::save_as())
     .append_separator()
     .append(druid::platform_menus::win::file::exit());

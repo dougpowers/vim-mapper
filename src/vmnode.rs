@@ -46,7 +46,6 @@ impl VMNode {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct VMEdge {
     pub label: Option<String>,
@@ -56,7 +55,6 @@ pub struct VMEdge {
 }
 
 pub struct VMNodeEditor {
-    #[allow(dead_code)]
     pub container: WidgetPod<String, Container<String>>,
     pub is_visible: bool,
     pub title_text: String,
@@ -82,7 +80,6 @@ impl VMNodeEditor {
 #[derive(Debug)]
 pub struct VMNodeLayoutContainer {
     pub layout: Option<D2DTextLayout>,
-    #[allow(dead_code)]
     pub index: u16,
 }
 
@@ -120,12 +117,14 @@ impl Controller<String, TextBox<String>> for VMNodeEditorController {
             Event::Command(command) if command.is(TAKE_FOCUS) => {
                 ctx.request_focus();
                 ctx.set_handled();
-                let mut selection = Selection::new(0,1000);
-                if let Some(text) = child.editor().layout().text() {
-                    selection = selection.constrained(text);
-                    selection.end = selection.max();
-                }
+                let selection = Selection::new(0,1000);
+                // if let Some(text) = child.editor().layout().text() {
+                //     selection = selection.constrained(text);
+                //     selection.end = selection.max();
+                // }
                 child.set_selection(selection);
+                child.event(ctx, event, data, env);
+                child.set_text_alignment(druid::TextAlignment::Start);
             }
             Event::MouseDown(_event) => {
                 ctx.submit_notification(TAKEN_FOCUS);
