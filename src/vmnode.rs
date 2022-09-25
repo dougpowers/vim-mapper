@@ -11,8 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use druid::{Widget, WidgetExt, piet::D2DTextLayout, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::Selection};
+use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::Selection};
 use force_graph::DefaultNodeIdx;
+#[cfg(windows)]
+use druid::piet::D2DTextLayout;
+#[cfg(unix)]
+use druid::piet::CairoTextLayout;
+
 
 use crate::constants::*;
 
@@ -90,9 +95,17 @@ impl VMNodeEditor {
     }
 }
 
+#[cfg(windows)]
 #[derive(Debug)]
 pub struct VMNodeLayoutContainer {
     pub layout: Option<D2DTextLayout>,
+    pub index: u16,
+}
+
+#[cfg(unix)]
+#[derive(Debug)]
+pub struct VMNodeLayoutContainer {
+    pub layout: Option<CairoTextLayout>,
     pub index: u16,
 }
 
