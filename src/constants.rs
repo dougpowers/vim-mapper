@@ -20,7 +20,7 @@ use force_graph::SimulationParameters;
 pub const DEFAULT_BORDER_SIZE: f64 = 3.;
 pub const DEFAULT_BORDER_RADIUS: f64 = 5.;
 pub const DEFAULT_EDGE_WIDTH: f64 = 3.;
-pub const LABEL_FONT_SIZE: f64 = 20.;
+pub const DEFAULT_LABEL_FONT_SIZE: f64 = 20.;
 
 pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParameters {
     force_charge: 8000.,
@@ -32,6 +32,9 @@ pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParamet
 
 pub const ACTIVE_BORDER_COLOR: Color = Color::rgb8(125, 125, 255);
 pub const TARGET_BORDER_COLOR: Color = Color::rgb8(255, 125, 125);
+
+pub const NODE_LABEL_MAX_CONSTRAINTS: (f64, f64) = (200., 200.);
+// pub const NODE_LABEL_CONSTRAINTS: BoxConstraints = BoxConstraints::new(Size::new(200., 200.), Size::new(200., 200.));
 
 pub const DEFAULT_TRANSLATE: TranslateScale = TranslateScale::new(
     Vec2::new(0., 0.), 1.

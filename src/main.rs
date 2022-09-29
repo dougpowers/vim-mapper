@@ -16,12 +16,14 @@
 use druid::keyboard_types::Key;
 use druid::kurbo::{Line, TranslateScale, Circle};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout};
+use druid::piet::PietTextLayout;
 use force_graph::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::{prelude::*, Label, Flex, Button, MainAxisAlignment, SizedBox, ControllerHost};
 use druid::{AppLauncher, Color, WindowDesc, FileDialogOptions, FontFamily, Affine, Point, Vec2, Rect, WindowState, TimerToken, Command, Target, WidgetPod, WidgetExt, MenuDesc, LocalizedString, MenuItem, FileSpec};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{PathBuf, Path};
+use std::str::SplitWhitespace;
 
 mod vmnode;
 use vmnode::{VMEdge, VMNode, VMNodeEditor, VMNodeLayoutContainer};
@@ -469,6 +471,58 @@ impl VimMapper {
             None
         }
     }
+
+    //Loop over node label generation until it fits within a set of BoxConstraints
+    pub fn build_label_layout_for_constraints(ctx: &mut LayoutCtx, text: String, bc: BoxConstraints) -> Result<PietTextLayout, String> {
+
+        let mut layout: PietTextLayout;
+        let mut font_size = DEFAULT_LABEL_FONT_SIZE;
+
+        if let Ok(layout) = ctx.text().new_text_layout(text.clone())
+        .font(FontFamily::SANS_SERIF, font_size)
+        .text_color(Color::BLACK)
+        .build() {
+            if bc.contains(layout.size()) {
+                return Ok(layout);
+            }
+        }
+
+        let text = VimMapper::split_string(text);
+
+        loop {
+            if let Ok(built) = ctx.text().new_text_layout(text.clone()) 
+            .font(FontFamily::SANS_SERIF, font_size)
+            .text_color(Color::BLACK)
+            .build() {
+                layout = built;
+            } else {
+                return Err("Could not build layout".to_string());
+            }
+            println!("Layout size is {:?}\n Bc is {:?}\n Result: {:?}", layout.size(), bc, bc.contains(layout.size()));
+            if bc.contains(layout.size()) {
+                return Ok(layout);
+            } else {
+                font_size -= 1.;
+            }
+        }
+    }
+
+    pub fn split_string(text: String) -> String {
+        let mut split: SplitWhitespace = text.split_whitespace();
+        
+        let mut first_line: String = "".to_string();
+        let mut second_line: String= "".to_string();
+        loop {
+            first_line = first_line + " " + split.next().unwrap();
+            if first_line.len() > text.len()/2 {
+                for word in split {
+                    second_line = second_line + " " + word;
+                }
+                break;
+            }
+        }
+        first_line + "\n" + &second_line
+    }
 }
 
 impl<'a> Widget<()> for VimMapper {
@@ -647,6 +701,8 @@ impl<'a> Widget<()> for VimMapper {
             }
             Event::Notification(note) if note.is(SUBMIT_CHANGES) => {
                 self.close_editor(ctx, true);
+                //Node has new label; invalidate layout
+                self.nodes.get_mut(&self.get_active_node().unwrap()).unwrap().container.layout = None;
                 ctx.set_handled();
             }
             Event::Notification(note) if note.is(CANCEL_CHANGES) => {
@@ -685,12 +741,25 @@ impl<'a> Widget<()> for VimMapper {
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &(), _env: &Env) -> Size {
         self.graph.visit_nodes(|fg_node| {
             let node = self.nodes.get_mut(&fg_node.data.user_data).unwrap();
-                let layout = ctx.text().new_text_layout(node.label.clone())
-                    .font(FontFamily::SANS_SERIF, LABEL_FONT_SIZE)
-                    .text_color(Color::BLACK)
-                    .build()
-                    .unwrap();
-                node.container.layout = Some(layout);
+                // let layout = ctx.text().new_text_layout(node.label.clone())
+                //     .font(FontFamily::SANS_SERIF, DEFAULT_LABEL_FONT_SIZE)
+                //     .text_color(Color::BLACK)
+                //     .build()
+                //     .unwrap();
+                if let Some(_) = node.container.layout {
+                } else {
+                    if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
+                        ctx, node.label.clone(), BoxConstraints::new(
+                            Size::new(0., 0.),
+                            Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
+                        )
+                    ) {
+                        node.container.layout = Some(layout.clone());
+                    } else {
+                        panic!("Could not build an appropriate sized label for node {:?}", node);
+                    }
+                }
+
         });
 
         //Layout editor
