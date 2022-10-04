@@ -356,6 +356,19 @@ impl VimMapper {
         }
     }
 
+    //Given any two node indices, return the edge that connects the two
+    pub fn get_edge(&self, idx_1: u16, idx_2: u16) -> Option<u16> {
+        let mut return_edge: Option<u16> = None;
+        self.edges.iter().for_each(|(idx, edge)| {
+            if edge.from == idx_1 && edge.to == idx_2 {
+                return_edge = Some(*idx); 
+            } else if edge.from == idx_2 && edge.to == idx_1 {
+                return_edge = Some(*idx);
+            }
+        });
+        return return_edge;
+    }
+
     pub fn get_active_node_idx(&self) -> Option<u16> {
         let active_node = self.nodes.iter().find(|item| {
             if item.1.is_active {
@@ -372,6 +385,20 @@ impl VimMapper {
     }
 
     pub fn set_active_node(&mut self, idx: u16) {
+        if let Some(active_idx) = self.get_active_node_idx() {
+            //If not activating the already active node, set the target edge to the one that points
+            // to the departing node
+            if idx != active_idx {
+                //Check to see if there exists an edge between new and old nodes, invalidate target if not
+                if let Some(new_edge) = self.get_edge(active_idx, idx) {
+                    self.nodes.get_mut(&idx).unwrap().set_target_edge_to_global_idx(new_edge);
+                    self.target_edge = Some(new_edge);
+                } else {
+                    self.target_edge = None;
+                }
+            }
+        }
+
         self.nodes.iter_mut().for_each(|item| {
             if item.1.index == idx {
                 item.1.is_active = true;
@@ -379,7 +406,6 @@ impl VimMapper {
                 item.1.is_active = false;
             }
         });
-        self.target_edge = None;
     }
 
     pub fn get_new_node_idx(&mut self) -> u16 {
@@ -783,6 +809,7 @@ impl<'a> Widget<()> for VimMapper {
                     self.double_click_timer = None;
                     self.double_click = false;
                 }
+                ctx.request_anim_frame();
             }
             Event::Notification(note) if note.is(TAKEN_FOCUS) => {
                 self.is_focused = false;
@@ -1096,8 +1123,6 @@ impl VMCanvas {
     }
 
     pub fn make_dialog() -> WidgetPod<(), Flex<()>> {
-        let split_string = r#"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."#.to_string();
-        println!("{:?}", VimMapper::split_string_in_n(split_string.clone(), 10));
         let open_button = Button::new("Open...")
             .on_click(move |ctx, _, _| {
             ctx.submit_command(
@@ -1125,7 +1150,7 @@ impl VMCanvas {
                         Flex::column()
                         .with_child(
                             Label::new(
-                                "Do you want create an existing sheet or load a new one?"
+                                "Do you want create a new sheet or load an existing one?"
                             )
                             .with_text_color(Color::BLACK)
                             )

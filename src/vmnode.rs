@@ -61,6 +61,21 @@ impl VMNode {
             }
         }
     }
+
+    pub fn set_target_edge_to_global_idx(&mut self, idx: u16) {
+        if let Some(internal_target) = self.targeted_internal_edge_idx {
+            if self.edges[internal_target] == idx {
+                return
+            }         
+        } else {
+            self.edges.iter().enumerate().for_each(|(i, edge_idx)| {
+                if *edge_idx == idx {
+                    self.targeted_internal_edge_idx = Some(i);
+                }
+            });
+        }
+
+    }
 }
 
 #[derive(Debug)]
