@@ -33,8 +33,9 @@ pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParamet
 pub const ACTIVE_BORDER_COLOR: Color = Color::rgb8(125, 125, 255);
 pub const TARGET_BORDER_COLOR: Color = Color::rgb8(255, 125, 125);
 
+pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 1.;
+
 pub const NODE_LABEL_MAX_CONSTRAINTS: (f64, f64) = (200., 200.);
-// pub const NODE_LABEL_CONSTRAINTS: BoxConstraints = BoxConstraints::new(Size::new(200., 200.), Size::new(200., 200.));
 
 pub const DEFAULT_TRANSLATE: TranslateScale = TranslateScale::new(
     Vec2::new(0., 0.), 1.
@@ -46,7 +47,6 @@ pub const DEFAULT_OFFSET_Y: f64 = 0.;
 pub const DEFAULT_SCALE: TranslateScale = TranslateScale::new(
     Vec2::new(0., 0.), 1.
 );
-pub const DEBUG_SHOW_EVENT_VISUALS: bool = false;
 
 pub const DOUBLE_CLICK_THRESHOLD: Duration = Duration::from_millis(200);
 

@@ -26,7 +26,7 @@ pub struct VMNode {
     pub container: VMNodeLayoutContainer,
     pub is_active: bool,
     //The index to the internal 'edges' array that corresponds to the target edge. 
-    // Reference the main edges HashMap filter out the non local node to determine target.
+    // Reference the main edges HashMap and filter out the non local node to determine target.
     pub targeted_internal_edge_idx: Option<usize>,
 }
 
@@ -34,18 +34,22 @@ impl VMNode {
     pub fn cycle_target(&mut self) -> Option<u16> {
         if let Some(target) = self.targeted_internal_edge_idx {
             if self.edges.is_empty() {
+                // Is root node. No target available
                 return None;
             } else if self.edges.len() == 1 {
+                //There is only one edge. Cannot change it.
                 let edge_idx = self.edges[target];
                 return Some(edge_idx);
             } else {
+                //There are targets to cycle through
                 if self.targeted_internal_edge_idx.unwrap() == self.edges.len()-1 {
+                    //Reached the end of the internal edge vector. Cycle through to index 0.
                     self.targeted_internal_edge_idx = Some(0);
-                    let edge_idx = self.edges[target];
+                    let edge_idx = self.edges[0];
                     return Some(edge_idx);
                 } else {
                     self.targeted_internal_edge_idx = Some(target+1);
-                    return Some(self.edges[target]);
+                    return Some(self.edges[target+1]);
                 }
             }
         } else {
@@ -89,20 +93,6 @@ impl VMNodeEditor {
         nodeeditor
     }
 }
-
-// #[cfg(windows)]
-// #[derive(Debug)]
-// pub struct VMNodeLayoutContainer {
-//     pub layout: Option<D2DTextLayout>,
-//     pub index: u16,
-// }
-
-// #[cfg(unix)]
-// #[derive(Debug)]
-// pub struct VMNodeLayoutContainer {
-//     pub layout: Option<CairoTextLayout>,
-//     pub index: u16,
-// }
 
 #[derive(Debug)]
 pub struct VMNodeLayoutContainer {
