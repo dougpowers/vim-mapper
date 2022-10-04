@@ -1,7 +1,7 @@
 [![license](https://img.shields.io/crates/l/druid)](https://github.com/dougpowers/vim-mapper/blob/main/LICENCE)
-## A simple vim-inspired brainstorming tool.
+## Vim-Mapper - A simple vim-inspired brainstorming tool.
 
-Vim-Mapper is an experimental graph editor with vim-like keybindings. Its goal is to allow a user to rapidly create a node-tree without moving their hands from the home row of the keyboard.
+Vim-Mapper is an experimental graph editor with vim-like keybindings. It uses a force-directed graph algorithm to dynamically position nodes. Its goal is to allow a user to rapidly create a node-tree without moving their hands from the home row of the keyboard.
 
 ## How to use Vim-Mapper
 
@@ -9,7 +9,7 @@ Vim-Mapper presents a simple interface. All new sheets will start with a single,
 
 The active node is outlined in blue. The current targetted child node is outlined in light red. Press the 'n' key to cycle to the desired child node and then press 'Enter' to make that node active.
 
-When executing Vim-Mapper from the command line, the user can open a sheet by specifying a valid .vmd file as the first argument.
+When executing Vim-Mapper from the terminal, the user can open a sheet by specifying a valid .vmd file as the first argument.
 
 ## Keybindings
 | Key Combination | Context                         | Description                                   |
