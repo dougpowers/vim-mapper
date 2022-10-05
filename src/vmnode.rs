@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::Selection, piet::PietTextLayout};
+use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::Selection, piet::PietTextLayout, Rect};
 use force_graph::DefaultNodeIdx;
 
 use crate::constants::*;
@@ -29,6 +29,8 @@ pub struct VMNode {
     // Reference the main edges HashMap and filter out the non local node to determine target.
     pub targeted_internal_edge_idx: Option<usize>,
     pub mark: Option<String>,
+    //Cached rect of the node, transformed to screen coords. Used to scroll node into view.
+    pub node_rect: Option<Rect>,
 }
 
 impl VMNode {
@@ -99,6 +101,8 @@ pub struct VMNodeEditor {
     pub container: WidgetPod<String, Container<String>>,
     pub is_visible: bool,
     pub title_text: String,
+    //Cached rect of the editor, transformed to screen coordinates. Used to scroll editor into view.
+    pub editor_rect: Option<Rect>,
 }
 
 impl VMNodeEditor {
@@ -113,6 +117,7 @@ impl VMNodeEditor {
             container: WidgetPod::new(widget),
             is_visible: false,
             title_text: "".to_string(),
+            editor_rect: None,
         };
         nodeeditor
     }

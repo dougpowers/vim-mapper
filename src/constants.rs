@@ -43,6 +43,7 @@ pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 1.;
 
 pub const NODE_LABEL_MAX_CONSTRAINTS: (f64, f64) = (200., 200.);
 
+pub const VEC_ORIGIN: Vec2 = Vec2::new(0., 0.);
 pub const DEFAULT_TRANSLATE: TranslateScale = TranslateScale::new(
     Vec2::new(0., 0.), 1.
 );
@@ -50,12 +51,15 @@ pub const DEFAULT_TRANSLATE: TranslateScale = TranslateScale::new(
 pub const DEFAULT_OFFSET_X: f64 = 0.;
 pub const DEFAULT_OFFSET_Y: f64 = 0.;
 
+//Default amount of padding to add when scrolling a given rect into view;
+pub const DEFAULT_SCROLL_PADDING: f64 = 20.;
+
 pub const DEFAULT_SCALE: TranslateScale = TranslateScale::new(
     Vec2::new(0., 0.), 1.
 );
 
 pub const DOUBLE_CLICK_THRESHOLD: Duration = Duration::from_millis(200);
-pub const DEFAULT_COMPOSE_TIMEOUT: Duration = Duration::from_secs(5);
+pub const DEFAULT_COMPOSE_TIMEOUT: Duration = Duration::from_secs(3);
 
 pub const TAKE_FOCUS: Selector = Selector::new("take-focus");
 
