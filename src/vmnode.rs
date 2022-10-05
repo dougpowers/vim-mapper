@@ -28,6 +28,7 @@ pub struct VMNode {
     //The index to the internal 'edges' array that corresponds to the target edge. 
     // Reference the main edges HashMap and filter out the non local node to determine target.
     pub targeted_internal_edge_idx: Option<usize>,
+    pub mark: Option<String>,
 }
 
 impl VMNode {
@@ -76,6 +77,14 @@ impl VMNode {
         }
 
     }
+
+    pub fn set_mark(&mut self, mark: String) {
+        if mark == " ".to_string() {
+            self.mark = None;
+        } else {
+            self.mark = Some(mark);
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -116,7 +125,7 @@ pub struct VMNodeLayoutContainer {
 }
 
 impl VMNodeLayoutContainer {
-    pub fn new(_label: String, index: u16) -> VMNodeLayoutContainer {
+    pub fn new(index: u16) -> VMNodeLayoutContainer {
         let new_layout = VMNodeLayoutContainer {
             layout: None,
             index,
@@ -149,7 +158,7 @@ impl Controller<String, TextBox<String>> for VMNodeEditorController {
             Event::Command(command) if command.is(TAKE_FOCUS) => {
                 ctx.request_focus();
                 ctx.set_handled();
-                let selection = Selection::new(0,1000);
+                let selection = Selection::new(0,usize::MAX);
                 // if let Some(text) = child.editor().layout().text() {
                 //     selection = selection.constrained(text);
                 //     selection.end = selection.max();

@@ -17,10 +17,14 @@ use std::time::Duration;
 use druid::{kurbo::TranslateScale, Selector, Vec2, Color};
 use force_graph::SimulationParameters;
 
-pub const DEFAULT_BORDER_SIZE: f64 = 3.;
+pub const DEFAULT_BORDER_WIDTH: f64 = 3.;
 pub const DEFAULT_BORDER_RADIUS: f64 = 5.;
+pub const DEFAULT_MARK_BORDER_WIDTH: f64 = 1.5;
 pub const DEFAULT_EDGE_WIDTH: f64 = 3.;
 pub const DEFAULT_LABEL_FONT_SIZE: f64 = 20.;
+pub const DEFAULT_COMPOSE_INDICATOR_FONT_SIZE: f64 = 28.;
+
+pub const DEFAULT_COMPOSE_INDICATOR_INSET: Vec2 = Vec2::new(20., -20.);
 
 pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParameters {
     force_charge: 8000.,
@@ -30,8 +34,10 @@ pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParamet
     damping_factor: 0.5
 };
 
+pub const DEFAULT_BORDER_COLOR: Color = Color::BLACK;
 pub const ACTIVE_BORDER_COLOR: Color = Color::rgb8(125, 125, 255);
 pub const TARGET_BORDER_COLOR: Color = Color::rgb8(255, 125, 125);
+pub const DEFAULT_COMPOSE_INDICATOR_TEXT_COLOR: Color = Color::RED;
 
 pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 1.;
 
@@ -49,6 +55,7 @@ pub const DEFAULT_SCALE: TranslateScale = TranslateScale::new(
 );
 
 pub const DOUBLE_CLICK_THRESHOLD: Duration = Duration::from_millis(200);
+pub const DEFAULT_COMPOSE_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub const TAKE_FOCUS: Selector = Selector::new("take-focus");
 
@@ -59,3 +66,5 @@ pub const SUBMIT_CHANGES: Selector = Selector::new("submit-changes");
 pub const CANCEL_CHANGES: Selector = Selector::new("cancel-changes");
 
 pub const DEFAULT_SAVE_NAME: &str = "NewSheet.vmd";
+
+pub const DEFAULT_ROOT_LABEL: &str = "Root";
