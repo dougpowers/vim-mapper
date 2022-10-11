@@ -52,8 +52,8 @@ Vim-Mapper supports dark mode. It will attempt to detect your OS mode on first s
 | -               | Sheet focused, node active      | Decrease node mass                            |
 | =               | Sheet focused, node active      | Reset node mass                               |
 | @       | Sheet focused, node active | Anchor the active node              |
-| m<char> | Sheet focused, node active | Mark the active node with <char>    |
-| '<char> | Sheet focused              | Jump to the node marked with <char> |
+| m<char\> | Sheet focused, node active | Mark the active node with <char\>    |
+| '<char\> | Sheet focused              | Jump to the node marked with <char\> |
 | Alt+F10         | App focused                     | Toggle between dark and light mode            |
 
 ## Mouse Controls
