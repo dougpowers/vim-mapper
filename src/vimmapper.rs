@@ -143,6 +143,24 @@ pub struct BareNode {
     is_active: bool,
     mark: Option<String>,
     targeted_internal_edge_idx: Option<usize>,
+    mass: f32,
+    anchored: bool,
+}
+
+impl Default for BareNode {
+    fn default() -> Self {
+        BareNode { 
+            label: "New label".to_string(),
+            edges: vec![0], 
+            index: 0, 
+            pos: (0.,0.), 
+            is_active: false, 
+            mark: None, 
+            targeted_internal_edge_idx: None, 
+            mass: DEFAULT_NODE_MASS, 
+            anchored: false 
+        }
+    }
 }
 
 //A boiled-down struct to hold the essential data to serialize and deserialize an edge. Used to
@@ -228,7 +246,7 @@ impl VimMapper {
                     is_anchor: true,
                     x: v.pos.0 as f32,
                     y: v.pos.1 as f32,
-                    mass: DEFAULT_NODE_MASS,
+                    mass: v.mass,
                     user_data: {
                         0
                     },
@@ -236,10 +254,10 @@ impl VimMapper {
                 }));
             } else {
                 fg_index = Some(graph.add_node(NodeData {
-                    is_anchor: false,
+                    is_anchor: v.anchored,
                     x: v.pos.0 as f32,
                     y: v.pos.1 as f32,
-                    mass: DEFAULT_NODE_MASS,
+                    mass: v.mass,
                     user_data: {
                         v.index
                     },
@@ -325,6 +343,8 @@ impl VimMapper {
                 is_active: false,
                 targeted_internal_edge_idx: None,
                 mark: node.mark.clone(),
+                mass: node.mass,
+                anchored: node.anchored,
             });
         });
         self.edges.iter().for_each(|(index, edge)| {
@@ -487,15 +507,29 @@ impl VimMapper {
         if let Some(active_idx) = self.get_active_node_idx() {
             //If not activating the already active node, set the target edge to the one that points
             // to the departing node
+
+            //Sometimes the active node will be set as active. Check for this and disregard if this
+            // is the case.
             if idx != active_idx {
-                //Check to see if there exists an edge between new and old nodes, invalidate target if not.
-                // Marks traversal and clicks can allow users to transition activation from nodes that are
-                // not directly connected.
-                if let Some(new_edge) = self.get_edge(active_idx, idx) {
-                    self.nodes.get_mut(&idx).unwrap().set_target_edge_to_global_idx(new_edge);
-                    self.target_edge = Some(new_edge);
-                } else {
-                    self.target_edge = None;
+                // //Check to see if there exists an edge between new and old nodes, invalidate target if not.
+                // // Marks traversal and clicks can allow users to transition activation from nodes that are
+                // // not directly connected.
+                // if let Some(new_edge) = self.get_edge(active_idx, idx) {
+                //     self.nodes.get_mut(&idx).unwrap().set_target_edge_to_global_idx(new_edge);
+                //     self.target_edge = Some(new_edge);
+                // } else {
+                //     self.target_edge = None;
+                // }
+                let node = self.nodes.get(&idx).expect("Tried to set a non-existent node as active.");
+                if node.edges.len() > 1 {
+                    for edge_idx in node.edges.clone() {
+                        let edge = self.edges.get(&edge_idx).expect("Tried to get a non-existent edge.");
+                        if edge.from != active_idx && edge.to != active_idx {
+                            self.nodes.get_mut(&idx).expect("Tried to get non-existent target node")
+                            .set_target_edge_to_global_idx(edge.index);
+                            self.target_edge = Some(edge.index);
+                        } 
+                    }
                 }
             }
         }
@@ -901,8 +935,9 @@ impl<'a> Widget<()> for VimMapper {
                 ctx.request_layout();
             }
             Event::MouseUp(event) if event.button.is_left() => {
-                self.set_dragging(false, None);
-                if let Some(_token) = self.double_click_timer {
+                if self.is_dragging {
+                    self.set_dragging(false, None);
+                } else if let Some(_token) = self.double_click_timer {
                     self.double_click = true;
                 } else {
                     self.double_click_timer = Some(ctx.request_timer(DOUBLE_CLICK_THRESHOLD));
@@ -1132,7 +1167,7 @@ impl<'a> Widget<()> for VimMapper {
                                 self.open_editor(ctx, idx);
                             }
                         }
-                    } else if token == *event {
+                    } else if token == *event && !self.is_dragging {
                         if let Some(point) = self.last_click_point {
                             if let Some(idx) = self.does_point_collide(point) {
                                 self.set_node_as_active(idx);

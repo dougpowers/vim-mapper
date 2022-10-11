@@ -14,19 +14,20 @@
 use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::Selection, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::{TranslateScale, RoundedRect}, Point, FontFamily, FontWeight, Color};
 use force_graph::DefaultNodeIdx;
 
-use crate::{constants::*, vimmapper::VimMapper, vmconfig::VMConfig};
+use crate::{constants::*, vmconfig::VMConfig};
 
-//Position on the node to paint a badge. Format YPOS_XPOS. Only corners are guaranteed to have space 
+//Position on the node to paint a badge. Format YposXpos. Only corners are guaranteed to have space 
 // on the layout
+#[allow(dead_code)]
 pub enum BadgePosition {
-    TOP_LEFT,
-    TOP_CENTER,
-    TOP_RIGHT,
-    CENTER_RIGHT,
-    BOTTOM_RIGHT,
-    BOTTOM_CENTER,
-    BOTTOM_LEFT,
-    CENTER_LEFT,
+    TopLeft,
+    TopCenter,
+    TopRight,
+    CenterRight,
+    BottomRight,
+    BottomCenter,
+    BottomLeft,
+    CenterLeft,
 }
 
 #[derive(Debug)]
@@ -112,7 +113,6 @@ impl VMNode {
                 }
             });
         }
-
     }
 
     pub fn set_mark(&mut self, mark: String) {
@@ -176,17 +176,17 @@ impl VMNode {
             //     });
             // }
             if let Some(char) = self.mark.clone() {
-                self.paint_node_badge(ctx, config, &char, BadgePosition::TOP_RIGHT, &border, &border_color);
+                self.paint_node_badge(ctx, config, &char, BadgePosition::TopRight, &border, &border_color);
             }
 
             if self.mass.clone() > DEFAULT_NODE_MASS {
-                self.paint_node_badge(ctx, config, &"+".to_string(), BadgePosition::BOTTOM_CENTER, &border, &border_color);
+                self.paint_node_badge(ctx, config, &"+".to_string(), BadgePosition::BottomCenter, &border, &border_color);
             } else if self.mass.clone() < DEFAULT_NODE_MASS {
-                self.paint_node_badge(ctx, config, &"-".to_string(), BadgePosition::BOTTOM_CENTER, &border, &border_color);
+                self.paint_node_badge(ctx, config, &"-".to_string(), BadgePosition::BottomCenter, &border, &border_color);
             }
 
             if self.anchored {
-                self.paint_node_badge(ctx, config, &"@".to_string(), BadgePosition::BOTTOM_LEFT, &border, &border_color)
+                self.paint_node_badge(ctx, config, &"@".to_string(), BadgePosition::BottomLeft, &border, &border_color)
             }
 
             //Paint debug decals (node index)
@@ -218,35 +218,35 @@ impl VMNode {
         ) {
         let mark_point: Vec2;
         match position {
-            BadgePosition::TOP_LEFT => {
+            BadgePosition::TopLeft => {
                 mark_point = border.origin().to_vec2();
             }
-            BadgePosition::TOP_CENTER => {
+            BadgePosition::TopCenter => {
                 mark_point = border.origin().to_vec2() + Vec2::new(border.width()/2., 0.);
             }
-            BadgePosition::TOP_RIGHT => {
+            BadgePosition::TopRight => {
                 mark_point = border.origin().to_vec2() + Vec2::new(border.width(), 0.);
             }
-            BadgePosition::CENTER_RIGHT => {
+            BadgePosition::CenterRight => {
                 mark_point = border.origin().to_vec2() + 
                 Vec2::new(border.width(), 0.) +
                 Vec2::new(0., border.height()/2.);
             }
-            BadgePosition::BOTTOM_RIGHT => {
+            BadgePosition::BottomRight => {
                 mark_point = border.origin().to_vec2() + 
                 Vec2::new(border.width(), 0.) +
                 Vec2::new(0., border.height());
             }
-            BadgePosition::BOTTOM_CENTER => {
+            BadgePosition::BottomCenter => {
                 mark_point = border.origin().to_vec2() + 
                 Vec2::new(border.width()/2., 0.) +
                 Vec2::new(0., border.height());
             }
-            BadgePosition::BOTTOM_LEFT => {
+            BadgePosition::BottomLeft => {
                 mark_point = border.origin().to_vec2() + 
                 Vec2::new(0., border.height());
             }
-            BadgePosition::CENTER_LEFT => {
+            BadgePosition::CenterLeft => {
                 mark_point = border.origin().to_vec2() + 
                 Vec2::new(0., border.height()/2.);
             }
