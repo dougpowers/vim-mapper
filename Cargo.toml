@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-druid = "0.7.0"
+druid = { version = "0.7.0", features = ["svg"]}
 druid-derive = "0.4.0"
 druid-shell = "0.7.0"
 indexmap =  { version = "1.0.2", features = ["std"]}
@@ -15,3 +15,5 @@ rand = "0.8.5"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_json = "1.0.85"
 regex = "1.6.0"
+dirs = "4.0.0"
+dark-light = "0.2.3"

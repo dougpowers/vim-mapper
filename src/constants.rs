@@ -14,7 +14,7 @@
 
 use std::time::Duration;
 
-use druid::{kurbo::TranslateScale, Selector, Vec2, Color};
+use druid::{kurbo::TranslateScale, Selector, Vec2};
 use force_graph::SimulationParameters;
 
 pub const DEFAULT_BORDER_WIDTH: f64 = 3.;
@@ -26,18 +26,25 @@ pub const DEFAULT_COMPOSE_INDICATOR_FONT_SIZE: f64 = 28.;
 
 pub const DEFAULT_COMPOSE_INDICATOR_INSET: Vec2 = Vec2::new(20., -20.);
 
+pub const DEFAULT_NODE_MASS: f32 = 10.;
 pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParameters {
     force_charge: 8000.,
     force_spring: 1.0,
     force_max: 280.,
     node_speed: 7000.,
-    damping_factor: 0.5
+    damping_factor: 0.5,
 };
 
-pub const DEFAULT_BORDER_COLOR: Color = Color::BLACK;
-pub const ACTIVE_BORDER_COLOR: Color = Color::rgb8(125, 125, 255);
-pub const TARGET_BORDER_COLOR: Color = Color::rgb8(255, 125, 125);
-pub const DEFAULT_COMPOSE_INDICATOR_TEXT_COLOR: Color = Color::RED;
+pub const DEFAULT_MASS_INCREASE_AMOUNT: f32 = 2.;
+
+// pub const DEFAULT_LABEL_TEXT_COLOR: Color = Color::BLACK;
+// pub const DEFAULT_NODE_BORDER_COLOR: Color = Color::BLACK;
+// pub const DEFAULT_ACTIVE_NODE_BORDER_COLOR: Color = Color::rgb8(125, 125, 255);
+// pub const DEFAULT_TARGET_NODE_BORDER_COLOR: Color = Color::rgb8(255, 125, 125);
+// pub const DEFAULT_NODE_BACKGROUND_COLOR: Color = Color::grey8(200);
+// pub const DEFAULT_EDGE_COLOR: Color = Color::SILVER;
+// pub const DEFAULT_COMPOSE_INDICATOR_TEXT_COLOR: Color = Color::RED;
+// pub const DEFAULT_SHEET_BACKGROUND_COLOR: Color = Color::WHITE;
 
 pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 1.;
 
@@ -69,6 +76,11 @@ pub const SUBMIT_CHANGES: Selector = Selector::new("submit-changes");
 
 pub const CANCEL_CHANGES: Selector = Selector::new("cancel-changes");
 
+pub const REFRESH: Selector = Selector::new("refresh");
+
 pub const DEFAULT_SAVE_NAME: &str = "NewSheet.vmd";
+
+pub const DEFAULT_CONFIG_DIR_NAME: &str = "vim-mapper";
+pub const DEFAULT_CONFIG_FILE_NAME: &str = "vmconfig";
 
 pub const DEFAULT_ROOT_LABEL: &str = "Root";
