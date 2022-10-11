@@ -17,8 +17,9 @@ use druid::kurbo::{Line, TranslateScale, Circle};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout};
 use druid::piet::PietTextLayout;
 use force_graph::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
+#[allow(unused_imports)]
 use druid::widget::{prelude::*, SvgData, Svg};
-use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, FontWeight, WidgetExt, WidgetPod};
+use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
 use std::collections::HashMap;
 use std::str::SplitWhitespace;
 
@@ -471,6 +472,7 @@ impl VimMapper {
     }
 
     //Given any two node indices, return the edge that connects the two
+    #[allow(dead_code)]
     pub fn get_edge(&self, idx_1: u16, idx_2: u16) -> Option<u16> {
         let mut return_edge: Option<u16> = None;
         self.edges.iter().for_each(|(idx, edge)| {
@@ -626,6 +628,13 @@ impl VimMapper {
         if self.largest_node_movement.unwrap() < ANIMATION_MOVEMENT_THRESHOLD {
             self.animating = false;
         }
+    }
+
+    pub fn invalidate_node_layouts(&mut self) {
+        self.nodes.iter_mut().for_each(|(_, node)| {
+            node.container.layout = None;
+            node.node_rect = None;
+        });
     }
 
     pub fn increase_node_mass(&mut self, idx: u16) {
@@ -1211,6 +1220,8 @@ impl<'a> Widget<()> for VimMapper {
                 ctx.request_anim_frame();
             }
             Event::Command(note) if note.is(REFRESH) => {
+                self.invalidate_node_layouts();
+                ctx.request_layout();
                 ctx.request_anim_frame();
                 ctx.set_handled();
             }
