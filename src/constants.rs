@@ -36,19 +36,13 @@ pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParamet
 };
 
 pub const DEFAULT_MASS_INCREASE_AMOUNT: f32 = 2.;
+pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 0.5;
 
-// pub const DEFAULT_LABEL_TEXT_COLOR: Color = Color::BLACK;
-// pub const DEFAULT_NODE_BORDER_COLOR: Color = Color::BLACK;
-// pub const DEFAULT_ACTIVE_NODE_BORDER_COLOR: Color = Color::rgb8(125, 125, 255);
-// pub const DEFAULT_TARGET_NODE_BORDER_COLOR: Color = Color::rgb8(255, 125, 125);
-// pub const DEFAULT_NODE_BACKGROUND_COLOR: Color = Color::grey8(200);
-// pub const DEFAULT_EDGE_COLOR: Color = Color::SILVER;
-// pub const DEFAULT_COMPOSE_INDICATOR_TEXT_COLOR: Color = Color::RED;
-// pub const DEFAULT_SHEET_BACKGROUND_COLOR: Color = Color::WHITE;
+pub const DEFAULT_PAN_AMOUNT_SMALL: f64 = 30.;
+pub const DEFAULT_PAN_AMOUNT_LARGE: f64 = 150.;
 
-pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 1.;
-
-pub const NODE_LABEL_MAX_CONSTRAINTS: (f64, f64) = (200., 200.);
+pub const NODE_LABEL_MAX_CONSTRAINTS: (f64, f64) = (200., 115.);
+pub const BADGE_BORDER_INFLATION_AMOUNT: f64 = 3.;
 
 pub const VEC_ORIGIN: Vec2 = Vec2::new(0., 0.);
 pub const DEFAULT_TRANSLATE: TranslateScale = TranslateScale::new(

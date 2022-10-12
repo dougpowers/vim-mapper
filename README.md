@@ -16,6 +16,8 @@ When executing Vim-Mapper from the terminal, the user can open a sheet by specif
 ### Marking
 Vim-Mapper allows the user to "mark" each node with any printable character. Press 'm' to enter marking mode then press any printable character to mark that node. Press the apostrophe ("'") key to enter mark jump mode then press any printable character to activate the node marked with that character.
 
+Marking a node with the space key will clear it.
+
 Note the red 'm' or ''' indicator in the bottom-left of the screen denoting that the use is now in marking or mark jump mode. These modes exprire after 3 seconds.
 
 ### Mass
@@ -53,6 +55,7 @@ Vim-Mapper supports dark mode. It will attempt to detect your OS mode on first s
 | =               | Sheet focused, node active      | Reset node mass                               |
 | @       | Sheet focused, node active | Anchor the active node              |
 | m<char\> | Sheet focused, node active | Mark the active node with <char\>    |
+| m<Space\> | Sheet focused, node active | Clear the mark on the active node    |
 | '<char\> | Sheet focused              | Jump to the node marked with <char\> |
 | Alt+F10         | App focused                     | Toggle between dark and light mode            |
 

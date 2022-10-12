@@ -647,7 +647,6 @@ impl VimMapper {
                         if fg_node.data.mass > DEFAULT_MASS_INCREASE_AMOUNT {
                             fg_node.data.mass = fg_node.data.mass.round();
                         }
-                        println!("{:?}", fg_node.data.mass);
                     }
                 });
             }
@@ -670,7 +669,6 @@ impl VimMapper {
                             fg_node.data.mass -= DEFAULT_MASS_INCREASE_AMOUNT/100.;
                             self.animating = true;
                         }
-                        println!("{:?}", fg_node.data.mass);
                     }
                 });
             }
@@ -684,7 +682,6 @@ impl VimMapper {
                     if fg_node.index() == fg_idx {
                         fg_node.data.mass = DEFAULT_NODE_MASS;
                         self.animating = true;
-                        println!("{:?}", fg_node.data.mass);
                     }
                 });
             }
@@ -700,7 +697,6 @@ impl VimMapper {
                         if fg_node.index() == fg_idx {
                             fg_node.data.is_anchor = !fg_node.data.is_anchor;
                             self.animating = true;
-                            println!("{:?}", fg_node.data.is_anchor);
                         }
                     });
                 }
@@ -801,22 +797,25 @@ impl VimMapper {
     pub fn build_label_layout_for_constraints(ctx: &mut LayoutCtx, text: String, bc: BoxConstraints, config: VMConfig) -> Result<PietTextLayout, String> {
         let mut layout: PietTextLayout;
         let mut font_size = DEFAULT_LABEL_FONT_SIZE;
+        let max_width = NODE_LABEL_MAX_CONSTRAINTS.0;
 
         if let Ok(layout) = ctx.text().new_text_layout(text.clone())
         .font(FontFamily::SANS_SERIF, font_size)
         .text_color(config.get_color("label-text-color".to_string()).ok().expect("label text color not found in config"))
+        .max_width(max_width)
         .build() {
             if bc.contains(layout.size()) {
                 return Ok(layout);
             }
         }
 
-        let text = VimMapper::split_string_in_half(text);
+        // let text = VimMapper::split_string_in_half(text);
 
         loop {
             if let Ok(built) = ctx.text().new_text_layout(text.clone()) 
             .font(FontFamily::SANS_SERIF, font_size)
             .text_color(config.get_color("label-text-color".to_string()).ok().expect("label text color not found in config"))
+            .max_width(max_width)
             .build() {
                 layout = built;
             } else {
@@ -831,22 +830,22 @@ impl VimMapper {
     }
 
     //Wrap a string using a linebreak
-    pub fn split_string_in_half(text: String) -> String {
-        let mut split: SplitWhitespace = text.split_whitespace();
+    // pub fn split_string_in_half(text: String) -> String {
+    //     let mut split: SplitWhitespace = text.split_whitespace();
         
-        let mut first_line: String = "".to_string();
-        let mut second_line: String= "".to_string();
-        loop {
-            first_line = first_line + " " + split.next().unwrap();
-            if first_line.len() > text.len()/2 {
-                for word in split {
-                    second_line = second_line + " " + word;
-                }
-                break;
-            }
-        }
-        first_line + "\n" + &second_line
-    }
+    //     let mut first_line: String = "".to_string();
+    //     let mut second_line: String= "".to_string();
+    //     loop {
+    //         first_line = first_line + " " + split.next().unwrap();
+    //         if first_line.len() > text.len()/2 {
+    //             for word in split {
+    //                 second_line = second_line + " " + word;
+    //             }
+    //             break;
+    //         }
+    //     }
+    //     first_line + "\n" + &second_line
+    // }
 
     //Wrap a string n times using linebreaks
     pub fn split_string_in_n(text: String, n: u16) -> String {
@@ -997,36 +996,36 @@ impl<'a> Widget<()> for VimMapper {
             Event::KeyDown(event) if self.is_focused && self.compose_select == None => {
                 match &event.key {
                     Key::Character(char) if *char == 'h'.to_string() => {
-                        self.offset_x += 10.0;
+                        self.offset_x += DEFAULT_PAN_AMOUNT_SMALL;
                     }
                     Key::Character(char) if *char == 'l'.to_string() => {
-                        self.offset_x -= 10.0;
+                        self.offset_x -= DEFAULT_PAN_AMOUNT_SMALL;
                     }
                     Key::Character(char) if *char == 'j'.to_string() => {
                         if event.mods.ctrl() {
                             self.scale = self.scale.clone()*TranslateScale::scale(0.75);
                         } else {
-                            self.offset_y -= 10.0;
+                            self.offset_y -= DEFAULT_PAN_AMOUNT_SMALL;
                         }
                     }
                     Key::Character(char) if *char == 'k'.to_string() => {
                         if event.mods.ctrl() {
                             self.scale = self.scale.clone()*TranslateScale::scale(1.25);
                         } else {
-                            self.offset_y += 10.0;
+                            self.offset_y += DEFAULT_PAN_AMOUNT_SMALL;
                         }
                     }
                     Key::Character(char) if *char == 'H'.to_string() => {
-                        self.offset_x += 100.0;
+                        self.offset_x += DEFAULT_PAN_AMOUNT_LARGE;
                     }
                     Key::Character(char) if *char == 'L'.to_string() => {
-                        self.offset_x -= 100.0;
+                        self.offset_x -= DEFAULT_PAN_AMOUNT_LARGE;
                     }
                     Key::Character(char) if *char == 'J'.to_string() => {
-                        self.offset_y -= 100.0;
+                        self.offset_y -= DEFAULT_PAN_AMOUNT_LARGE;
                     }
                     Key::Character(char) if *char == 'K'.to_string() => {
-                        self.offset_y += 100.0;
+                        self.offset_y += DEFAULT_PAN_AMOUNT_LARGE;
                     }
                     Key::Character(char) if *char == 'G'.to_string() => {
                         self.offset_x = 0.;

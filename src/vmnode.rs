@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::Selection, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::{TranslateScale, RoundedRect}, Point, FontFamily, FontWeight, Color};
+use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::Selection, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::{TranslateScale}, Point, FontFamily, FontWeight, Color};
 use force_graph::DefaultNodeIdx;
 
 use crate::{constants::*, vmconfig::VMConfig};
@@ -157,36 +157,18 @@ impl VMNode {
             ctx.stroke(border, &border_color, DEFAULT_BORDER_WIDTH);
             ctx.draw_text(self.container.layout.as_mut().unwrap(), Point::new(0.0, 0.0));
 
-            //Paint mark decals
-            // let mark_point = border.origin().to_vec2() + Vec2::new(border.width(), 0.);
-            // if let Some(char) = self.mark.clone() {
-            //     let layout = ctx.text()
-            //     .new_text_layout(char)
-            //     .font(FontFamily::SANS_SERIF, 12.)
-            //     .text_color(config.get_color("label-text-color".to_string()).ok().expect("label text color not found in config"))
-            //     .build().unwrap();
-            //     ctx.with_save(|ctx| {
-            //         let circle = druid::piet::kurbo::Circle::new(mark_point.to_point(), layout.size().max_side()/1.8);
-            //         ctx.with_save(|ctx| {
-            //             ctx.fill(circle, &config.get_color("node-background-color".to_string()).ok().expect("node background color not found in config"));
-            //             ctx.stroke(circle, &border_color, DEFAULT_MARK_BORDER_WIDTH);
-            //         });
-            //         ctx.transform(Affine::from(TranslateScale::new(-1.*layout.size().to_vec2()/2., 1.)));
-            //         ctx.draw_text(&layout, mark_point.to_point());
-            //     });
-            // }
             if let Some(char) = self.mark.clone() {
-                self.paint_node_badge(ctx, config, &char, BadgePosition::TopRight, &border, &border_color);
+                self.paint_node_badge(ctx, config, &char, BadgePosition::TopRight, &rect, &border_color);
             }
 
             if self.mass.clone() > DEFAULT_NODE_MASS {
-                self.paint_node_badge(ctx, config, &"+".to_string(), BadgePosition::BottomCenter, &border, &border_color);
+                self.paint_node_badge(ctx, config, &"+".to_string(), BadgePosition::BottomCenter, &rect, &border_color);
             } else if self.mass.clone() < DEFAULT_NODE_MASS {
-                self.paint_node_badge(ctx, config, &"-".to_string(), BadgePosition::BottomCenter, &border, &border_color);
+                self.paint_node_badge(ctx, config, &"-".to_string(), BadgePosition::BottomCenter, &rect, &border_color);
             }
 
             if self.anchored {
-                self.paint_node_badge(ctx, config, &"@".to_string(), BadgePosition::BottomLeft, &border, &border_color)
+                self.paint_node_badge(ctx, config, &"@".to_string(), BadgePosition::BottomLeft, &rect, &border_color)
             }
 
             //Paint debug decals (node index)
@@ -213,9 +195,13 @@ impl VMNode {
          config: &VMConfig, 
          character: &String,
          position: BadgePosition, 
-         border: &RoundedRect, 
+         border: &Rect, 
          border_color: &Color,
-        ) {
+    ) {
+        let border = border.inflate(
+            BADGE_BORDER_INFLATION_AMOUNT,
+            BADGE_BORDER_INFLATION_AMOUNT,
+        );
         let mark_point: Vec2;
         match position {
             BadgePosition::TopLeft => {
