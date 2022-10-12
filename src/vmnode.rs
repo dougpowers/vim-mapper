@@ -124,7 +124,8 @@ impl VMNode {
     }
 
     // pub fn paint_node(&mut self, ctx: &mut PaintCtx, vm: &VimMapper) {
-    pub fn paint_node(&mut self, 
+    pub fn paint_node(
+        &mut self, 
         ctx: &mut PaintCtx, 
         config: &VMConfig, 
         target: Option<u16>,
@@ -153,6 +154,7 @@ impl VMNode {
                     border_color = config.get_color("target-node-border-color".to_string()).ok().expect("target node border color not found in config");
                 }
             }
+
             ctx.fill(border, &config.get_color("node-background-color".to_string()).ok().expect("node background color not found in config"));
             ctx.stroke(border, &border_color, DEFAULT_BORDER_WIDTH);
             ctx.draw_text(self.container.layout.as_mut().unwrap(), Point::new(0.0, 0.0));

@@ -1362,17 +1362,68 @@ impl<'a> Widget<()> for VimMapper {
             }
         }
 
+        let mut active_node: Option<u16> = None;
+        if let Some(active_idx) = self.get_active_node_idx() {
+            active_node = Some(active_idx);
+        }
+
         //Draw nodes
         self.graph.visit_nodes(|fg_node| {
             let node = self.nodes.get_mut(&fg_node.data.user_data)
             .expect("Expected non-option node in paint loop.");
-            node.paint_node(ctx, 
+            //Do not draw target or active nodes
+            if let Some(idx) = target_node {
+                if node.index != idx {
+                    node.paint_node(
+                        ctx, 
+                        &self.config, 
+                        target_node, 
+                        &self.translate, 
+                        &self.scale, 
+                        self.debug_data); 
+                }
+            } else if let Some(idx) = active_node {
+                if node.index != idx {
+                    node.paint_node(
+                        ctx, 
+                        &self.config, 
+                        target_node, 
+                        &self.translate, 
+                        &self.scale, 
+                        self.debug_data); 
+                }
+            } else {
+                node.paint_node(
+                    ctx, 
+                    &self.config, 
+                    target_node, 
+                    &self.translate, 
+                    &self.scale, 
+                    self.debug_data); 
+            }
+        });
+
+        //Draw target and active nodes last
+        if let Some(idx) = target_node {
+            let node = self.nodes.get_mut(&idx).expect("Tried to paint a non-existent target node.");
+            node.paint_node(
+                ctx, 
                 &self.config, 
                 target_node, 
                 &self.translate, 
                 &self.scale, 
                 self.debug_data); 
-        });
+        }
+        if let Some(idx) = active_node {
+            let node = self.nodes.get_mut(&idx).expect("Tried to paint a non-existent target node.");
+            node.paint_node(
+                ctx, 
+                &self.config, 
+                target_node, 
+                &self.translate, 
+                &self.scale, 
+                self.debug_data); 
+        }
 
         //Paint editor dialog
         if self.node_editor.is_visible {
