@@ -14,7 +14,7 @@
 
 #![windows_subsystem = "windows"]
 use druid::widget::{prelude::*, Label, Flex, Button, MainAxisAlignment, SizedBox, ControllerHost};
-use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Command, Target, WidgetPod, WidgetExt, MenuDesc, LocalizedString, MenuItem, FileSpec, Selector, FontFamily};
+use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Command, Target, WidgetPod, WidgetExt, MenuDesc, LocalizedString, MenuItem, FileSpec, FontFamily};
 use druid::piet::{Text, TextLayout, TextLayoutBuilder};
 use std::fs;
 use std::path::{PathBuf, Path};

@@ -18,7 +18,7 @@ use druid::piet::PietTextLayout;
 use force_graph::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 #[allow(unused_imports)]
 use druid::widget::{prelude::*, SvgData, Svg};
-use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, Selector};
+use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
 use std::collections::HashMap;
 use std::str::SplitWhitespace;
 
@@ -1008,8 +1008,6 @@ impl<'a> Widget<()> for VimMapper {
                     self.offset_x -= event.wheel_delta.to_point().x;
                 }
                 ctx.request_anim_frame();
-            }
-            Event::KeyDown(event) => {
             }
             Event::Timer(event) => {
                 if let Some(token) = self.double_click_timer {

@@ -83,6 +83,7 @@ pub struct SimulationParameters {
     pub force_max: f64,
     pub node_speed: f64,
     pub damping_factor: f64,
+    pub min_attract_distance: f64,
 }
 
 impl Default for SimulationParameters {
@@ -93,6 +94,7 @@ impl Default for SimulationParameters {
             force_max: 280.0,
             node_speed: 7000.0,
             damping_factor: 0.95,
+            min_attract_distance: 0.,
         }
     }
 }
@@ -304,8 +306,10 @@ impl<UserNodeData> Node<UserNodeData> {
     /// Toggles whether the node is anchored.
     pub fn toggle_anchor(&mut self) {
         self.ax = 0.;
+        self.vx = 0.;
         self.ay = 0.;
-        match self.data.is_anchor { true => self.data.is_anchor = false, false => self.data.is_anchor = true }
+        self.vy = 0.;
+        self.data.is_anchor = !self.data.is_anchor;
     }
 
     /// The index used to reference the node in the [ForceGraph].
@@ -332,16 +336,18 @@ fn attract_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameter
     let mut dx = n2.data.x - n1.data.x;
     let mut dy = n2.data.y - n1.data.y;
 
-    let distance = if dx == 0.0 && dy == 0.0 {
+    let mut distance = if dx == 0.0 && dy == 0.0 {
         1.0
     } else {
         (dx * dx + dy * dy).sqrt()
     };
+    
+    distance -= parameters.min_attract_distance / 2.;
 
     dx /= distance;
     dy /= distance;
 
-    let strength = 1.0 * parameters.force_spring * distance * 0.5;
+    let strength = parameters.force_spring * distance * 0.5;
     (dx * strength, dy * strength)
 }
 
@@ -349,11 +355,13 @@ fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters)
     let mut dx = n2.data.x - n1.data.x;
     let mut dy = n2.data.y - n1.data.y;
 
-    let distance = if dx == 0.0 && dy == 0.0 {
+    let mut distance = if dx == 0.0 && dy == 0.0 {
         1.0
     } else {
         (dx * dx + dy * dy).sqrt()
     };
+
+    distance -= parameters.min_attract_distance /2.;
 
     dx /= distance;
     dy /= distance;

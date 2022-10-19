@@ -29,11 +29,12 @@ pub const DEFAULT_COMPOSE_INDICATOR_INSET: Vec2 = Vec2::new(20., -20.);
 
 pub const DEFAULT_NODE_MASS: f64 = 10.;
 pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParameters {
-    force_charge: 8000.,
-    force_spring: 1.0,
+    force_charge: 6000.,
+    force_spring: 1.9,
     force_max: 280.,
     node_speed: 7000.,
     damping_factor: 0.5,
+    min_attract_distance: 220.,
 };
 
 pub const DEFAULT_MASS_INCREASE_AMOUNT: f64 = 2.;

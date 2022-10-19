@@ -14,11 +14,12 @@
 
 use std::collections::{HashMap};
 
-use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, Event};
+use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent};
 use regex::Regex;
 use common_macros::hash_map;
 use crate::constants::*;
 
+#[allow(dead_code)]
 #[derive(Clone, PartialEq, Debug)]
 pub enum KeybindMode {
     Sheet,
@@ -55,6 +56,7 @@ impl Default for ActionPayload {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Clone, PartialEq, Debug)]
 pub enum Action {
     NullAction,
@@ -645,6 +647,7 @@ impl VMInputManager {
             event.key == Key::Control ||
             event.key == Key::Alt ||
             event.key == Key::CapsLock || 
+            event.key == Key::Meta ||
             event.key == Key::ScrollLock 
         {
             return None;
@@ -658,20 +661,28 @@ impl VMInputManager {
                         if event.mods.alt() || event.mods.ctrl() {
                             if let Some(mods) = keybind.modifiers {
                                 if event.mods.contains(mods) {
+                                    self.clear_timeout();
                                     return Some(keybind.action_payload.clone().unwrap());
                                 }
                             }
                         } else {
+                            self.clear_timeout();
                             return Some(keybind.action_payload.clone().unwrap());
                         }
-                        self.clear_timeout();
                     }
                 }
                 if let Key::Character(character) = event.key {
-                    self.set_timeout_revert_mode(Some(self.mode.clone()));
-                    self.set_keybind_mode(KeybindMode::KeybindBuild);
-                    self.string += &character;
-                    return None;
+                    if event.mods.alt() || event.mods.ctrl() {
+                        return None;
+                    }
+                    if character == String::from(" ") {
+                        return None;
+                    } else {
+                        self.set_timeout_revert_mode(Some(self.mode.clone()));
+                        self.set_keybind_mode(KeybindMode::KeybindBuild);
+                        self.string += &character;
+                        return None;
+                    }
                 }
                 if let Key::Escape = event.key {
                     self.clear_build();
@@ -703,6 +714,10 @@ impl VMInputManager {
             }
             KeybindMode::Jump => {
                 if let Key::Character(character) = event.key {
+                    if event.mods.alt() || event.mods.ctrl() {
+                        self.set_new_timeout(ctx);
+                        return None;
+                    }
                     self.clear_build();
                     self.set_keybind_mode(KeybindMode::Sheet);
                     self.clear_timeout();
@@ -721,6 +736,10 @@ impl VMInputManager {
             },
             KeybindMode::Mark => {
                 if let Key::Character(character) = event.key {
+                    if event.mods.alt() || event.mods.ctrl() {
+                        self.set_new_timeout(ctx);
+                        return None;
+                    }
                     self.clear_build();
                     self.set_keybind_mode(KeybindMode::Sheet);
                     self.clear_timeout();
@@ -739,25 +758,36 @@ impl VMInputManager {
             },
             KeybindMode::KeybindBuild => {
                 if let Key::Character(character) = event.key {
-                    self.set_new_timeout(ctx);
-                    self.string += &character;
-                    let keybinds = self.keybinds.clone();
-                    for keybind in keybinds {
-                        if let Some(regex) = &keybind.regex {
-                            if regex.is_match(&self.string) {
-                                let matched = self.string.clone();
-                                self.clear_build();
-                                self.clear_timeout();
-                                self.revert_mode();
-                                return Some(VMInputManager::process_regex_keybind(keybind.clone(), matched));
+                    if event.mods.alt() || event.mods.ctrl() {
+                        self.set_new_timeout(ctx);
+                        return None;
+                    }
+                    if character == String::from(" ") {
+                        self.clear_build();
+                        self.clear_timeout();
+                        self.revert_mode();
+                        return None;
+                    } else {
+                        self.set_new_timeout(ctx);
+                        self.string += &character;
+                        let keybinds = self.keybinds.clone();
+                        for keybind in keybinds {
+                            if let Some(regex) = &keybind.regex {
+                                if regex.is_match(&self.string) {
+                                    let matched = self.string.clone();
+                                    self.clear_build();
+                                    self.clear_timeout();
+                                    self.revert_mode();
+                                    return Some(VMInputManager::process_regex_keybind(keybind.clone(), matched));
+                                }
                             }
                         }
+                        return None;
                     }
-                    return None;
                 } else {
                     self.clear_build();
                     self.clear_timeout();
-                    self.set_keybind_mode(KeybindMode::Sheet);
+                    self.revert_mode();
                     return None;
                 }
             },
@@ -765,6 +795,10 @@ impl VMInputManager {
             KeybindMode::SearchedSheet => todo!(),
             KeybindMode::SearchBuild => {
                 if let Key::Character(character) = event.key {
+                    if event.mods.alt() || event.mods.ctrl() {
+                        self.set_new_timeout(ctx);
+                        return None;
+                    }
                     self.string += &character;
                     return Some(
                         ActionPayload {
