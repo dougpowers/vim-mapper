@@ -65,7 +65,7 @@ pub const DEFAULT_SCALE: TranslateScale = TranslateScale::new(
 );
 
 pub const DOUBLE_CLICK_THRESHOLD: Duration = Duration::from_millis(200);
-pub const DEFAULT_COMPOSE_TIMEOUT: Duration = Duration::from_millis(1500);
+pub const DEFAULT_COMPOSE_TIMEOUT: Duration = Duration::from_millis(1000);
 
 pub const TAKE_FOCUS: Selector = Selector::new("take-focus");
 

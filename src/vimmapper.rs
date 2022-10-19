@@ -40,26 +40,26 @@ pub struct VimMapper {
     // in the global HashMaps. This inefficiency will be rectified in future versions of Vim-Mapper by 
     // forking force_graph and implementing a trait-based interface that will bind directly to the 
     // global nodes.
-    pub graph: ForceGraph<u16, u16>,
+    graph: ForceGraph<u16, u16>,
     //A boolean that determines if, when an AnimFrame is received, whether another is requested.
     // ForceGraph and global HashMaps are only updated regularly when this value is true.
     animating: bool,
     //The global map of nodes. All references to nodes use this u16 key to avoid holding references
     // in structs.
-    pub nodes: HashMap<u16, VMNode>,
+    nodes: HashMap<u16, VMNode>,
     //The global map of edges. All references to edges use this u16 key to avoid holding references
     // in structs.
-    pub edges: HashMap<u16, VMEdge>,
+    edges: HashMap<u16, VMEdge>,
     //The global index count that provides new nodes with a unique u16 key.
     node_idx_count: u16,
     //The global index count that provides new edges with a unique u16 key.
     edge_idx_count: u16,
     //The translate portion of the canvas transform. This pans the canvas. Updated only during paints.
-    pub translate: TranslateScale,
+    translate: TranslateScale,
     //The scale portion of the canvas transform. This zooms the canvas. These two transforms are
     // kept separate to allow various vectors to be scaled without translation or vice versa. Updated
     // only during paints.
-    pub scale: TranslateScale,
+    scale: TranslateScale,
     //Constantly updated value for x panning. Is initialized using the DEFAULT_OFFSET_X constant. All
     // events which affect panning modify this value. It is used to build the translate TranslateScale
     // during painting.
@@ -75,9 +75,8 @@ pub struct VimMapper {
     //This bool allows Vim-Mapper to determine if the sheet or VMNodeEditor has focus. Notifications
     // and Commands are used to pass focus between the two.
     is_focused: bool,
-    //An Option that holds the global edge index corresponding to the target edge. This edge will be 
-    // traversed with the Enter keybind to reach the target node.
-    pub target_edge: Option<u16>,
+    target_list: Vec<u16>,
+    target_idx: Option<usize>,
     //A struct that holds state and widgets for the modal node editor.
     node_editor: VMNodeEditor,
     //A bool that specifies whether or not a MouseUp event has been received. If not, MouseMoves will 
@@ -99,10 +98,10 @@ pub struct VimMapper {
     // to isolate click events for the dialog widgets
     is_hot: bool,
     //Toggle to display data from the VimMapper struct on-screen. (Alt-F12)
-    pub debug_data: bool,
+    debug_data: bool,
     //Toggle to display various debug visuals, including the last collision and click events as well
     // as the system palette colors in the Environment
-    pub debug_visuals: bool,
+    debug_visuals: bool,
     //Stores the largest individual movement (in either x or y) of any nodes during an update.
     // Used to pause computation once the graph has stabilized. 
     largest_node_movement: Option<f64>,
@@ -110,7 +109,9 @@ pub struct VimMapper {
     // Rect into view.
     canvas_rect: Option<Rect>,
     // Struct to hold persistent VMConfig struct.
-    pub config: VMConfig,
+    config: VMConfig,
+    // Whether to render non-target nodes as disabled
+    node_render_mode: NodeRenderMode,
 }
 
 //A boiled-down struct to hold the essential data to serialize and deserialize a graph sheet. Used to
@@ -168,6 +169,12 @@ pub struct BareEdge {
     index: u16,
 }
 
+#[derive(Clone, PartialEq)]
+enum NodeRenderMode {
+    OnlyTargetsEnabled,
+    AllEnabled,
+}
+
 impl VimMapper {
     pub fn new(config: VMConfig) -> VimMapper {
         let mut graph = <ForceGraph<u16, u16>>::new(
@@ -211,7 +218,8 @@ impl VimMapper {
             node_editor: VMNodeEditor::new(),
             is_dragging: false,
             drag_point: None,
-            target_edge: None,
+            target_list: vec![],
+            target_idx: None,
             translate_at_drag: None,
             double_click_timer: None,
             double_click: false,
@@ -221,6 +229,7 @@ impl VimMapper {
             largest_node_movement: None,
             canvas_rect: None,
             config,
+            node_render_mode: NodeRenderMode::AllEnabled,
         };
         mapper.nodes.insert(0, root_node);
         mapper
@@ -302,7 +311,8 @@ impl VimMapper {
             last_click_point: None,
             last_collision_rects: Vec::new(),
             is_focused: true,
-            target_edge: None,
+            target_list: vec![],
+            target_idx: None,
             node_editor: VMNodeEditor::new(),
             is_dragging: false,
             drag_point: None,
@@ -315,6 +325,7 @@ impl VimMapper {
             largest_node_movement: None,
             canvas_rect: None,
             config,
+            node_render_mode: NodeRenderMode::AllEnabled,
         };
         vm.set_node_as_active(0);
         vm
@@ -357,6 +368,53 @@ impl VimMapper {
             offset_y: self.offset_y,
         };
         save
+    }
+
+    fn build_target_list_from_neighbors(&mut self, idx: u16) {
+        self.target_list.clear();
+        self.target_idx = None;
+        let node = self.nodes.get(&idx).expect("Tried to build target list from non-existent node");
+        for edge in self.graph.get_graph().edges(node.fg_index.unwrap()) {
+            self.target_list.push(edge.weight().user_data);
+        }
+    }
+
+    fn cycle_target_forward(&mut self) {
+        if self.target_idx == None && self.target_list.len() > 0 {
+            //If not index set, set to front of list
+            self.target_idx = Some(0);
+        } else if let Some(idx) = self.target_idx {
+            if idx == self.target_list.len()-1 {
+                self.target_idx = Some(0);
+            } else {
+                self.target_idx = Some(self.target_idx.unwrap()+1);
+            }
+        }
+    }
+
+    fn cycle_target_backward(&mut self) {
+        if self.target_idx == None && self.target_list.len() > 0 {
+            //If no index set, set to back of list
+            self.target_idx = Some(self.target_list.len()-1);
+        } else if let Some(idx) = self.target_idx {
+            if idx == 0 {
+                self.target_idx = Some(self.target_list.len()-1);
+            } else {
+                self.target_idx = Some(self.target_idx.unwrap()-1);
+            }
+        }
+    }
+
+    pub fn get_target_node_idx(&self) -> Option<u16> {
+        if let Some(idx) = self.target_idx {
+            if let Some(idx) = self.get_non_active_node_from_edge(self.target_list[idx]) {
+                return Some(idx);
+            } else {
+                return None;
+            }
+        } else {
+            return None;
+        }
     }
 
     pub fn add_node(&mut self, from_idx: u16, node_label: String, edge_label: Option<String>) -> Option<u16> {
@@ -446,14 +504,12 @@ impl VimMapper {
                 self.edges.remove(&removed_edge);
                 self.nodes.remove(&idx);
                 let r_node = self.nodes.get_mut(&remainder).unwrap();
-                r_node.targeted_internal_edge_idx = None;
                 for i in 0..r_node.edges.len().clone() {
                     if r_node.edges[i] == removed_edge {
                         r_node.edges.remove(i);
                         break;
                     }
                 }
-                self.target_edge = None;
                 return Ok(remainder);
             }
         } else {
@@ -496,36 +552,6 @@ impl VimMapper {
     //Iterate through the node HashMap to set the active node. All nodes except the specified are marked
     // as inactive in the process.
     pub fn set_node_as_active(&mut self, idx: u16) {
-        if let Some(active_idx) = self.get_active_node_idx() {
-            //If not activating the already active node, set the target edge to the one that points
-            // to the departing node
-
-            //Sometimes the active node will be set as active. Check for this and disregard if this
-            // is the case.
-            if idx != active_idx {
-                // //Check to see if there exists an edge between new and old nodes, invalidate target if not.
-                // // Marks traversal and clicks can allow users to transition activation from nodes that are
-                // // not directly connected.
-                // if let Some(new_edge) = self.get_edge(active_idx, idx) {
-                //     self.nodes.get_mut(&idx).unwrap().set_target_edge_to_global_idx(new_edge);
-                //     self.target_edge = Some(new_edge);
-                // } else {
-                //     self.target_edge = None;
-                // }
-                let node = self.nodes.get(&idx).expect("Tried to set a non-existent node as active.");
-                if node.edges.len() > 1 {
-                    for edge_idx in node.edges.clone() {
-                        let edge = self.edges.get(&edge_idx).expect("Tried to get a non-existent edge.");
-                        if edge.from != active_idx && edge.to != active_idx {
-                            self.nodes.get_mut(&idx).expect("Tried to get non-existent target node")
-                            .set_target_edge_to_global_idx(edge.index);
-                            self.target_edge = Some(edge.index);
-                        } 
-                    }
-                }
-            }
-        }
-
         self.nodes.iter_mut().for_each(|item| {
             if item.1.index == idx {
                 item.1.is_active = true;
@@ -533,7 +559,7 @@ impl VimMapper {
                 item.1.is_active = false;
             }
         });
-
+        self.build_target_list_from_neighbors(idx);
         // if let Some(node) = self.nodes.get(&self.get_active_node_idx().unwrap()) {
         //     if let Some(rect) = node.node_rect {
         //         self.scroll_rect_into_view(rect);
@@ -845,59 +871,6 @@ impl VimMapper {
         }
     }
 
-    //Wrap a string using a linebreak
-    // pub fn split_string_in_half(text: String) -> String {
-    //     let mut split: SplitWhitespace = text.split_whitespace();
-        
-    //     let mut first_line: String = "".to_string();
-    //     let mut second_line: String= "".to_string();
-    //     loop {
-    //         first_line = first_line + " " + split.next().unwrap();
-    //         if first_line.len() > text.len()/2 {
-    //             for word in split {
-    //                 second_line = second_line + " " + word;
-    //             }
-    //             break;
-    //         }
-    //     }
-    //     first_line + "\n" + &second_line
-    // }
-
-    //Wrap a string n times using linebreaks
-    pub fn split_string_in_n(text: String, n: u16) -> String {
-        let mut split: SplitWhitespace = text.split_whitespace();
-        let mut n: usize = n as usize;
-        let mut lines: Vec<String> = vec!();
-
-        if split.clone().count() < n.into() {
-            n = split.clone().count();
-        }
-
-        for i in 0..n {
-            loop {
-                if let Some(word) = split.next() {
-                    if let None = lines.get(i) {
-                        lines.insert(i, "".to_string());
-                    }
-                    lines[i] = lines[i].clone() + " " + word;
-                    if lines[i].len() > text.len()/n {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
-
-        // let mut full: String = "".to_string();
-        let mut full: String = lines.remove(0);
-        for line in lines {
-            full = full + "\n" + &line;
-        }
-
-        full
-    }
-
     pub fn scroll_rect_into_view(&mut self, rect: Rect) {
         if let Some(canvas_rect) = self.canvas_rect {
             let union_rect = canvas_rect.union(rect);
@@ -1066,12 +1039,10 @@ impl<'a> Widget<()> for VimMapper {
                     match payload.action {
                         Action::NullAction => (),
                         Action::CycleNodeForward => {
-                            if let Some(idx) = self.get_active_node_idx() {
-                                if let Some(edge_idx) = self.nodes.get_mut(&idx).unwrap().cycle_target_forward() {
-                                    self.target_edge = Some(edge_idx);
-                                    if let Some(node_idx) = self.get_non_active_node_from_edge(edge_idx) {
-                                        self.scroll_node_into_view(node_idx);
-                                    }
+                            if let Some(_) = self.get_active_node_idx() {
+                                self.cycle_target_forward();
+                                if let Some(idx) = self.get_target_node_idx() {
+                                    self.scroll_node_into_view(idx)
                                 }
                             } else {
                                 self.set_node_as_active(0);
@@ -1079,12 +1050,10 @@ impl<'a> Widget<()> for VimMapper {
                             }
                         }
                         Action::CycleNodeBackward => {
-                            if let Some(idx) = self.get_active_node_idx() {
-                                if let Some(edge_idx) = self.nodes.get_mut(&idx).unwrap().cycle_target_backward() {
-                                    self.target_edge = Some(edge_idx);
-                                    if let Some(node_idx) = self.get_non_active_node_from_edge(edge_idx) {
-                                        self.scroll_node_into_view(node_idx);
-                                    }
+                            if let Some(_) = self.get_active_node_idx() {
+                                self.cycle_target_backward();
+                                if let Some(idx) = self.get_target_node_idx() {
+                                    self.scroll_node_into_view(idx)
                                 }
                             } else {
                                 self.set_node_as_active(0);
@@ -1100,8 +1069,8 @@ impl<'a> Widget<()> for VimMapper {
                             }
                         }
                         Action::ActivateTargetedNode => {
-                            if let Some(edge_idx) = self.target_edge {
-                                if let Some(node_idx) = self.get_non_active_node_from_edge(edge_idx) {
+                            if let Some(idx) = self.target_idx {
+                                if let Some(node_idx) = self.get_non_active_node_from_edge(self.target_list[idx]) {
                                     self.set_node_as_active(node_idx);
                                     self.scroll_node_into_view(node_idx);
                                     ctx.set_handled();
@@ -1366,12 +1335,7 @@ impl<'a> Widget<()> for VimMapper {
         });
 
         //Determine target node for painting
-        let mut target_node: Option<u16> = None;
-        if let Some(edge_idx) = self.target_edge {
-            if let Some(node_idx) = self.get_non_active_node_from_edge(edge_idx) {
-                target_node = Some(node_idx);
-            }
-        }
+        let target_node: Option<u16> = self.get_target_node_idx();
 
         let mut active_node: Option<u16> = None;
         if let Some(active_idx) = self.get_active_node_idx() {
@@ -1382,58 +1346,32 @@ impl<'a> Widget<()> for VimMapper {
         self.graph.visit_nodes(|fg_node| {
             let node = self.nodes.get_mut(&fg_node.data.user_data)
             .expect("Expected non-option node in paint loop.");
-            if Some(node.index) == target_node {
-                node.paint_node(
-                    ctx, 
-                    2,
-                    &self.config, 
-                    target_node, 
-                    &self.translate, 
-                    &self.scale, 
-                    self.debug_data); 
-            } 
-            if Some(node.index) == active_node {
-                node.paint_node(
-                    ctx, 
-                    1,
-                    &self.config, 
-                    target_node, 
-                    &self.translate, 
-                    &self.scale, 
-                    self.debug_data); 
-            } else {
-                node.paint_node(
-                    ctx, 
-                    0,
-                    &self.config, 
-                    target_node, 
-                    &self.translate, 
-                    &self.scale, 
-                    self.debug_data); 
+            let mut enabled = true;
+            if self.node_render_mode == NodeRenderMode::OnlyTargetsEnabled {
+                enabled = false;
+                for idx in &self.target_list {
+                    if self.edges[idx].to == node.index || self.edges[idx].from == node.index {
+                        enabled = true;
+                    }
+                }
             }
+            // if Some(node.index) == target_node {
+                node.paint_node(
+                    ctx, 
+                    {
+                        match node.index {
+                            i if Some(i) == active_node => 1,
+                            i if Some(i) == target_node => 2,
+                            _ => 0,
+                        }
+                    },
+                    enabled,
+                    &self.config, 
+                    target_node, 
+                    &self.translate, 
+                    &self.scale, 
+                    self.debug_data); 
         });
-
-        //Draw target and active nodes last
-        // if let Some(idx) = target_node {
-        //     let node = self.nodes.get_mut(&idx).expect("Tried to paint a non-existent target node.");
-        //     node.paint_node(
-        //         ctx, 
-        //         &self.config, 
-        //         target_node, 
-        //         &self.translate, 
-        //         &self.scale, 
-        //         self.debug_data); 
-        // }
-        // if let Some(idx) = active_node {
-        //     let node = self.nodes.get_mut(&idx).expect("Tried to paint a non-existent target node.");
-        //     node.paint_node(
-        //         ctx, 
-        //         &self.config, 
-        //         target_node, 
-        //         &self.translate, 
-        //         &self.scale, 
-        //         self.debug_data); 
-        // }
 
         //Paint editor dialog
         if self.node_editor.is_visible {
@@ -1442,50 +1380,14 @@ impl<'a> Widget<()> for VimMapper {
             }
         }
 
-        //Paint compose key indicator
-        // if let Some(char) = self.compose_select.clone() {
-        //     let layout = ctx.text().new_text_layout(char)
-        // .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
-        // .text_color( self.config.get_color("compose-indicator-text-color".to_string()).ok().expect("compose indicator text color not found in config"))
-        // .build().unwrap();
-        // ctx.draw_text(&layout, 
-        //     (Point::new(0., ctx_size.height-layout.size().height).to_vec2() + DEFAULT_COMPOSE_INDICATOR_INSET).to_point()
-        //     // (Point::new(0., size.height-layout.size().height).to_vec2()).to_point()
-        // );
-        // }
-
-
         //Paint debug dump
         if self.debug_data {
             if let Some(node_idx) = self.get_active_node_idx() {
-                let node = self.nodes.get(&node_idx).unwrap();
-                let node_edge: Option<&VMEdge>;
-                if let Some(internal_idx) = node.targeted_internal_edge_idx {
-                    if let Some(node_edge_idx) = node.edges.get(internal_idx) {
-                        node_edge = self.edges.get(node_edge_idx);
-                    } else {
-                        node_edge = None;
-                    }
-                } else {
-                    node_edge = None;
-                }
-                let system_edge: Option<&VMEdge>;
-                if let Some(target) = self.target_edge {
-                    if let Some(edge) = self.edges.get(&target) {
-                        system_edge = Some(edge);
-                    } else {
-                        system_edge = None;
-                    }
-                } else {
-                    system_edge = None;
-                }
                 let text = format!(
-                        "Is Animating: {:?}\nLarget Node Movement: {:?}\nActive Node:{:?}\nNode Target: {:?}\n System Target: {:?}", 
+                        "Is Animating: {:?}\nLarget Node Movement: {:?}\nActive Node:{:?}", 
                         self.animating,
                         self.largest_node_movement,
                         self.get_active_node_idx(),
-                        VimMapper::split_string_in_n(format!("{:?}", node_edge), 2),
-                        VimMapper::split_string_in_n(format!("{:?}", system_edge), 2),
                 );
                 let layout = ctx.text().new_text_layout(text)
                     .font(FontFamily::SANS_SERIF, 16.)

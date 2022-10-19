@@ -41,7 +41,7 @@ pub struct VMNode {
     pub is_active: bool,
     //The index to the internal 'edges' array that corresponds to the target edge. 
     // Reference the main edges HashMap and filter out the non local node to determine target.
-    pub targeted_internal_edge_idx: Option<usize>,
+    // pub targeted_internal_edge_idx: Option<usize>,
     pub mark: Option<String>,
     //Cached rect of the node, transformed to screen coords. Used to scroll node into view.
     pub node_rect: Option<Rect>,
@@ -59,7 +59,7 @@ impl Default for VMNode {
             pos: Vec2::new(0.0, 0.0),
             container: VMNodeLayoutContainer::new(0),
             is_active: false,
-            targeted_internal_edge_idx: None,
+            // targeted_internal_edge_idx: None,
             mark: None,
             node_rect: None,
             anchored: false,
@@ -70,93 +70,6 @@ impl Default for VMNode {
 }
 
 impl VMNode {
-    pub fn cycle_target_forward(&mut self) -> Option<u16> {
-        //Internal target specified
-        if let Some(target) = self.targeted_internal_edge_idx {
-            if self.edges.is_empty() {
-                // Is root node. No target available
-                return None;
-            } else if self.edges.len() == 1 {
-                //There is only one edge. Cannot change it.
-                let edge_idx = self.edges[target];
-                return Some(edge_idx);
-            } else {
-                //There are targets to cycle through
-                if self.targeted_internal_edge_idx.unwrap() == self.edges.len()-1 {
-                    //Reached the end of the internal edge vector. Cycle through to index 0.
-                    self.targeted_internal_edge_idx = Some(0);
-                    let edge_idx = self.edges[0];
-                    return Some(edge_idx);
-                } else {
-                    //Advance to next edge
-                    self.targeted_internal_edge_idx = Some(target+1);
-                    return Some(self.edges[target+1]);
-                }
-            }
-        //No internal target specified
-        } else {
-            //Is root node. No target available
-            if self.edges.is_empty() {
-                None
-            } else {
-                //Specify first target.
-                self.targeted_internal_edge_idx = Some(0);
-                return Some(self.edges[self.targeted_internal_edge_idx.unwrap()]);
-            }
-        }
-    }
-
-    pub fn cycle_target_backward(&mut self) -> Option<u16> {
-        //Internal target specified
-        if let Some(target) = self.targeted_internal_edge_idx {
-            if self.edges.is_empty() {
-                // Is root node. No target available
-                return None;
-            } else if self.edges.len() == 1 {
-                //There is only one edge. Cannot change it.
-                let edge_idx = self.edges[target];
-                return Some(edge_idx);
-            } else {
-                //There are targets to cycle through
-                if self.targeted_internal_edge_idx.unwrap() == 0 {
-                    //Reached the end of the internal edge vector. Cycle through to index 0.
-                    let last_index = self.edges.len()-1;
-                    self.targeted_internal_edge_idx = Some(last_index);
-                    let edge_idx = self.edges[last_index];
-                    return Some(edge_idx);
-                } else {
-                    //Advance to next edge
-                    self.targeted_internal_edge_idx = Some(target-1);
-                    return Some(self.edges[target-1]);
-                }
-            }
-        //No internal target specified
-        } else {
-            //Is root node. No target available
-            if self.edges.is_empty() {
-                None
-            } else {
-                //Specify first target.
-                self.targeted_internal_edge_idx = Some(0);
-                return Some(self.edges[self.targeted_internal_edge_idx.unwrap()]);
-            }
-        }
-    }
-
-    pub fn set_target_edge_to_global_idx(&mut self, idx: u16) {
-        if let Some(internal_target) = self.targeted_internal_edge_idx {
-            if self.edges[internal_target] == idx {
-                return
-            }         
-        } else {
-            self.edges.iter().enumerate().for_each(|(i, edge_idx)| {
-                if *edge_idx == idx {
-                    self.targeted_internal_edge_idx = Some(i);
-                }
-            });
-        }
-    }
-
     pub fn set_mark(&mut self, mark: String) {
         if mark == " ".to_string() {
             self.mark = None;
@@ -170,6 +83,7 @@ impl VMNode {
         &mut self, 
         ctx: &mut PaintCtx, 
         z_index: u32,
+        enabled: bool,
         config: &VMConfig, 
         target: Option<u16>,
         translate: &TranslateScale,
@@ -208,17 +122,17 @@ impl VMNode {
             });
 
             if let Some(char) = self.mark.clone() {
-                self.paint_node_badge(ctx, z_index, config, &char, BadgePosition::TopRight, &rect, &badge_border_color);
+                self.paint_node_badge(ctx, z_index, enabled, config, &char, BadgePosition::TopRight, &rect, &badge_border_color);
             }
 
             if self.mass.clone() > DEFAULT_NODE_MASS {
-                self.paint_node_badge(ctx, z_index, config, &"+".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
+                self.paint_node_badge(ctx, z_index, enabled, config, &"+".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
             } else if self.mass.clone() < DEFAULT_NODE_MASS {
-                self.paint_node_badge(ctx, z_index, config, &"-".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
+                self.paint_node_badge(ctx, z_index, enabled, config, &"-".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
             }
 
             if self.anchored {
-                self.paint_node_badge(ctx, z_index, config, &"@".to_string(), BadgePosition::BottomLeft, &rect, &badge_border_color)
+                self.paint_node_badge(ctx, z_index, enabled, config, &"@".to_string(), BadgePosition::BottomLeft, &rect, &badge_border_color)
             }
 
             //Paint debug decals (node index)
@@ -243,6 +157,7 @@ impl VMNode {
     pub fn paint_node_badge(&mut self,
          ctx: &mut PaintCtx,
          z_index: u32,
+         enabled: bool,
          config: &VMConfig, 
          character: &String,
          position: BadgePosition, 
