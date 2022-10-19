@@ -27,7 +27,7 @@ pub const DEFAULT_COMPOSE_INDICATOR_FONT_SIZE: f64 = 28.;
 
 pub const DEFAULT_COMPOSE_INDICATOR_INSET: Vec2 = Vec2::new(20., -20.);
 
-pub const DEFAULT_NODE_MASS: f32 = 10.;
+pub const DEFAULT_NODE_MASS: f64 = 10.;
 pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParameters {
     force_charge: 8000.,
     force_spring: 1.0,
@@ -36,14 +36,14 @@ pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParamet
     damping_factor: 0.5,
 };
 
-pub const DEFAULT_MASS_INCREASE_AMOUNT: f32 = 2.;
+pub const DEFAULT_MASS_INCREASE_AMOUNT: f64 = 2.;
 pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 0.25;
 
 pub const DEFAULT_PAN_AMOUNT_SMALL: f64 = 30.;
 pub const DEFAULT_PAN_AMOUNT_LARGE: f64 = 150.;
 
-pub const DEFAULT_NODE_MOVE_AMOUNT_SMALL: f64 = 10.;
-pub const DEFAULT_NODE_MOVE_AMOUNT_LARGE: f64 = 50.;
+pub const DEFAULT_NODE_MOVE_AMOUNT_SMALL: f64 = 20.;
+pub const DEFAULT_NODE_MOVE_AMOUNT_LARGE: f64 = 100.;
 
 pub const NODE_LABEL_MAX_CONSTRAINTS: (f64, f64) = (200., 115.);
 pub const BADGE_BORDER_INFLATION_AMOUNT: f64 = 3.;

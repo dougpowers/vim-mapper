@@ -580,7 +580,7 @@ impl Default for VMInputManager {
                     kb_type: KeybindType::Key, 
                     regex: None, 
                     group_actions: None,
-                    key: Some(Key::Character(String::from("K"))),
+                    key: Some(Key::Character(String::from("H"))),
                     modifiers: None, 
                     action_payload: Some(
                         ActionPayload {

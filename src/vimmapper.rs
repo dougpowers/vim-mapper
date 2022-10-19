@@ -138,7 +138,7 @@ pub struct BareNode {
     is_active: bool,
     mark: Option<String>,
     targeted_internal_edge_idx: Option<usize>,
-    mass: f32,
+    mass: f64,
     anchored: bool,
 }
 
@@ -237,8 +237,8 @@ impl VimMapper {
             if v.index == 0 {
                 fg_index = Some(graph.add_node(NodeData {
                     is_anchor: true,
-                    x: v.pos.0 as f32,
-                    y: v.pos.1 as f32,
+                    x: v.pos.0,
+                    y: v.pos.1,
                     mass: v.mass,
                     user_data: {
                         0
@@ -248,8 +248,8 @@ impl VimMapper {
             } else {
                 fg_index = Some(graph.add_node(NodeData {
                     is_anchor: v.anchored,
-                    x: v.pos.0 as f32,
-                    y: v.pos.1 as f32,
+                    x: v.pos.0,
+                    y: v.pos.1,
                     mass: v.mass,
                     user_data: {
                         v.index
@@ -401,8 +401,8 @@ impl VimMapper {
                     } 
                 }
                 new_node.fg_index = Some(self.graph.add_node(NodeData {
-                    x: new_node.pos.x as f32,
-                    y: new_node.pos.y as f32,
+                    x: new_node.pos.x,
+                    y: new_node.pos.y,
                     user_data: new_node.index,
                     mass: DEFAULT_NODE_MASS,
                     ..Default::default()
@@ -685,7 +685,7 @@ impl VimMapper {
                 if let Some(fg_idx) = node.fg_index {
                     self.graph.visit_nodes_mut(|fg_node| {
                         if fg_node.index() == fg_idx {
-                            fg_node.data.is_anchor = !fg_node.data.is_anchor;
+                            fg_node.toggle_anchor();
                             self.animating = true;
                         }
                     });
@@ -706,8 +706,8 @@ impl VimMapper {
                 if let Some(fg_idx) = node.fg_index {
                     self.graph.visit_nodes_mut(|fg_node| {
                         if fg_node.index() == fg_idx {
-                            fg_node.data.x += vec.x as f32;
-                            fg_node.data.y += vec.y as f32;
+                            fg_node.data.x += vec.x;
+                            fg_node.data.y += vec.y;
                         }
                     })
                 }

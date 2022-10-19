@@ -46,7 +46,7 @@ pub struct VMNode {
     //Cached rect of the node, transformed to screen coords. Used to scroll node into view.
     pub node_rect: Option<Rect>,
     pub anchored: bool,
-    pub mass: f32,
+    pub mass: f64,
 }
 
 impl Default for VMNode {

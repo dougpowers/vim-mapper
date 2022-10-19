@@ -45,14 +45,14 @@
 //! // --- your game loop would start here ---
 //!
 //! // draw edges with your own drawing function
-//! fn draw_edge(x1: f32, y1: f32, x2: f32, y2: f32) {}
+//! fn draw_edge(x1: f64, y1: f64, x2: f64, y2: f64) {}
 //!
 //! graph.visit_edges(|node1, node2, _edge| {
 //!     draw_edge(node1.x(), node1.y(), node2.x(), node2.y());
 //! });
 //!
 //! // draw nodes with your own drawing function
-//! fn draw_node(x: f32, y: f32) {}
+//! fn draw_node(x: f64, y: f64) {}
 //!
 //! graph.visit_nodes(|node| {
 //!     draw_node(node.x(), node.y());
@@ -78,11 +78,11 @@ pub type DefaultNodeIdx = NodeIndex<petgraph::stable_graph::DefaultIx>;
 /// Parameters to control the simulation of the force graph.
 #[derive(Clone, Debug)]
 pub struct SimulationParameters {
-    pub force_charge: f32,
-    pub force_spring: f32,
-    pub force_max: f32,
-    pub node_speed: f32,
-    pub damping_factor: f32,
+    pub force_charge: f64,
+    pub force_spring: f64,
+    pub force_max: f64,
+    pub node_speed: f64,
+    pub damping_factor: f64,
 }
 
 impl Default for SimulationParameters {
@@ -100,13 +100,13 @@ impl Default for SimulationParameters {
 /// Stores data associated with a node that can be modified by the user.
 pub struct NodeData<UserNodeData = ()> {
     /// The horizontal position of the node.
-    pub x: f32,
+    pub x: f64,
     /// The vertical position of the node.
-    pub y: f32,
+    pub y: f64,
     /// The mass of the node.
     ///
     /// Increasing the mass of a node increases the force with which it repels other nearby nodes.
-    pub mass: f32,
+    pub mass: f64,
     /// Whether the node is fixed to its current position.
     pub is_anchor: bool,
     /// Arbitrary user data.
@@ -218,7 +218,7 @@ impl<UserNodeData, UserEdgeData> ForceGraph<UserNodeData, UserEdgeData> {
     ///
     /// The number of seconds that have elapsed since the previous update must be calculated and
     /// provided by the user as `dt`.
-    pub fn update(&mut self, dt: f32) {
+    pub fn update(&mut self, dt: f64) {
         if self.graph.node_count() == 0 {
             return;
         }
@@ -284,21 +284,28 @@ pub struct Node<UserNodeData = ()> {
     /// The node data provided by the user.
     pub data: NodeData<UserNodeData>,
     index: DefaultNodeIdx,
-    vx: f32,
-    vy: f32,
-    ax: f32,
-    ay: f32,
+    vx: f64,
+    vy: f64,
+    ax: f64,
+    ay: f64,
 }
 
 impl<UserNodeData> Node<UserNodeData> {
     /// The horizontal position of the node.
-    pub fn x(&self) -> f32 {
+    pub fn x(&self) -> f64 {
         self.data.x
     }
 
     /// The vertical position of the node.
-    pub fn y(&self) -> f32 {
+    pub fn y(&self) -> f64 {
         self.data.y
+    }
+
+    /// Toggles whether the node is anchored.
+    pub fn toggle_anchor(&mut self) {
+        self.ax = 0.;
+        self.ay = 0.;
+        match self.data.is_anchor { true => self.data.is_anchor = false, false => self.data.is_anchor = true }
     }
 
     /// The index used to reference the node in the [ForceGraph].
@@ -306,12 +313,12 @@ impl<UserNodeData> Node<UserNodeData> {
         self.index
     }
 
-    fn apply_force(&mut self, fx: f32, fy: f32, dt: f32, parameters: &SimulationParameters) {
+    fn apply_force(&mut self, fx: f64, fy: f64, dt: f64, parameters: &SimulationParameters) {
         self.ax += fx.max(-parameters.force_max).min(parameters.force_max) * dt;
         self.ay += fy.max(-parameters.force_max).min(parameters.force_max) * dt;
     }
 
-    fn update(&mut self, dt: f32, parameters: &SimulationParameters) {
+    fn update(&mut self, dt: f64, parameters: &SimulationParameters) {
         self.vx = (self.vx + self.ax * dt * parameters.node_speed) * parameters.damping_factor;
         self.vy = (self.vy + self.ay * dt * parameters.node_speed) * parameters.damping_factor;
         self.data.x += self.vx * dt;
@@ -321,7 +328,7 @@ impl<UserNodeData> Node<UserNodeData> {
     }
 }
 
-fn attract_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters) -> (f32, f32) {
+fn attract_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters) -> (f64, f64) {
     let mut dx = n2.data.x - n1.data.x;
     let mut dy = n2.data.y - n1.data.y;
 
@@ -338,7 +345,7 @@ fn attract_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameter
     (dx * strength, dy * strength)
 }
 
-fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters) -> (f32, f32) {
+fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters) -> (f64, f64) {
     let mut dx = n2.data.x - n1.data.x;
     let mut dy = n2.data.y - n1.data.y;
 

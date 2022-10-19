@@ -1,3 +1,5 @@
 /target
 /.vscode
+/force-graph-rs/target
+/force-graph-rs/Cargo.lock
 Cargo.lock
