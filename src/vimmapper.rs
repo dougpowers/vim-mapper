@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use druid::keyboard_types::Key;
 use druid::kurbo::{Line, TranslateScale, Circle};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout};
 use druid::piet::PietTextLayout;
 use force_graph::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 #[allow(unused_imports)]
 use druid::widget::{prelude::*, SvgData, Svg};
-use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
+use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, Selector};
 use std::collections::HashMap;
 use std::str::SplitWhitespace;
 
+use crate::vminput::*;
 use crate::vmnode::{VMEdge, VMNode, VMNodeEditor, VMNodeLayoutContainer};
 
 use crate::constants::*;
@@ -33,6 +33,7 @@ use serde::Serialize;
 use serde::Deserialize;
 
 //VimMapper is the controller class for the graph implementation and UI. 
+
 pub struct VimMapper {
     //The ForceGraph is contained as a background object, shadowed by the the nodes and edges HashMaps.
     // The user_data structures provided are populated by the u16 index to the corresponding nodes and edges
@@ -105,13 +106,6 @@ pub struct VimMapper {
     //Stores the largest individual movement (in either x or y) of any nodes during an update.
     // Used to pause computation once the graph has stabilized. 
     largest_node_movement: Option<f64>,
-
-    //Set when a composing command (currently only mark select) is pressed. Default duration is 
-    // DEFAULT_COMPOSE_TIMEOUT
-    compose_select_timer: Option<TimerToken>,
-    //Set to Some(<firing char>) when a composing command is started and has not yet timed out.
-    // Set to None otherwise.
-    compose_select: Option<String>,
     // Cached dimensions of the screen. Used to compute the offsets required to scroll a given
     // Rect into view.
     canvas_rect: Option<Rect>,
@@ -225,8 +219,6 @@ impl VimMapper {
             debug_data: false,
             debug_visuals: false,
             largest_node_movement: None,
-            compose_select_timer: None,
-            compose_select: None,
             canvas_rect: None,
             config,
         };
@@ -321,8 +313,6 @@ impl VimMapper {
             debug_data: false,
             debug_visuals: false,
             largest_node_movement: None,
-            compose_select_timer: None,
-            compose_select: None,
             canvas_rect: None,
             config,
         };
@@ -704,6 +694,28 @@ impl VimMapper {
         }
     }
 
+    pub fn move_node(&mut self, idx: u16, vec: Vec2) {
+        //Allow only non-root nodes to be moved
+        if idx != 0 {
+            if let Some(node) = self.nodes.get_mut(&idx) {
+                if !node.anchored {
+                    self.toggle_node_anchor(idx);
+                }
+            }
+            if let Some(node) = self.nodes.get_mut(&idx) {
+                if let Some(fg_idx) = node.fg_index {
+                    self.graph.visit_nodes_mut(|fg_node| {
+                        if fg_node.index() == fg_idx {
+                            fg_node.data.x += vec.x as f32;
+                            fg_node.data.y += vec.y as f32;
+                        }
+                    })
+                }
+            }
+            self.animating = true;
+        }
+    }
+
     //Determine of a given Point (usually a click) intersects with a node. Return that node's index if so.
     pub fn does_point_collide(&mut self, point: Point) -> Option<u16> {
         self.last_collision_rects = Vec::new();
@@ -777,6 +789,10 @@ impl VimMapper {
             self.is_focused = true;
             ctx.request_layout();
         }
+    }
+
+    pub fn is_editor_open(&self) -> bool {
+        return self.node_editor.is_visible;
     }
 
     //Given an edge index, determine which, if any, of the connected nodes is not the active one.
@@ -993,178 +1009,7 @@ impl<'a> Widget<()> for VimMapper {
                 }
                 ctx.request_anim_frame();
             }
-            Event::KeyDown(event) if self.is_focused && self.compose_select == None => {
-                match &event.key {
-                    Key::Character(char) if *char == 'h'.to_string() => {
-                        self.offset_x += DEFAULT_PAN_AMOUNT_SMALL;
-                    }
-                    Key::Character(char) if *char == 'l'.to_string() => {
-                        self.offset_x -= DEFAULT_PAN_AMOUNT_SMALL;
-                    }
-                    Key::Character(char) if *char == 'j'.to_string() => {
-                        if event.mods.ctrl() {
-                            self.scale = self.scale.clone()*TranslateScale::scale(0.75);
-                        } else {
-                            self.offset_y -= DEFAULT_PAN_AMOUNT_SMALL;
-                        }
-                    }
-                    Key::Character(char) if *char == 'k'.to_string() => {
-                        if event.mods.ctrl() {
-                            self.scale = self.scale.clone()*TranslateScale::scale(1.25);
-                        } else {
-                            self.offset_y += DEFAULT_PAN_AMOUNT_SMALL;
-                        }
-                    }
-                    Key::Character(char) if *char == 'H'.to_string() => {
-                        self.offset_x += DEFAULT_PAN_AMOUNT_LARGE;
-                    }
-                    Key::Character(char) if *char == 'L'.to_string() => {
-                        self.offset_x -= DEFAULT_PAN_AMOUNT_LARGE;
-                    }
-                    Key::Character(char) if *char == 'J'.to_string() => {
-                        self.offset_y -= DEFAULT_PAN_AMOUNT_LARGE;
-                    }
-                    Key::Character(char) if *char == 'K'.to_string() => {
-                        self.offset_y += DEFAULT_PAN_AMOUNT_LARGE;
-                    }
-                    Key::Character(char) if *char == 'G'.to_string() => {
-                        self.offset_x = 0.;
-                        self.offset_y = 0.;
-                    }
-                    Key::Character(char) if *char == "o".to_string() => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            if let Some(new_idx) = self.add_node(idx, format!("New label"), None) {
-                                self.open_editor(ctx, new_idx);
-                            }
-                        }
-                    }
-                    Key::Character(char) if *char == "c".to_string() => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.open_editor(ctx, idx);
-                        }
-                    }
-                    Key::Character(char) if *char == "n".to_string() => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            if let Some(edge_idx) = self.nodes.get_mut(&idx).unwrap().cycle_target() {
-                                self.target_edge = Some(edge_idx);
-                                if let Some(node_idx) = self.get_non_active_node_from_edge(edge_idx) {
-                                    self.scroll_node_into_view(node_idx);
-                                }
-                            }
-                        } else {
-                            self.set_node_as_active(0);
-                            self.scroll_node_into_view(0);
-                        }
-                    }
-                    Key::Character(char) if *char == "d".to_string() => {
-                        if let Some(remove_idx) = self.get_active_node_idx() {
-                            if let Ok(idx) = self.delete_node(remove_idx) {
-                                self.set_node_as_active(idx);
-                                self.scroll_node_into_view(idx);
-                            }
-                        }
-                    }
-                    Key::Character(char) if *char == "m".to_string() => {
-                        self.compose_select = Some("m".to_string());
-                        self.compose_select_timer = Some(ctx.request_timer(DEFAULT_COMPOSE_TIMEOUT));
-                    }
-                    Key::Character(char) if *char == "'".to_string() => {
-                        self.compose_select = Some("'".to_string());
-                        self.compose_select_timer = Some(ctx.request_timer(DEFAULT_COMPOSE_TIMEOUT));
-                    }
-                    Key::Character(char) if *char == " ".to_string() => {
-                    }
-                    Key::Enter if !self.node_editor.is_visible => {
-                        if let Some(edge_idx) = self.target_edge {
-                            if let Some(node_idx) = self.get_non_active_node_from_edge(edge_idx) {
-                                self.set_node_as_active(node_idx);
-                                self.scroll_node_into_view(node_idx);
-                                ctx.set_handled();
-                            }
-                        }
-                    }
-                    Key::Character(char) if *char == "+".to_string() => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.nodes.get(&idx).
-                            expect("Active node not found in node HashMap");
-
-                            self.increase_node_mass(idx);
-                        }
-                    }
-                    Key::Character(char) if *char == "-".to_string() => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.nodes.get(&idx).
-                            expect("Active node not found in node HashMap");
-
-                            self.decrease_node_mass(idx);
-                        }
-                    }
-                    Key::Character(char) if *char == "=".to_string() => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.nodes.get(&idx).
-                            expect("Active node not found in node HashMap");
-
-                            self.reset_node_mass(idx);
-                        }
-                    }
-                    Key::Character(char) if *char == "@".to_string() => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.nodes.get(&idx).
-                            expect("Active node not found in node HashMap");
-
-                            self.toggle_node_anchor(idx);
-                        }
-                    }
-                    Key::F11 if event.mods.alt() => {
-                        if self.debug_visuals {
-                            self.debug_visuals = false;
-                        } else {
-                            self.debug_visuals = true;
-                        }
-                    }
-                    Key::F12 if event.mods.alt() => {
-                        if self.debug_data {
-                            self.debug_data = false;
-                        } else {
-                            self.debug_data = true;
-                        }
-                    }
-                    _ => ()
-                }
-                ctx.request_anim_frame();
-            }
-            Event::KeyDown(event) if self.is_focused && self.compose_select != None => {
-                let compose_key: String = self.compose_select.clone().unwrap();
-                match event.key.clone() {
-                    Key::Character(char) => {
-                        match char {
-                            _ => {
-                                match compose_key.as_str() {
-                                    "'" => {
-                                        if let Some(idx) = self.get_node_by_mark(char) {
-                                            self.set_node_as_active(idx);
-                                            self.scroll_node_into_view(idx);
-                                        }
-                                    }
-                                    "m" => {
-                                        if let Some(active_idx) = self.get_active_node_idx() {
-                                            //Check that a node doesn't already have this mark
-                                            if let Some(holder) = self.get_node_by_mark(char.clone()) {
-                                                self.nodes.get_mut(&holder).unwrap().set_mark(" ".to_string());
-                                            }
-                                            self.nodes.get_mut(&active_idx).unwrap().set_mark(char.clone());
-                                        }
-                                    }
-                                    _ => ()
-                                }
-                            }
-                        }
-                        self.compose_select = None;
-                        self.compose_select_timer = None;
-                        ctx.request_anim_frame();
-                    }
-                    _ => ()
-                }
+            Event::KeyDown(event) => {
             }
             Event::Timer(event) => {
                 if let Some(token) = self.double_click_timer {
@@ -1185,13 +1030,6 @@ impl<'a> Widget<()> for VimMapper {
                     }
                     self.double_click_timer = None;
                     self.double_click = false;
-                }
-                if let Some(token) = self.compose_select_timer {
-                    ctx.set_handled();
-                    if token == *event {
-                        self.compose_select = None;
-                        self.compose_select_timer = None;
-                    }
                 }
                 ctx.request_anim_frame();
             }
@@ -1224,6 +1062,180 @@ impl<'a> Widget<()> for VimMapper {
                 ctx.request_anim_frame();
                 ctx.set_handled();
             }
+            Event::Command(command) if command.is(EXECUTE_ACTION) => {
+                if self.is_focused {
+                    let payload = command.get::<ActionPayload>(EXECUTE_ACTION).unwrap();
+                    match payload.action {
+                        Action::NullAction => (),
+                        Action::CycleNodeForward => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                if let Some(edge_idx) = self.nodes.get_mut(&idx).unwrap().cycle_target_forward() {
+                                    self.target_edge = Some(edge_idx);
+                                    if let Some(node_idx) = self.get_non_active_node_from_edge(edge_idx) {
+                                        self.scroll_node_into_view(node_idx);
+                                    }
+                                }
+                            } else {
+                                self.set_node_as_active(0);
+                                self.scroll_node_into_view(0);
+                            }
+                        }
+                        Action::CycleNodeBackward => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                if let Some(edge_idx) = self.nodes.get_mut(&idx).unwrap().cycle_target_backward() {
+                                    self.target_edge = Some(edge_idx);
+                                    if let Some(node_idx) = self.get_non_active_node_from_edge(edge_idx) {
+                                        self.scroll_node_into_view(node_idx);
+                                    }
+                                }
+                            } else {
+                                self.set_node_as_active(0);
+                                self.scroll_node_into_view(0);
+                            }
+                        }
+                        Action::CreateNewNode => todo!(),
+                        Action::CreateNewNodeAndEdit => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                if let Some(new_idx) = self.add_node(idx, format!("New label"), None) {
+                                    self.open_editor(ctx, new_idx);
+                                }
+                            }
+                        }
+                        Action::ActivateTargetedNode => {
+                            if let Some(edge_idx) = self.target_edge {
+                                if let Some(node_idx) = self.get_non_active_node_from_edge(edge_idx) {
+                                    self.set_node_as_active(node_idx);
+                                    self.scroll_node_into_view(node_idx);
+                                    ctx.set_handled();
+                                }
+                            }
+                        }
+                        Action::EditActiveNodeSelectAll => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                self.open_editor(ctx, idx);
+                            }
+                        }
+                        Action::EditActiveNodeAppend => todo!(),
+                        Action::EditActiveNodeInsert => todo!(),
+                        Action::DeleteActiveNode => {
+                            if let Some(remove_idx) = self.get_active_node_idx() {
+                                if let Ok(idx) = self.delete_node(remove_idx) {
+                                    self.set_node_as_active(idx);
+                                    self.scroll_node_into_view(idx);
+                                }
+                            }
+                        }
+                        Action::IncreaseActiveNodeMass => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                self.increase_node_mass(idx);
+                            }
+                        }
+                        Action::DecreaseActiveNodeMass => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                self.decrease_node_mass(idx);
+                            }
+                        }
+                        Action::ResetActiveNodeMass => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                self.reset_node_mass(idx);
+                            }
+                        }
+                        Action::AnchorActiveNode => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                self.toggle_node_anchor(idx);
+                            }
+                        }
+                        Action::MoveActiveNodeDown => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                self.move_node(idx, Vec2::new(0., payload.float.expect("Expected a float value for node movement.")))
+                            }
+                        }
+                        Action::MoveActiveNodeUp => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                self.move_node(idx, Vec2::new(0., -1.*payload.float.expect("Expected a float value for node movement.")))
+                            }
+                        }
+                        Action::MoveActiveNodeLeft => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                self.move_node(idx, Vec2::new(-1.*payload.float.expect("Expected a float value for node movement."), 0.))
+                            }
+                        }
+                        Action::MoveActiveNodeRight => {
+                            if let Some(idx) = self.get_active_node_idx() {
+                                self.move_node(idx, Vec2::new(payload.float.expect("Expected a float value for node movement."), 0.))
+                            }
+                        }
+                        Action::MarkActiveNode => {
+                            if let Some(active_idx) = self.get_active_node_idx() {
+                                //Check that a node doesn't already have this mark. Clear if that's the case.
+                                if let Some(holder) = self.get_node_by_mark(payload.string.clone().unwrap()) {
+                                    self.nodes.get_mut(&holder).unwrap().set_mark(" ".to_string());
+                                }
+                                self.nodes.get_mut(&active_idx).unwrap().set_mark(payload.string.clone().unwrap());
+                            }
+                        },
+                        Action::JumpToMarkedNode => {
+                            if let Some(marked_idx) = self.get_node_by_mark(payload.string.clone().unwrap()) {
+                                self.set_node_as_active(marked_idx);
+                                self.scroll_node_into_view(marked_idx);
+                            }
+                        },
+                        Action::TargetNode => todo!(),
+                        Action::CenterNode => {
+                            let node = self.nodes.get(&payload.index.unwrap()).expect("Tried to center a non-existent node.");
+                            self.offset_x = node.pos.x;
+                            self.offset_y = node.pos.y;
+                        }
+                        Action::CenterActiveNode => {
+                            if let Some(active_idx) = self.get_active_node_idx() {
+                                let node = self.nodes.get(&active_idx).expect("Tried to get non-existent active node.");
+                                self.offset_x = -1. * node.pos.x;
+                                self.offset_y = -1. * node.pos.y;
+                            }
+                        }
+                        Action::SearchNodes => {
+                            println!("Building search list with string {}", payload.string.clone().unwrap());
+                        },
+                        Action::PanUp => {
+                            self.offset_y += payload.float.unwrap();
+                        }
+                        Action::PanDown => {
+                            self.offset_y -= payload.float.unwrap();
+                        }
+                        Action::PanLeft => {
+                            self.offset_x += payload.float.unwrap();
+                        }
+                        Action::PanRight => {
+                            self.offset_x -= payload.float.unwrap();
+                        }
+                        Action::ZoomOut => {
+                            self.scale = self.scale.clone()*TranslateScale::scale(payload.float.unwrap());
+                        }
+                        Action::ZoomIn => {
+                            self.scale = self.scale.clone()*TranslateScale::scale(payload.float.unwrap());
+                        }
+                        Action::DeleteWordWithWhitespace => todo!(),
+                        Action::DeleteWord => todo!(),
+                        Action::DeleteToEndOfWord => todo!(),
+                        Action::DeleteToNthCharacter => todo!(),
+                        Action::DeleteWithNthCharacter => todo!(),
+                        Action::ChangeWordWithWhitespace => todo!(),
+                        Action::ChangeWord => todo!(),
+                        Action::ChangeToEndOfWord => todo!(),
+                        Action::ChangeToNthCharacter => todo!(),
+                        Action::ChangeWithNthCharacter => todo!(),
+                        Action::CursorForward => todo!(),
+                        Action::CursorBackward => todo!(),
+                        Action::CursorForwardToEndOfWord => todo!(),
+                        Action::CursorForwardToBeginningOfWord => todo!(),
+                        Action::CursorBackwardToEndOfWord => todo!(),
+                        Action::CursorBackwardToBeginningOfWord => todo!(),
+                        Action::CursorToNthCharacter => todo!(),
+                        _ => ()
+                    }
+                }
+                ctx.request_anim_frame();
+            }
             _ => {
             }
         }
@@ -1235,6 +1247,7 @@ impl<'a> Widget<()> for VimMapper {
                 //Register children with druid
                 ctx.children_changed();
                 //Kick off animation and calculation
+                ctx.request_layout();
                 ctx.request_anim_frame();
             }
             LifeCycle::HotChanged(is_hot) => {
@@ -1371,30 +1384,29 @@ impl<'a> Widget<()> for VimMapper {
         self.graph.visit_nodes(|fg_node| {
             let node = self.nodes.get_mut(&fg_node.data.user_data)
             .expect("Expected non-option node in paint loop.");
-            //Do not draw target or active nodes
-            if let Some(idx) = target_node {
-                if node.index != idx {
-                    node.paint_node(
-                        ctx, 
-                        &self.config, 
-                        target_node, 
-                        &self.translate, 
-                        &self.scale, 
-                        self.debug_data); 
-                }
-            } else if let Some(idx) = active_node {
-                if node.index != idx {
-                    node.paint_node(
-                        ctx, 
-                        &self.config, 
-                        target_node, 
-                        &self.translate, 
-                        &self.scale, 
-                        self.debug_data); 
-                }
+            if Some(node.index) == target_node {
+                node.paint_node(
+                    ctx, 
+                    2,
+                    &self.config, 
+                    target_node, 
+                    &self.translate, 
+                    &self.scale, 
+                    self.debug_data); 
+            } 
+            if Some(node.index) == active_node {
+                node.paint_node(
+                    ctx, 
+                    1,
+                    &self.config, 
+                    target_node, 
+                    &self.translate, 
+                    &self.scale, 
+                    self.debug_data); 
             } else {
                 node.paint_node(
                     ctx, 
+                    0,
                     &self.config, 
                     target_node, 
                     &self.translate, 
@@ -1404,26 +1416,26 @@ impl<'a> Widget<()> for VimMapper {
         });
 
         //Draw target and active nodes last
-        if let Some(idx) = target_node {
-            let node = self.nodes.get_mut(&idx).expect("Tried to paint a non-existent target node.");
-            node.paint_node(
-                ctx, 
-                &self.config, 
-                target_node, 
-                &self.translate, 
-                &self.scale, 
-                self.debug_data); 
-        }
-        if let Some(idx) = active_node {
-            let node = self.nodes.get_mut(&idx).expect("Tried to paint a non-existent target node.");
-            node.paint_node(
-                ctx, 
-                &self.config, 
-                target_node, 
-                &self.translate, 
-                &self.scale, 
-                self.debug_data); 
-        }
+        // if let Some(idx) = target_node {
+        //     let node = self.nodes.get_mut(&idx).expect("Tried to paint a non-existent target node.");
+        //     node.paint_node(
+        //         ctx, 
+        //         &self.config, 
+        //         target_node, 
+        //         &self.translate, 
+        //         &self.scale, 
+        //         self.debug_data); 
+        // }
+        // if let Some(idx) = active_node {
+        //     let node = self.nodes.get_mut(&idx).expect("Tried to paint a non-existent target node.");
+        //     node.paint_node(
+        //         ctx, 
+        //         &self.config, 
+        //         target_node, 
+        //         &self.translate, 
+        //         &self.scale, 
+        //         self.debug_data); 
+        // }
 
         //Paint editor dialog
         if self.node_editor.is_visible {
@@ -1433,16 +1445,17 @@ impl<'a> Widget<()> for VimMapper {
         }
 
         //Paint compose key indicator
-        if let Some(char) = self.compose_select.clone() {
-            let layout = ctx.text().new_text_layout(char)
-            .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
-            .text_color( self.config.get_color("compose-indicator-text-color".to_string()).ok().expect("compose indicator text color not found in config"))
-            .build().unwrap();
-            ctx.draw_text(&layout, 
-                (Point::new(0., ctx_size.height-layout.size().height).to_vec2() + DEFAULT_COMPOSE_INDICATOR_INSET).to_point()
-                // (Point::new(0., size.height-layout.size().height).to_vec2()).to_point()
-            );
-        }
+        // if let Some(char) = self.compose_select.clone() {
+        //     let layout = ctx.text().new_text_layout(char)
+        // .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
+        // .text_color( self.config.get_color("compose-indicator-text-color".to_string()).ok().expect("compose indicator text color not found in config"))
+        // .build().unwrap();
+        // ctx.draw_text(&layout, 
+        //     (Point::new(0., ctx_size.height-layout.size().height).to_vec2() + DEFAULT_COMPOSE_INDICATOR_INSET).to_point()
+        //     // (Point::new(0., size.height-layout.size().height).to_vec2()).to_point()
+        // );
+        // }
+
 
         //Paint debug dump
         if self.debug_data {

@@ -70,7 +70,8 @@ impl Default for VMNode {
 }
 
 impl VMNode {
-    pub fn cycle_target(&mut self) -> Option<u16> {
+    pub fn cycle_target_forward(&mut self) -> Option<u16> {
+        //Internal target specified
         if let Some(target) = self.targeted_internal_edge_idx {
             if self.edges.is_empty() {
                 // Is root node. No target available
@@ -87,14 +88,55 @@ impl VMNode {
                     let edge_idx = self.edges[0];
                     return Some(edge_idx);
                 } else {
+                    //Advance to next edge
                     self.targeted_internal_edge_idx = Some(target+1);
                     return Some(self.edges[target+1]);
                 }
             }
+        //No internal target specified
         } else {
+            //Is root node. No target available
             if self.edges.is_empty() {
                 None
             } else {
+                //Specify first target.
+                self.targeted_internal_edge_idx = Some(0);
+                return Some(self.edges[self.targeted_internal_edge_idx.unwrap()]);
+            }
+        }
+    }
+
+    pub fn cycle_target_backward(&mut self) -> Option<u16> {
+        //Internal target specified
+        if let Some(target) = self.targeted_internal_edge_idx {
+            if self.edges.is_empty() {
+                // Is root node. No target available
+                return None;
+            } else if self.edges.len() == 1 {
+                //There is only one edge. Cannot change it.
+                let edge_idx = self.edges[target];
+                return Some(edge_idx);
+            } else {
+                //There are targets to cycle through
+                if self.targeted_internal_edge_idx.unwrap() == 0 {
+                    //Reached the end of the internal edge vector. Cycle through to index 0.
+                    let last_index = self.edges.len()-1;
+                    self.targeted_internal_edge_idx = Some(last_index);
+                    let edge_idx = self.edges[last_index];
+                    return Some(edge_idx);
+                } else {
+                    //Advance to next edge
+                    self.targeted_internal_edge_idx = Some(target-1);
+                    return Some(self.edges[target-1]);
+                }
+            }
+        //No internal target specified
+        } else {
+            //Is root node. No target available
+            if self.edges.is_empty() {
+                None
+            } else {
+                //Specify first target.
                 self.targeted_internal_edge_idx = Some(0);
                 return Some(self.edges[self.targeted_internal_edge_idx.unwrap()]);
             }
@@ -127,6 +169,7 @@ impl VMNode {
     pub fn paint_node(
         &mut self, 
         ctx: &mut PaintCtx, 
+        z_index: u32,
         config: &VMConfig, 
         target: Option<u16>,
         translate: &TranslateScale,
@@ -155,22 +198,27 @@ impl VMNode {
                 }
             }
 
-            ctx.fill(border, &config.get_color("node-background-color".to_string()).ok().expect("node background color not found in config"));
-            ctx.stroke(border, &border_color, DEFAULT_BORDER_WIDTH);
-            ctx.draw_text(self.container.layout.as_mut().unwrap(), Point::new(0.0, 0.0));
+            let badge_border_color = border_color.clone();
+            let mut container = self.container.layout.clone();
+            let border_background = config.get_color("node-background-color".to_string()).ok().expect("Node background color not found in config");
+            ctx.paint_with_z_index(z_index, move |ctx| {
+                ctx.stroke(border, &border_color, DEFAULT_BORDER_WIDTH);
+                ctx.fill(border, &border_background);
+                ctx.draw_text(container.as_mut().unwrap(), Point::new(0.0, 0.0));
+            });
 
             if let Some(char) = self.mark.clone() {
-                self.paint_node_badge(ctx, config, &char, BadgePosition::TopRight, &rect, &border_color);
+                self.paint_node_badge(ctx, z_index, config, &char, BadgePosition::TopRight, &rect, &badge_border_color);
             }
 
             if self.mass.clone() > DEFAULT_NODE_MASS {
-                self.paint_node_badge(ctx, config, &"+".to_string(), BadgePosition::BottomCenter, &rect, &border_color);
+                self.paint_node_badge(ctx, z_index, config, &"+".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
             } else if self.mass.clone() < DEFAULT_NODE_MASS {
-                self.paint_node_badge(ctx, config, &"-".to_string(), BadgePosition::BottomCenter, &rect, &border_color);
+                self.paint_node_badge(ctx, z_index, config, &"-".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
             }
 
             if self.anchored {
-                self.paint_node_badge(ctx, config, &"@".to_string(), BadgePosition::BottomLeft, &rect, &border_color)
+                self.paint_node_badge(ctx, z_index, config, &"@".to_string(), BadgePosition::BottomLeft, &rect, &badge_border_color)
             }
 
             //Paint debug decals (node index)
@@ -194,6 +242,7 @@ impl VMNode {
     // TODO: End transformation and reexecute it within function
     pub fn paint_node_badge(&mut self,
          ctx: &mut PaintCtx,
+         z_index: u32,
          config: &VMConfig, 
          character: &String,
          position: BadgePosition, 
@@ -245,14 +294,20 @@ impl VMNode {
         .font(FontFamily::SANS_SERIF, 12.)
         .text_color(config.get_color("label-text-color".to_string()).ok().expect("label text color not found in config"))
         .build().unwrap();
-        ctx.with_save(|ctx| {
-            let circle = druid::piet::kurbo::Circle::new(mark_point.to_point(), layout.size().max_side()/1.8);
+        ctx.with_save(move |ctx| {
+            let circle = druid::piet::kurbo::Circle::new(mark_point.to_point().clone(), layout.size().max_side()/1.8);
+            let background_color = config.get_color("node-background-color".to_string()).ok().expect("badge background color not found in config");
+            let badge_border_color = border_color.clone();
             ctx.with_save(|ctx| {
-                ctx.fill(circle, &config.get_color("node-background-color".to_string()).ok().expect("node background color not found in config"));
-                ctx.stroke(circle, border_color, DEFAULT_MARK_BORDER_WIDTH);
+                ctx.paint_with_z_index(z_index, move |ctx| {
+                    ctx.fill(circle, &background_color);
+                    ctx.stroke(circle, &badge_border_color, DEFAULT_MARK_BORDER_WIDTH);
+                });
             });
             ctx.transform(Affine::from(TranslateScale::new(-1.*layout.size().to_vec2()/2., 1.)));
-            ctx.draw_text(&layout, mark_point.to_point());
+            ctx.paint_with_z_index(z_index, move |ctx| {
+                ctx.draw_text(&layout, mark_point.to_point());
+            });
         });
     }
 }

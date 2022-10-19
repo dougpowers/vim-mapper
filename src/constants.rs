@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use druid::{kurbo::TranslateScale, Selector, Vec2};
 use force_graph::SimulationParameters;
+use crate::vminput::ActionPayload;
 
 pub const DEFAULT_BORDER_WIDTH: f64 = 3.;
 pub const DEFAULT_BORDER_RADIUS: f64 = 5.;
@@ -36,10 +37,13 @@ pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParamet
 };
 
 pub const DEFAULT_MASS_INCREASE_AMOUNT: f32 = 2.;
-pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 0.5;
+pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 0.25;
 
 pub const DEFAULT_PAN_AMOUNT_SMALL: f64 = 30.;
 pub const DEFAULT_PAN_AMOUNT_LARGE: f64 = 150.;
+
+pub const DEFAULT_NODE_MOVE_AMOUNT_SMALL: f64 = 10.;
+pub const DEFAULT_NODE_MOVE_AMOUNT_LARGE: f64 = 50.;
 
 pub const NODE_LABEL_MAX_CONSTRAINTS: (f64, f64) = (200., 115.);
 pub const BADGE_BORDER_INFLATION_AMOUNT: f64 = 3.;
@@ -60,13 +64,15 @@ pub const DEFAULT_SCALE: TranslateScale = TranslateScale::new(
 );
 
 pub const DOUBLE_CLICK_THRESHOLD: Duration = Duration::from_millis(200);
-pub const DEFAULT_COMPOSE_TIMEOUT: Duration = Duration::from_secs(3);
+pub const DEFAULT_COMPOSE_TIMEOUT: Duration = Duration::from_millis(1500);
 
 pub const TAKE_FOCUS: Selector = Selector::new("take-focus");
 
 pub const TAKEN_FOCUS: Selector = Selector::new("taken-focus");
 
 pub const SUBMIT_CHANGES: Selector = Selector::new("submit-changes");
+
+pub const EXECUTE_ACTION: Selector<ActionPayload> = Selector::<ActionPayload>::new("execute-action");
 
 pub const CANCEL_CHANGES: Selector = Selector::new("cancel-changes");
 

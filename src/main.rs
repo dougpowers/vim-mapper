@@ -14,11 +14,15 @@
 
 #![windows_subsystem = "windows"]
 use druid::widget::{prelude::*, Label, Flex, Button, MainAxisAlignment, SizedBox, ControllerHost};
-use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Command, Target, WidgetPod, WidgetExt, MenuDesc, LocalizedString, MenuItem, FileSpec};
+use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Command, Target, WidgetPod, WidgetExt, MenuDesc, LocalizedString, MenuItem, FileSpec, Selector, FontFamily};
+use druid::piet::{Text, TextLayout, TextLayoutBuilder};
 use std::fs;
 use std::path::{PathBuf, Path};
 
 mod vmnode;
+
+mod vminput;
+use vminput::*;
 
 mod constants;
 use constants::*;
@@ -35,6 +39,7 @@ struct VMCanvas {
     dialog_visible: bool,
     path: Option<PathBuf>,
     config: VMConfig,
+    input_manager: VMInputManager,
 }
 
 impl VMCanvas {
@@ -45,6 +50,7 @@ impl VMCanvas {
             dialog_visible: true,
             path: None,
             config,
+            input_manager: VMInputManager::new(),
         }
     }
 
@@ -156,9 +162,9 @@ impl Widget<()> for VMCanvas {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut (), env: &Env) {
         if let Some(_) = &self.inner {
         } else {
-            if ctx.is_hot() {
+            // if ctx.is_hot() {
                 ctx.request_focus();
-            }
+            // }
         }
         match event {
             Event::Command(command) if command.is(druid::commands::NEW_FILE) => {
@@ -201,18 +207,53 @@ impl Widget<()> for VMCanvas {
                     }
                 }
             }
-            Event::KeyDown(event) if event.key == druid::keyboard_types::Key::F10 && event.mods.alt() => {
-                self.config.toggle_color_scheme();
-                self.config.save();
-                if let Some(vm) = &mut self.inner {
-                    vm.widget_mut().set_config(self.config.clone());
-                    ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+            Event::KeyDown(key_event) => {
+                if let Some(inner) = &mut self.inner {
+                    if !inner.widget().is_editor_open() {
+                        let payload = self.input_manager.accept_key(key_event.clone(), ctx);
+                        if let Some(payload) = payload {
+                            if payload.action != Action::ChangeModeWithTimeoutRevert {
+                                self.input_manager.clear_timeout();
+                            }
+                            match payload.action {
+                                Action::ToggleColorScheme => {
+                                    self.config.toggle_color_scheme();
+                                    self.config.save();
+                                    if let Some(vm) = &mut self.inner {
+                                        vm.widget_mut().set_config(self.config.clone());
+                                        ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                                    }
+                                    self.dialog = VMCanvas::make_dialog(&self.config);
+                                    ctx.children_changed();
+                                    ctx.request_layout();
+                                    ctx.request_paint();
+                                    ctx.set_handled();
+                                }
+                                Action::ChangeModeWithTimeoutRevert => {
+                                    self.input_manager.set_timeout_revert_mode(Some(self.input_manager.get_keybind_mode()));
+                                    self.input_manager.set_keybind_mode(payload.mode.unwrap());
+                                },
+                                Action::ChangeMode => {
+                                    self.input_manager.set_keybind_mode(payload.mode.unwrap());
+                                }
+                                _ => {
+                                    if let Some(inner) = &self.inner {
+                                        if !inner.widget().is_editor_open() {
+                                            ctx.submit_command(EXECUTE_ACTION.with(payload));
+                                        }
+                                    }
+                                }
+                            } 
+                        }
+                    } else {
+                        inner.event(ctx, event, data, env);
+                    }
                 }
-                self.dialog = VMCanvas::make_dialog(&self.config);
-                ctx.children_changed();
-                ctx.request_layout();
-                ctx.request_paint();
-                ctx.set_handled();
+            }
+            Event::Timer(token) => {
+                if Some(*token) == self.input_manager.get_timout_token() {
+                    self.input_manager.timeout();
+                }
             }
             _ => {
                 if let Some(inner) = &mut self.inner {
@@ -222,6 +263,7 @@ impl Widget<()> for VMCanvas {
                 }
             }
         }
+        ctx.request_paint();
     }
 
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &(), env: &Env) {
@@ -256,6 +298,7 @@ impl Widget<()> for VMCanvas {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &(), env: &Env) {
+        let ctx_size = ctx.size();
         if let Some(path) = &self.path {
             ctx.window().set_title(format!("VimMapper - {}", path.display()).as_str());
         }
@@ -267,6 +310,18 @@ impl Widget<()> for VMCanvas {
             self.dialog.paint(ctx, data, env);
         } else if let Some(inner) = &mut self.inner {
             inner.paint(ctx, data, env);
+        }
+        //Paint VMInputManager indicator
+        if let Some(_) = self.inner {
+            let layout = ctx.text().new_text_layout(self.input_manager.get_string())
+                .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
+                .text_color( self.config.get_color("compose-indicator-text-color".to_string()).ok().expect("compose indicator text color not found in config"))
+                .build().unwrap();
+            ctx.paint_with_z_index(100, move |ctx| {
+                ctx.draw_text(&layout, 
+                    (Point::new(0., ctx_size.height-layout.size().height).to_vec2() + DEFAULT_COMPOSE_INDICATOR_INSET).to_point()
+                );
+            });
         }
     }
 }
