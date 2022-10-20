@@ -28,31 +28,44 @@ pub enum ColorScheme {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct VMConfig {
     pub color_scheme: ColorScheme,
-    pub dark_palette: HashMap<String, (u8,u8,u8,u8)>,
-    pub light_palette: HashMap<String, (u8,u8,u8,u8)>,
+    pub dark_palette: HashMap<VMColor, (u8,u8,u8,u8)>,
+    pub light_palette: HashMap<VMColor, (u8,u8,u8,u8)>,
 }
 
+#[derive(Hash,Eq,PartialEq,Clone,Serialize,Deserialize)]
+pub enum VMColor {
+    LabelTextColor,
+    NodeBorderColor,
+    ActiveNodeBorderColor,
+    TargetNodeBorderColor,
+    NodeBackgroundColor,
+    EdgeColor,
+    ComposeIndicatorTextColor,
+    SheetBackgroundColor,
+}
+
+use VMColor::*;
 impl Default for VMConfig {
 
     fn default() -> Self {
-        let mut dark_palette: HashMap<String, (u8,u8,u8,u8)> = HashMap::new();
-        let mut light_palette: HashMap<String, (u8,u8,u8,u8)> = HashMap::new();
-        light_palette.insert("label-text-color".to_string(), (0,0,0,255));
-        light_palette.insert("node-border-color".to_string(), (0,0,0,255));
-        light_palette.insert("active-node-border-color".to_string(), (125,125,255,255));
-        light_palette.insert("target-node-border-color".to_string(), (255,125,125,255));
-        light_palette.insert("node-background-color".to_string(), (200,200,200,255));
-        light_palette.insert("edge-color".to_string(), (192,192,192,255));
-        light_palette.insert("compose-indicator-text-color".to_string(), (255,0,0,255));
-        light_palette.insert("sheet-background-color".to_string(), (255,255,255,255));
-        dark_palette.insert("label-text-color".to_string(), (255,255,255,255));
-        dark_palette.insert("node-border-color".to_string(), (215,215,215,255));
-        dark_palette.insert("active-node-border-color".to_string(), (125,125,255,255));
-        dark_palette.insert("target-node-border-color".to_string(), (255,125,125,255));
-        dark_palette.insert("node-background-color".to_string(), (100,100,100,255));
-        dark_palette.insert("edge-color".to_string(), (132,132,132,255));
-        dark_palette.insert("compose-indicator-text-color".to_string(), (255,0,0,255));
-        dark_palette.insert("sheet-background-color".to_string(), (0,0,0,255));
+        let mut dark_palette: HashMap<VMColor, (u8,u8,u8,u8)> = HashMap::new();
+        let mut light_palette: HashMap<VMColor, (u8,u8,u8,u8)> = HashMap::new();
+        light_palette.insert(LabelTextColor, (0,0,0,255));
+        light_palette.insert(NodeBorderColor, (0,0,0,255));
+        light_palette.insert(ActiveNodeBorderColor, (125,125,255,255));
+        light_palette.insert(TargetNodeBorderColor, (255,125,125,255));
+        light_palette.insert(NodeBackgroundColor, (200,200,200,255));
+        light_palette.insert(EdgeColor, (192,192,192,255));
+        light_palette.insert(ComposeIndicatorTextColor, (255,0,0,255));
+        light_palette.insert(SheetBackgroundColor, (255,255,255,255));
+        dark_palette.insert(LabelTextColor, (255,255,255,255));
+        dark_palette.insert(NodeBorderColor, (215,215,215,255));
+        dark_palette.insert(ActiveNodeBorderColor, (125,125,255,255));
+        dark_palette.insert(TargetNodeBorderColor, (255,125,125,255));
+        dark_palette.insert(NodeBackgroundColor, (100,100,100,255));
+        dark_palette.insert(EdgeColor, (132,132,132,255));
+        dark_palette.insert(ComposeIndicatorTextColor, (255,0,0,255));
+        dark_palette.insert(SheetBackgroundColor, (0,0,0,255));
         VMConfig {
             color_scheme: ColorScheme::LIGHT,
             light_palette,
@@ -87,7 +100,7 @@ impl VMConfig {
                     }
                 }
 
-                fs::write(path, serde_json::to_string(&config).ok().expect("Failed to serialize default config!")).expect("Failed to write default config to file");
+                fs::write(path, serde_json::to_string_pretty(&config).ok().expect("Failed to serialize default config!")).expect("Failed to write default config to file");
                 return Ok(config)
             } else {
                 if let Ok(string) = fs::read_to_string(path.clone()) {
@@ -130,7 +143,7 @@ impl VMConfig {
         }
     }
 
-    pub fn get_color(&self, key: String) -> Result<Color, String> {
+    pub fn get_color(&self, key: VMColor) -> Result<Color, String> {
         match self.color_scheme {
             ColorScheme::LIGHT => {
                 if let Some((r,g,b,a)) = self.light_palette.get(&key.clone()) {

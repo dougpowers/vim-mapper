@@ -341,11 +341,11 @@ fn attract_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameter
     } else {
         (dx * dx + dy * dy).sqrt()
     };
-    
-    distance -= parameters.min_attract_distance / 2.;
-
+   
     dx /= distance;
     dy /= distance;
+
+    distance -= parameters.min_attract_distance;    
 
     let strength = parameters.force_spring * distance * 0.5;
     (dx * strength, dy * strength)
@@ -361,10 +361,10 @@ fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters)
         (dx * dx + dy * dy).sqrt()
     };
 
-    distance -= parameters.min_attract_distance /2.;
-
     dx /= distance;
     dy /= distance;
+
+    distance -= parameters.min_attract_distance / 2.;
 
     let distance_sqrd = distance * distance;
     let strength = -parameters.force_charge * ((n1.data.mass * n2.data.mass) / distance_sqrd);

@@ -28,17 +28,19 @@ pub const DEFAULT_COMPOSE_INDICATOR_FONT_SIZE: f64 = 28.;
 pub const DEFAULT_COMPOSE_INDICATOR_INSET: Vec2 = Vec2::new(20., -20.);
 
 pub const DEFAULT_NODE_MASS: f64 = 10.;
+pub const DEFAULT_UPDATE_DELTA: f64 = 0.032;
 pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParameters {
-    force_charge: 6000.,
-    force_spring: 1.9,
+    force_charge: 7000.,
+    force_spring: 2.5,
     force_max: 280.,
     node_speed: 7000.,
     damping_factor: 0.5,
-    min_attract_distance: 220.,
+    // min_attract_distance: 0.,
+    min_attract_distance: 200.,
 };
 
 pub const DEFAULT_MASS_INCREASE_AMOUNT: f64 = 2.;
-pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 0.25;
+pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 0.06;
 
 pub const DEFAULT_PAN_AMOUNT_SMALL: f64 = 30.;
 pub const DEFAULT_PAN_AMOUNT_LARGE: f64 = 150.;

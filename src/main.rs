@@ -135,7 +135,7 @@ impl VMCanvas {
                             Label::new(
                                 "Do you want create a new sheet or load an existing one?"
                             )
-                            .with_text_color(config.get_color("label-text-color".to_string()).expect("Couldn't get label text color from config"))
+                            .with_text_color(config.get_color(VMColor::LabelTextColor).expect("Couldn't get label text color from config"))
                             )
                         .with_child(SizedBox::empty().height(50.))
                         .with_child(
@@ -148,10 +148,10 @@ impl VMCanvas {
                         ).main_axis_alignment(MainAxisAlignment::Center)
                     )
                     .padding(5.)
-                    .border(config.get_color("node-border-color".to_string()).expect("Couldn't get node border color from config")
+                    .border(config.get_color(VMColor::NodeBorderColor).expect("Couldn't get node border color from config")
                         , DEFAULT_BORDER_WIDTH)
                     .rounded(DEFAULT_BORDER_RADIUS)
-                    .background(config.get_color("node-background-color".to_string()).expect("Couldn't get node background color from config"))
+                    .background(config.get_color(VMColor::NodeBackgroundColor).expect("Couldn't get node background color from config"))
                 ).main_axis_alignment(MainAxisAlignment::Center)
         )
     }
@@ -207,34 +207,124 @@ impl Widget<()> for VMCanvas {
                     }
                 }
             }
+            Event::Command(command) if command.is(druid::commands::QUIT_APP) => {
+                println!("QUIT_APP requested");
+                ctx.set_handled();
+            }
+            Event::Command(command) if command.is(druid::commands::CLOSE_ALL_WINDOWS) => {
+                println!("CLOSE_ALL_WINDOWS requested");
+            }
+            Event::Command(command) if command.is(druid::commands::CLOSE_WINDOW) => {
+                let payload = command.get_unchecked(druid::commands::CLOSE_WINDOW);
+                println!("CLOSE_WINDOW requested for {:?}", payload);
+            }
+            Event::Notification(note) if note.is(SUBMIT_CHANGES) => {
+                if let Some(inner) = &mut self.inner {
+                    inner.widget_mut().close_editor(ctx, true);
+                    self.input_manager.set_keybind_mode(KeybindMode::Sheet);
+                    //Node has new label; invalidate layout
+                    // self.nodes.get_mut(&self.get_active_node_idx().unwrap()).unwrap().container.layout = None;
+                    inner.widget_mut().invalidate_node_layouts();
+                    ctx.set_handled();
+                    ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                }
+            }
+            Event::Notification(note) if note.is(CANCEL_CHANGES) => {
+                if let Some(inner) = &mut self.inner {
+                    inner.widget_mut().close_editor(ctx, false);
+                    self.input_manager.set_keybind_mode(KeybindMode::Sheet);
+                    ctx.set_handled();
+                    ctx.request_anim_frame();
+                    ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                }
+            }
             Event::KeyDown(key_event) => {
+                let payload = self.input_manager.accept_key(key_event.clone(), ctx);
+                if let Some(payload) = &payload {
+                    if payload.action == Action::ToggleColorScheme {
+                        println!("{:?}", payload.action);
+                        self.config.toggle_color_scheme();
+                        self.config.save();
+                        if let Some(vm) = &mut self.inner {
+                            vm.widget_mut().set_config(self.config.clone());
+                            ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                        }
+                        self.dialog = VMCanvas::make_dialog(&self.config);
+                        ctx.children_changed();
+                        ctx.request_layout();
+                        ctx.request_paint();
+                        ctx.set_handled();
+                    }
+                }
                 if let Some(inner) = &mut self.inner {
                     if !inner.widget().is_editor_open() {
-                        let payload = self.input_manager.accept_key(key_event.clone(), ctx);
                         if let Some(payload) = payload {
                             if payload.action != Action::ChangeModeWithTimeoutRevert {
                                 self.input_manager.clear_timeout();
                             }
                             match payload.action {
-                                Action::ToggleColorScheme => {
-                                    self.config.toggle_color_scheme();
-                                    self.config.save();
-                                    if let Some(vm) = &mut self.inner {
-                                        vm.widget_mut().set_config(self.config.clone());
-                                        ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                                Action::CreateNewNodeAndEdit => {
+                                    if let Some(idx) = inner.widget().get_active_node_idx() {
+                                        if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New label"), None) {
+                                            self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
+                                            inner.widget_mut().open_editor(ctx, new_idx);
+                                            ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                                            ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Auto));
+                                        }
                                     }
-                                    self.dialog = VMCanvas::make_dialog(&self.config);
-                                    ctx.children_changed();
-                                    ctx.request_layout();
-                                    ctx.request_paint();
-                                    ctx.set_handled();
+                                },
+                                Action::EditActiveNodeSelectAll => {
+                                    if let Some(idx) = inner.widget().get_active_node_idx() {
+                                        self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
+                                        inner.widget_mut().open_editor(ctx, idx);
+                                        ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                                        ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Auto));
+                                    }
                                 }
+                                // Action::ToggleColorScheme => {
+                                //     println!("{:?}", payload.action);
+                                //     self.config.toggle_color_scheme();
+                                //     self.config.save();
+                                //     if let Some(vm) = &mut self.inner {
+                                //         vm.widget_mut().set_config(self.config.clone());
+                                //         ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                                //     }
+                                //     self.dialog = VMCanvas::make_dialog(&self.config);
+                                //     ctx.children_changed();
+                                //     ctx.request_layout();
+                                //     ctx.request_paint();
+                                //     ctx.set_handled();
+                                // }
                                 Action::ChangeModeWithTimeoutRevert => {
                                     self.input_manager.set_timeout_revert_mode(Some(self.input_manager.get_keybind_mode()));
-                                    self.input_manager.set_keybind_mode(payload.mode.unwrap());
+                                    self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                                    match payload.mode {
+                                        Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
+                                            if let Some(inner) = &mut self.inner {
+                                                inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
+                                            }
+                                        }
+                                        _ => {
+                                            if let Some(inner) = &mut self.inner {
+                                                inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
+                                            }
+                                        }
+                                    }
                                 },
                                 Action::ChangeMode => {
-                                    self.input_manager.set_keybind_mode(payload.mode.unwrap());
+                                    self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                                    match payload.mode {
+                                        Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
+                                            if let Some(inner) = &mut self.inner {
+                                                inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
+                                            }
+                                        }
+                                        _ => {
+                                            if let Some(inner) = &mut self.inner {
+                                                inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
+                                            }
+                                        }
+                                    }
                                 }
                                 _ => {
                                     if let Some(inner) = &self.inner {
@@ -305,7 +395,7 @@ impl Widget<()> for VMCanvas {
         if self.dialog_visible {
             let rect = ctx.size().to_rect();
             ctx.fill(rect,
-                 &self.config.get_color("sheet-background-color".to_string()).expect("Couldn't get sheet background color from config")
+                 &self.config.get_color(VMColor::SheetBackgroundColor).expect("Couldn't get sheet background color from config")
                 );
             self.dialog.paint(ctx, data, env);
         } else if let Some(inner) = &mut self.inner {
@@ -315,7 +405,7 @@ impl Widget<()> for VMCanvas {
         if let Some(_) = self.inner {
             let layout = ctx.text().new_text_layout(self.input_manager.get_string())
                 .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
-                .text_color( self.config.get_color("compose-indicator-text-color".to_string()).ok().expect("compose indicator text color not found in config"))
+                .text_color( self.config.get_color(VMColor::ComposeIndicatorTextColor).ok().expect("compose indicator text color not found in config"))
                 .build().unwrap();
             ctx.paint_with_z_index(100, move |ctx| {
                 ctx.draw_text(&layout, 

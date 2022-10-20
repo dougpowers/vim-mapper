@@ -22,6 +22,8 @@ use crate::constants::*;
 #[allow(dead_code)]
 #[derive(Clone, PartialEq, Debug)]
 pub enum KeybindMode {
+    Start,
+    Dialog,
     Sheet,
     EditBrowse,
     Jump,
@@ -139,7 +141,7 @@ pub struct VMInputManager {
 impl Default for VMInputManager {
     fn default() -> Self {
         VMInputManager {
-            mode: KeybindMode::Sheet,
+            mode: KeybindMode::Start,
             keybinds: vec![
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -376,6 +378,19 @@ impl Default for VMInputManager {
                     kb_type: KeybindType::Key, 
                     regex: None, 
                     group_actions: None,
+                    key: Some(Key::F10),
+                    modifiers: Some(Modifiers::ALT),
+                    action_payload: Some(
+                        ActionPayload {
+                            action: Action::ToggleColorScheme,
+                            ..Default::default()
+                    }),
+                    mode: KeybindMode::Start,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
                     key: Some(Key::Character(String::from("m"))),
                     modifiers: None, 
                     action_payload: Some(
@@ -493,6 +508,34 @@ impl Default for VMInputManager {
                             ..Default::default()
                     }),
                     mode: KeybindMode::Sheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("`"))),
+                    modifiers: None, 
+                    action_payload: Some(
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Sheet),
+                            ..Default::default()
+                    }),
+                    mode: KeybindMode::Move,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("@"))),
+                    modifiers: None, 
+                    action_payload: Some(
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Sheet),
+                            ..Default::default()
+                    }),
+                    mode: KeybindMode::Move,
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -653,6 +696,28 @@ impl VMInputManager {
             return None;
         } 
         match self.mode {
+            KeybindMode::Start => {
+                let keybinds = self.keybinds.clone();
+                for keybind in keybinds {
+                    if Some(event.key.clone()) == keybind.key && keybind.mode == self.mode {
+                        if event.mods.alt() || event.mods.ctrl() {
+                            if let Some(mods) = keybind.modifiers {
+                                if event.mods.contains(mods) {
+                                    self.clear_timeout();
+                                    return Some(keybind.action_payload.clone().unwrap());
+                                }
+                            }
+                        } else {
+                            self.clear_timeout();
+                            return Some(keybind.action_payload.clone().unwrap());
+                        }
+                    }
+                }
+                return None;
+            },
+            KeybindMode::Dialog => {
+                return None;
+            },
             KeybindMode::Sheet => {
                 self.set_new_timeout(ctx);
                 let keybinds = self.keybinds.clone();
@@ -690,7 +755,6 @@ impl VMInputManager {
                 }
                 return None;
             },
-            KeybindMode::EditBrowse => todo!(),
             KeybindMode::Move => {
                 let keybinds = self.keybinds.clone();
                 for keybind in keybinds {
@@ -791,8 +855,15 @@ impl VMInputManager {
                     return None;
                 }
             },
-            KeybindMode::Edit => todo!(),
-            KeybindMode::SearchedSheet => todo!(),
+            KeybindMode::Edit => {
+                return None;
+            },
+            KeybindMode::EditBrowse => {
+                return None;
+            },
+            KeybindMode::SearchedSheet => {
+                return None;
+            },
             KeybindMode::SearchBuild => {
                 if let Key::Character(character) = event.key {
                     if event.mods.alt() || event.mods.ctrl() {
@@ -811,8 +882,14 @@ impl VMInputManager {
                     if self.string == "/".to_string() {
                         self.clear_build();
                         self.clear_timeout();
-                        self.set_keybind_mode(KeybindMode::Sheet);
-                        return None;
+                        // self.set_keybind_mode(KeybindMode::Sheet);
+                        return Some(
+                            ActionPayload {
+                                action: Action::ChangeMode,
+                                mode: Some(KeybindMode::Sheet),
+                                ..Default::default()
+                            }
+                        );
                     } else {
                         self.string.pop();
                         return Some(
@@ -827,13 +904,23 @@ impl VMInputManager {
                 } else if let Key::Enter = event.key {
                     self.clear_build();
                     self.clear_timeout();
-                    self.set_keybind_mode(KeybindMode::SearchedSheet);
-                    return None;
+                    return Some(
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::SearchedSheet),
+                            ..Default::default()
+                        }
+                    );
                 } else {
                     self.clear_build();
                     self.clear_timeout();
-                    self.set_keybind_mode(KeybindMode::Sheet);
-                    return None;
+                    return Some(
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Sheet),
+                            ..Default::default()
+                        }
+                    );
                 }
             },
         }
@@ -896,6 +983,12 @@ impl VMInputManager {
     pub fn set_keybind_mode(&mut self, mode: KeybindMode) {
         println!("Changing mode to {:?}", mode);
         match mode {
+            KeybindMode::Start => {
+
+            }
+            KeybindMode::Dialog => {
+
+            }
             KeybindMode::Sheet => {
                 self.string = String::from("");
             },
@@ -903,17 +996,23 @@ impl VMInputManager {
 
             },
             KeybindMode::Move => {
-                self.string = String::from("<MOVE>");
+                self.string = String::from("<move>");
             },
-            KeybindMode::EditBrowse => todo!(),
+            KeybindMode::EditBrowse => {
+                self.string = String::from("<edit>");
+            },
             KeybindMode::Jump => {
                 self.string = String::from("'");
             },
             KeybindMode::Mark => {
                 self.string = String::from("m");
             },
-            KeybindMode::Edit => todo!(),
-            KeybindMode::SearchedSheet => todo!(),
+            KeybindMode::Edit => {
+                self.string = String::from("<insert>");
+            },
+            KeybindMode::SearchedSheet => {
+                self.string = String::from("<search>");
+            }
             KeybindMode::SearchBuild => {
                 self.string = String::from("/");
             }

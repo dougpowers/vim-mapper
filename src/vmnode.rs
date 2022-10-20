@@ -14,7 +14,7 @@
 use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::Selection, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::{TranslateScale}, Point, FontFamily, FontWeight, Color};
 use force_graph::DefaultNodeIdx;
 
-use crate::{constants::*, vmconfig::VMConfig};
+use crate::{constants::*, vmconfig::*};
 
 //Position on the node to paint a badge. Format YposXpos. Only corners are guaranteed to have space 
 // on the layout
@@ -103,23 +103,25 @@ impl VMNode {
             let border = druid::piet::kurbo::RoundedRect::from_rect(rect, DEFAULT_BORDER_RADIUS);
             //Cache this node's screen space-transformed rect
             self.node_rect = Some(ctx.current_transform().transform_rect_bbox(rect).clone());
-            let mut border_color = config.get_color("node-border-color".to_string()).ok().expect("node border color not found in config");
+            let mut border_color = config.get_color(VMColor::NodeBorderColor).ok().expect("node border color not found in config");
             if self.is_active {
-                border_color = config.get_color("active-node-border-color".to_string()).ok().expect("active node border color not found in config");
+                border_color = config.get_color(VMColor::ActiveNodeBorderColor).ok().expect("active node border color not found in config");
             } else if let Some(idx) = target {
                 if idx == self.index {
-                    border_color = config.get_color("target-node-border-color".to_string()).ok().expect("target node border color not found in config");
+                    border_color = config.get_color(VMColor::TargetNodeBorderColor).ok().expect("target node border color not found in config");
                 }
             }
 
             let badge_border_color = border_color.clone();
             let mut container = self.container.layout.clone();
-            let border_background = config.get_color("node-background-color".to_string()).ok().expect("Node background color not found in config");
-            ctx.paint_with_z_index(z_index, move |ctx| {
-                ctx.stroke(border, &border_color, DEFAULT_BORDER_WIDTH);
-                ctx.fill(border, &border_background);
-                ctx.draw_text(container.as_mut().unwrap(), Point::new(0.0, 0.0));
-            });
+            let border_background = config.get_color(VMColor::NodeBackgroundColor).ok().expect("Node background color not found in config");
+            if enabled {
+                ctx.paint_with_z_index(z_index, move |ctx| {
+                    ctx.stroke(border, &border_color, DEFAULT_BORDER_WIDTH);
+                    ctx.fill(border, &border_background);
+                    ctx.draw_text(container.as_mut().unwrap(), Point::new(0.0, 0.0));
+                });
+            }
 
             if let Some(char) = self.mark.clone() {
                 self.paint_node_badge(ctx, z_index, enabled, config, &char, BadgePosition::TopRight, &rect, &badge_border_color);
@@ -207,11 +209,11 @@ impl VMNode {
         let layout = ctx.text()
         .new_text_layout(character.clone())
         .font(FontFamily::SANS_SERIF, 12.)
-        .text_color(config.get_color("label-text-color".to_string()).ok().expect("label text color not found in config"))
+        .text_color(config.get_color(VMColor::LabelTextColor).ok().expect("label text color not found in config"))
         .build().unwrap();
         ctx.with_save(move |ctx| {
             let circle = druid::piet::kurbo::Circle::new(mark_point.to_point().clone(), layout.size().max_side()/1.8);
-            let background_color = config.get_color("node-background-color".to_string()).ok().expect("badge background color not found in config");
+            let background_color = config.get_color(VMColor::NodeBackgroundColor).ok().expect("badge background color not found in config");
             let badge_border_color = border_color.clone();
             ctx.with_save(|ctx| {
                 ctx.paint_with_z_index(z_index, move |ctx| {

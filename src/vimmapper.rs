@@ -20,7 +20,6 @@ use force_graph::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::{prelude::*, SvgData, Svg};
 use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
 use std::collections::HashMap;
-use std::str::SplitWhitespace;
 
 use crate::vminput::*;
 use crate::vmnode::{VMEdge, VMNode, VMNodeEditor, VMNodeLayoutContainer};
@@ -170,7 +169,7 @@ pub struct BareEdge {
 }
 
 #[derive(Clone, PartialEq)]
-enum NodeRenderMode {
+pub enum NodeRenderMode {
     OnlyTargetsEnabled,
     AllEnabled,
 }
@@ -370,6 +369,14 @@ impl VimMapper {
         save
     }
 
+    pub fn set_render_mode(&mut self, mode: NodeRenderMode) {
+        self.node_render_mode = mode;
+    }
+
+    pub fn get_render_mode(&mut self) -> NodeRenderMode {
+        self.node_render_mode.clone()
+    }
+
     fn build_target_list_from_neighbors(&mut self, idx: u16) {
         self.target_list.clear();
         self.target_idx = None;
@@ -426,8 +433,9 @@ impl VimMapper {
 
         //Offset the new node from its progenitor to keep the ForceGraph from applying too-great repulsion
         // forces.
-        let x_offset = (rand::random::<f64>()-0.5) * 10.0;
-        let y_offset = (rand::random::<f64>()-0.5) * 10.0;
+        // let x_offset = (rand::random::<f64>()-0.5) + self.graph.parameters.min_attract_distance;
+        // let y_offset = (rand::random::<f64>()-0.5) + self.graph.parameters.min_attract_distance;
+        let offset_vec = Vec2::new(rand::random::<f64>()-0.5, rand::random::<f64>()-0.5) * self.graph.parameters.min_attract_distance;
         match from_node {
             //Nodes must be added from an existing node.
             Some(from_node) => {
@@ -435,7 +443,7 @@ impl VimMapper {
                     label: node_label.clone(),
                     edges: Vec::with_capacity(10),
                     index: new_node_idx,
-                    pos: Vec2::new(from_node.pos.x + x_offset, from_node.pos.y + y_offset),
+                    pos: Vec2::new(from_node.pos.x + offset_vec.x, from_node.pos.y + offset_vec.y),
                     container: VMNodeLayoutContainer::new(new_node_idx),
                     ..Default::default()
                 };
@@ -843,7 +851,7 @@ impl VimMapper {
 
         if let Ok(layout) = ctx.text().new_text_layout(text.clone())
         .font(FontFamily::SANS_SERIF, font_size)
-        .text_color(config.get_color("label-text-color".to_string()).ok().expect("label text color not found in config"))
+        .text_color(config.get_color(VMColor::LabelTextColor).ok().expect("label text color not found in config"))
         .max_width(max_width)
         .build() {
             if bc.contains(layout.size()) {
@@ -856,7 +864,7 @@ impl VimMapper {
         loop {
             if let Ok(built) = ctx.text().new_text_layout(text.clone()) 
             .font(FontFamily::SANS_SERIF, font_size)
-            .text_color(config.get_color("label-text-color".to_string()).ok().expect("label text color not found in config"))
+            .text_color(config.get_color(VMColor::LabelTextColor).ok().expect("label text color not found in config"))
             .max_width(max_width)
             .build() {
                 layout = built;
@@ -923,7 +931,7 @@ impl<'a> Widget<()> for VimMapper {
             Event::AnimFrame(_interval) => {
                 if self.is_hot && self.animating {
                     // for _ in 0..5 {
-                        self.graph.update(0.032);
+                        self.graph.update(DEFAULT_UPDATE_DELTA);
                     // }
                     self.update_node_coords();
                     ctx.request_anim_frame();
@@ -1009,18 +1017,18 @@ impl<'a> Widget<()> for VimMapper {
                 ctx.set_handled();
                 ctx.request_anim_frame();
             }
-            Event::Notification(note) if note.is(SUBMIT_CHANGES) => {
-                self.close_editor(ctx, true);
-                //Node has new label; invalidate layout
-                self.nodes.get_mut(&self.get_active_node_idx().unwrap()).unwrap().container.layout = None;
-                ctx.set_handled();
-                ctx.request_anim_frame();
-            }
-            Event::Notification(note) if note.is(CANCEL_CHANGES) => {
-                self.close_editor(ctx, false);
-                ctx.set_handled();
-                ctx.request_anim_frame();
-            }
+            // Event::Notification(note) if note.is(SUBMIT_CHANGES) => {
+            //     self.close_editor(ctx, true);
+            //     //Node has new label; invalidate layout
+            //     self.nodes.get_mut(&self.get_active_node_idx().unwrap()).unwrap().container.layout = None;
+            //     ctx.set_handled();
+            //     ctx.request_anim_frame();
+            // }
+            // Event::Notification(note) if note.is(CANCEL_CHANGES) => {
+            //     self.close_editor(ctx, false);
+            //     ctx.set_handled();
+            //     ctx.request_anim_frame();
+            // }
             Event::Notification(note) if note.is(TAKE_FOCUS) => {
                 if !self.node_editor.is_visible {
                     self.node_editor.container.event(ctx, event, &mut self.node_editor.title_text, _env);
@@ -1028,7 +1036,9 @@ impl<'a> Widget<()> for VimMapper {
                 ctx.request_anim_frame();
             }
             Event::Command(note) if note.is(REFRESH) => {
+                println!("Received REFRESH command");
                 self.invalidate_node_layouts();
+                ctx.request_update();
                 ctx.request_layout();
                 ctx.request_anim_frame();
                 ctx.set_handled();
@@ -1061,13 +1071,13 @@ impl<'a> Widget<()> for VimMapper {
                             }
                         }
                         Action::CreateNewNode => todo!(),
-                        Action::CreateNewNodeAndEdit => {
-                            if let Some(idx) = self.get_active_node_idx() {
-                                if let Some(new_idx) = self.add_node(idx, format!("New label"), None) {
-                                    self.open_editor(ctx, new_idx);
-                                }
-                            }
-                        }
+                        // Action::CreateNewNodeAndEdit => {
+                        //     if let Some(idx) = self.get_active_node_idx() {
+                        //         if let Some(new_idx) = self.add_node(idx, format!("New label"), None) {
+                        //             self.open_editor(ctx, new_idx);
+                        //         }
+                        //     }
+                        // }
                         Action::ActivateTargetedNode => {
                             if let Some(idx) = self.target_idx {
                                 if let Some(node_idx) = self.get_non_active_node_from_edge(self.target_list[idx]) {
@@ -1077,11 +1087,11 @@ impl<'a> Widget<()> for VimMapper {
                                 }
                             }
                         }
-                        Action::EditActiveNodeSelectAll => {
-                            if let Some(idx) = self.get_active_node_idx() {
-                                self.open_editor(ctx, idx);
-                            }
-                        }
+                        // Action::EditActiveNodeSelectAll => {
+                        //     if let Some(idx) = self.get_active_node_idx() {
+                        //         self.open_editor(ctx, idx);
+                        //     }
+                        // }
                         Action::EditActiveNodeAppend => todo!(),
                         Action::EditActiveNodeInsert => todo!(),
                         Action::DeleteActiveNode => {
@@ -1162,6 +1172,7 @@ impl<'a> Widget<()> for VimMapper {
                         }
                         Action::SearchNodes => {
                             println!("Building search list with string {}", payload.string.clone().unwrap());
+                            self.node_render_mode = NodeRenderMode::OnlyTargetsEnabled;
                         },
                         Action::PanUp => {
                             self.offset_y += payload.float.unwrap();
@@ -1278,7 +1289,7 @@ impl<'a> Widget<()> for VimMapper {
         let ctx_rect = ctx_size.to_rect();
         self.canvas_rect = Some(ctx_rect.clone());
         //Fill the canvas with background
-        ctx.fill(ctx_rect, &self.config.get_color("sheet-background-color".to_string()).ok().expect("sheet background color not found"));
+        ctx.fill(ctx_rect, &self.config.get_color(VMColor::SheetBackgroundColor).ok().expect("sheet background color not found"));
 
         //Draw click events, collision rects, and system palette
         if self.debug_visuals {
@@ -1322,7 +1333,7 @@ impl<'a> Widget<()> for VimMapper {
             ctx.with_save(|ctx| {
                 ctx.transform(Affine::from(self.translate));
                 ctx.transform(Affine::from(self.scale));
-                ctx.stroke(path, &self.config.get_color("edge-color".to_string()).ok().expect("edge color not found in config"), DEFAULT_EDGE_WIDTH);
+                ctx.stroke(path, &self.config.get_color(VMColor::EdgeColor).ok().expect("edge color not found in config"), DEFAULT_EDGE_WIDTH);
                 //If debug_data is enabled, display edge indices halfway along the edge
                 if self.debug_data {
                     //Translate half-way along edge
@@ -1355,22 +1366,22 @@ impl<'a> Widget<()> for VimMapper {
                     }
                 }
             }
-            // if Some(node.index) == target_node {
-                node.paint_node(
-                    ctx, 
-                    {
-                        match node.index {
-                            i if Some(i) == active_node => 1,
-                            i if Some(i) == target_node => 2,
-                            _ => 0,
-                        }
-                    },
-                    enabled,
-                    &self.config, 
-                    target_node, 
-                    &self.translate, 
-                    &self.scale, 
-                    self.debug_data); 
+
+            node.paint_node(
+                ctx, 
+                {
+                    match node.index {
+                        i if Some(i) == active_node => 1,
+                        i if Some(i) == target_node => 2,
+                        _ => 0,
+                    }
+                },
+                enabled,
+                &self.config, 
+                target_node, 
+                &self.translate, 
+                &self.scale, 
+                self.debug_data); 
         });
 
         //Paint editor dialog
