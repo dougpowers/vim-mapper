@@ -336,6 +336,8 @@ impl VimMapper {
             node_render_mode: NodeRenderMode::AllEnabled,
         };
         vm.set_node_as_active(0);
+        vm.build_target_list_from_neighbors(0);
+        vm.cycle_target_forward();
         vm
     }
 
@@ -410,17 +412,25 @@ impl VimMapper {
             sort_vec.push((new_target_node_idx, angle));
             // self.target_node_list.push(new_target_node_idx);
         }
-        for i in 0..sort_vec.len() {
-            sort_vec[i].1 += std::f64::consts::FRAC_PI_2;
-            if sort_vec[i].1 < 0. {sort_vec[i].1 += std::f64::consts::PI*2.}
-        }
-        sort_vec.sort_unstable_by(|a1, a2| {
-            if a1.1 > a2.1 {
-                std::cmp::Ordering::Greater
-            } else {
-                std::cmp::Ordering::Less
+        if !sort_vec.is_empty() {
+            for i in 0..sort_vec.len() {
+                sort_vec[i].1 += std::f64::consts::FRAC_PI_2;
+                if sort_vec[i].1 < 0. {sort_vec[i].1 += std::f64::consts::PI*2.}
             }
-        });
+            sort_vec.sort_unstable_by(|a1, a2| {
+                if a1.1 > a2.1 {
+                    std::cmp::Ordering::Greater
+                } else {
+                    std::cmp::Ordering::Less
+                }
+            });
+            let len = sort_vec.len();
+            if sort_vec[0].1 > std::f64::consts::TAU-sort_vec[len-1].1 {
+                let mut el = vec![sort_vec.pop().unwrap()];
+                el.append(&mut sort_vec);
+                sort_vec = el;
+            }
+        }
         for i in sort_vec {
             self.target_node_list.push(i.0);
         }
@@ -441,6 +451,16 @@ impl VimMapper {
         if self.target_node_list.len() > 0 {
             self.target_node_idx = Some(0);
         }
+    }
+
+    pub fn target_node_if_listed(&mut self, target: u16) -> Result<(), String> {
+        for (list_idx, idx) in self.target_node_list.iter().enumerate() {
+            if *idx == target {
+                self.target_node_idx = Some(list_idx);
+                return Ok(());
+            }
+        }
+        return Err(String::from("specified node not in target list"));
     }
 
     pub fn get_target_list_length(&self) -> usize {
@@ -541,7 +561,13 @@ impl VimMapper {
             } 
         }
         if let Some(idx) = self.get_active_node_idx() {
-            self.build_target_list_from_neighbors(idx)
+            if let Some(target_idx) = self.target_node_idx {
+                let target = self.target_node_list[target_idx];
+                self.build_target_list_from_neighbors(idx);
+                let _ = self.target_node_if_listed(target);
+            } else {
+                self.build_target_list_from_neighbors(idx)
+            }
         }
         Some(new_node_idx)
     }
@@ -714,7 +740,6 @@ impl VimMapper {
 
     pub fn invalidate_node_layouts(&mut self) {
         self.nodes.iter_mut().for_each(|(_, node)| {
-            // node.container.layout = None;
             node.enabled_layout = None;
             node.disabled_layout = None;
             node.node_rect = None;
@@ -992,9 +1017,6 @@ impl<'a> Widget<()> for VimMapper {
                 if self.is_hot && self.animating {
                     self.graph.update(DEFAULT_UPDATE_DELTA);
                     self.update_node_coords();
-                    if let Some(active_idx) = self.get_active_node_idx() {
-                        self.build_target_list_from_neighbors(active_idx);
-                    }
                     ctx.request_anim_frame();
                 }
                 ctx.request_update();
@@ -1138,6 +1160,8 @@ impl<'a> Widget<()> for VimMapper {
                                 let node_idx = self.target_node_list[idx];
                                 self.invalidate_node_layouts();
                                 self.set_node_as_active(node_idx);
+                                self.build_target_list_from_neighbors(node_idx);
+                                self.cycle_target_forward();
                                 self.scroll_node_into_view(node_idx);
                                 ctx.set_handled();
                             }

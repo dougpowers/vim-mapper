@@ -268,7 +268,7 @@ impl Widget<()> for VMCanvas {
                             match payload.action {
                                 Action::CreateNewNode => {
                                     if let Some(idx) = inner.widget().get_active_node_idx() {
-                                        if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New label"), None) {
+                                        if let Some(_) = inner.widget_mut().add_node(idx, format!("New label"), None) {
                                             ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
                                         }
                                     }
@@ -309,14 +309,26 @@ impl Widget<()> for VMCanvas {
                                     ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
                                 },
                                 Action::ChangeMode => {
-                                    self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
                                     match payload.mode {
+                                        Some(KeybindMode::Move) => {
+                                            if let Some(inner) = &self.inner {
+                                                if let Some(active_idx) = inner.widget().get_active_node_idx() {
+                                                    if active_idx == 0 {
+                                                        ()
+                                                    } else {
+                                                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                                                    }
+                                                }
+                                            }
+                                        }
                                         Some(KeybindMode::SearchBuild) => {
+                                            self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
                                             if let Some(inner) = &mut self.inner {
                                                 inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                                             }
                                         },
                                         Some(KeybindMode::SearchedSheet) => {
+                                            self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
                                             if inner.widget().get_target_list_length() == 1 {
                                                 println!("Execute doubleaction.");
                                                 ctx.submit_command(EXECUTE_ACTION.with(
@@ -329,6 +341,7 @@ impl Widget<()> for VMCanvas {
                                             }
                                         }
                                         _ => {
+                                            self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
                                             if let Some(inner) = &mut self.inner {
                                                 inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
                                             }
