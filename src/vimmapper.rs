@@ -150,7 +150,7 @@ pub struct BareNode {
 impl Default for BareNode {
     fn default() -> Self {
         BareNode { 
-            label: "New label".to_string(),
+            label: DEFAULT_NEW_NODE_LABEL.to_string(),
             edges: vec![0], 
             index: 0, 
             pos: (0.,0.), 
@@ -1023,7 +1023,7 @@ impl<'a> Widget<()> for VimMapper {
             }
             Event::MouseDown(event) if event.button.is_right() => {
                 if let Some(idx) = self.does_point_collide(event.pos) {
-                    self.add_node(idx, "New label".to_string(), None);
+                    self.add_node(idx, DEFAULT_NEW_NODE_LABEL.to_string(), None);
                 }
                 ctx.request_anim_frame();
             }

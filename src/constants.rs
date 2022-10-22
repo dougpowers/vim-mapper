@@ -83,6 +83,7 @@ pub const CANCEL_CHANGES: Selector = Selector::new("cancel-changes");
 
 pub const REFRESH: Selector = Selector::new("refresh");
 
+pub const DEFAULT_NEW_NODE_LABEL: &str = "New node";
 pub const DEFAULT_SAVE_NAME: &str = "NewSheet.vmd";
 
 pub const DEFAULT_CONFIG_DIR_NAME: &str = "vim-mapper";
