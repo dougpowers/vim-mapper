@@ -705,51 +705,6 @@ impl VimMapper {
         idx
     }
 
-    //Iterate through the ForceGraph, updating the node HashMap to reflect the new positions.
-    // Calculate the stability of the graph in the process, setting self.animating to false if
-    // movement falls below the ANIMATION_MOVEMENT_THRESHOLD.
-    // pub fn update_node_coords(&mut self) -> () {
-    //     let mut update_largest_movement: f64 = 0.;
-    //     self.graph.visit_nodes(|fg_node| {
-    //         let node: Option<&mut VMNode> = self.nodes.get_mut(&fg_node.data.user_data);
-    //         match node {
-    //             Some(node) => {
-    //                 //Get the largest node movement (x or y) from the current update cycle
-    //                 if let Some(_) = self.largest_node_movement {
-    //                     let largest_movement: f64;
-    //                     if (node.pos.x - fg_node.x() as f64).abs() > (node.pos.y - fg_node.y() as f64).abs() {
-    //                         largest_movement = (node.pos.x-fg_node.x() as f64).abs();
-    //                     } else {
-    //                         largest_movement = (node.pos.y-fg_node.y() as f64).abs();
-    //                     }
-    //                     if largest_movement > update_largest_movement {
-    //                         update_largest_movement = largest_movement;
-    //                     }
-    //                     node.pos = Vec2::new(fg_node.x() as f64, fg_node.y() as f64);
-    //                 } else {
-    //                     if (node.pos.x - fg_node.x() as f64).abs() > (node.pos.y - fg_node.y() as f64).abs() {
-    //                         self.largest_node_movement = Some((node.pos.x-fg_node.x() as f64).abs());
-    //                     } else {
-    //                         self.largest_node_movement = Some((node.pos.y-fg_node.y() as f64).abs());
-    //                     }
-    //                 }
-    //                 //Update node mass and anchor in global node HashMap
-    //                 node.mass = fg_node.data.mass;
-    //                 node.anchored = fg_node.data.is_anchor;
-    //             }
-    //             None => {
-    //                 panic!("Attempted to update non-existent node coords from graph")
-    //             }
-    //         }
-    //     });
-    //     //If the largest movement this cycle exceeds an arbitrary const, stop animation and recomputation
-    //     // until there is a change in the graph structure
-    //     self.largest_node_movement = Some(update_largest_movement);
-    //     if self.largest_node_movement.unwrap() < ANIMATION_MOVEMENT_THRESHOLD {
-    //         self.animating = false;
-    //     }
-    // }
-
     pub fn invalidate_node_layouts(&mut self) {
         self.nodes.iter_mut().for_each(|(_, node)| {
             node.enabled_layout = None;
@@ -759,7 +714,7 @@ impl VimMapper {
     }
 
     pub fn increase_node_mass(&mut self, idx: u16) {
-        if let Some(node) = self.nodes.get(&idx) {
+        if let Some(node) = self.nodes.get_mut(&idx) {
             if let Some(fg_idx) = node.fg_index {
                 self.graph.visit_nodes_mut(|fg_node| {
                     if fg_node.index() == fg_idx {
@@ -768,6 +723,7 @@ impl VimMapper {
                         if fg_node.data.mass > DEFAULT_MASS_INCREASE_AMOUNT {
                             fg_node.data.mass = fg_node.data.mass.round();
                         }
+                        node.mass = fg_node.data.mass;
                     }
                 });
             }
@@ -775,7 +731,7 @@ impl VimMapper {
     }
 
     pub fn decrease_node_mass(&mut self, idx: u16) {
-        if let Some(node) = self.nodes.get(&idx) {
+        if let Some(node) = self.nodes.get_mut(&idx) {
             if let Some(fg_idx) = node.fg_index {
                 self.graph.visit_nodes_mut(|fg_node| {
                     if fg_node.index() == fg_idx {
@@ -790,6 +746,7 @@ impl VimMapper {
                             fg_node.data.mass -= DEFAULT_MASS_INCREASE_AMOUNT/100.;
                             self.animating = true;
                         }
+                        node.mass = fg_node.data.mass;
                     }
                 });
             }
@@ -797,12 +754,13 @@ impl VimMapper {
     }
 
     pub fn reset_node_mass(&mut self, idx: u16) {
-        if let Some(node) = self.nodes.get(&idx) {
+        if let Some(node) = self.nodes.get_mut(&idx) {
             if let Some(fg_idx) = node.fg_index {
                 self.graph.visit_nodes_mut(|fg_node| {
                     if fg_node.index() == fg_idx {
                         fg_node.data.mass = DEFAULT_NODE_MASS;
                         self.animating = true;
+                        node.mass = fg_node.data.mass;
                     }
                 });
             }
