@@ -189,7 +189,7 @@ impl VimMapper {
             label: DEFAULT_ROOT_LABEL.to_string(),
             edges: Vec::with_capacity(10),
             index: 0,
-            pos: Vec2::new(0.0, 0.0),
+            // pos: Vec2::new(0.0, 0.0),
             // container: VMNodeLayoutContainer::new(0),
             is_active: true,
             ..Default::default()
@@ -277,7 +277,7 @@ impl VimMapper {
                 edges: v.edges, 
                 index: v.index, 
                 fg_index: fg_index, 
-                pos: Vec2::new(v.pos.0, v.pos.1), 
+                // pos: Vec2::new(v.pos.0, v.pos.1), 
                 // container: VMNodeLayoutContainer::new(v.index), 
                 mark: v.mark,
                 ..Default::default()
@@ -347,11 +347,13 @@ impl VimMapper {
         let mut nodes: HashMap<u16, BareNode> = HashMap::with_capacity(50);
         let mut edges: HashMap<u16, BareEdge> = HashMap::with_capacity(100);
         self.nodes.iter().for_each(|(index, node)| {
+            let pos = self.get_node_pos(*index);
             nodes.insert(*index, BareNode {
                 label: node.label.clone(),
                 edges: node.edges.clone(),
                 index: node.index,
-                pos: (node.pos.x, node.pos.y),
+                // pos: (node.pos.x, node.pos.y),
+                pos: (pos.x, pos.y),
                 is_active: false,
                 targeted_internal_edge_idx: None,
                 mark: node.mark.clone(),
@@ -381,13 +383,18 @@ impl VimMapper {
     }
 
     pub fn set_render_mode(&mut self, mode: NodeRenderMode) {
-        println!("Setting render mode to {:?}", mode);
         self.node_render_mode = mode;
     }
 
     #[allow(dead_code)]
     pub fn get_render_mode(&mut self) -> NodeRenderMode {
         self.node_render_mode.clone()
+    }
+
+    fn get_node_pos(&self, idx: u16) -> Vec2 {
+        let node = self.nodes.get(&idx).expect("Tried to get position of a non-existent node");
+        let fg_node = &self.graph.get_graph()[node.fg_index.unwrap()];
+        return Vec2::new(fg_node.x(), fg_node.y());
     }
 
     fn build_target_list_from_neighbors(&mut self, idx: u16) {
@@ -400,6 +407,7 @@ impl VimMapper {
         self.target_node_list.clear();
         self.target_node_idx = None;
         let node = self.nodes.get(&idx).expect("Tried to build target list from non-existent node");
+        let node_pos = self.get_node_pos(node.index);
         let mut sort_vec: Vec<(u16, f64)> = vec![];
         for node_fg_idx in self.graph.get_graph().neighbors(
             node.fg_index.expect("Tried to get a non-existent fg_index from a node"))
@@ -407,8 +415,10 @@ impl VimMapper {
             let new_target_node_idx = self.graph.get_graph()[node_fg_idx].data.user_data;
 
             let target_node = self.nodes.get(&new_target_node_idx).unwrap();
+
+            let target_node_pos = self.get_node_pos(target_node.index);
             
-            let angle = Vec2::new(target_node.pos.x-node.pos.x, target_node.pos.y-node.pos.y).atan2();
+            let angle = Vec2::new(target_node_pos.x-node_pos.x, target_node_pos.y-node_pos.y).atan2();
             sort_vec.push((new_target_node_idx, angle));
             // self.target_node_list.push(new_target_node_idx);
         }
@@ -506,6 +516,7 @@ impl VimMapper {
         self.animating = true;
         let new_node_idx = self.increment_node_idx();
         let new_edge_idx = self.increment_edge_idx();
+        let from_node_pos = self.get_node_pos(from_idx);
         let from_node = self.nodes.get_mut(&from_idx);
 
         //Offset the new node from its progenitor to keep the ForceGraph from applying too-great repulsion
@@ -513,6 +524,7 @@ impl VimMapper {
         // let x_offset = (rand::random::<f64>()-0.5) + self.graph.parameters.min_attract_distance;
         // let y_offset = (rand::random::<f64>()-0.5) + self.graph.parameters.min_attract_distance;
         let offset_vec = Vec2::new(rand::random::<f64>()-0.5, rand::random::<f64>()-0.5) * self.graph.parameters.min_attract_distance;
+        let new_node_pos = Vec2::new(from_node_pos.x + offset_vec.x, from_node_pos.y + offset_vec.y);
         match from_node {
             //Nodes must be added from an existing node.
             Some(from_node) => {
@@ -520,7 +532,7 @@ impl VimMapper {
                     label: node_label.clone(),
                     edges: Vec::with_capacity(10),
                     index: new_node_idx,
-                    pos: Vec2::new(from_node.pos.x + offset_vec.x, from_node.pos.y + offset_vec.y),
+                    // pos: Vec2::new(from_node.pos.x + offset_vec.x, from_node.pos.y + offset_vec.y),
                     // container: VMNodeLayoutContainer::new(new_node_idx),
                     ..Default::default()
                 };
@@ -544,8 +556,8 @@ impl VimMapper {
                     } 
                 }
                 new_node.fg_index = Some(self.graph.add_node(NodeData {
-                    x: new_node.pos.x,
-                    y: new_node.pos.y,
+                    x: new_node_pos.x,
+                    y: new_node_pos.y,
                     user_data: new_node.index,
                     mass: DEFAULT_NODE_MASS,
                     ..Default::default()
@@ -696,47 +708,47 @@ impl VimMapper {
     //Iterate through the ForceGraph, updating the node HashMap to reflect the new positions.
     // Calculate the stability of the graph in the process, setting self.animating to false if
     // movement falls below the ANIMATION_MOVEMENT_THRESHOLD.
-    pub fn update_node_coords(&mut self) -> () {
-        let mut update_largest_movement: f64 = 0.;
-        self.graph.visit_nodes(|fg_node| {
-            let node: Option<&mut VMNode> = self.nodes.get_mut(&fg_node.data.user_data);
-            match node {
-                Some(node) => {
-                    //Get the largest node movement (x or y) from the current update cycle
-                    if let Some(_) = self.largest_node_movement {
-                        let largest_movement: f64;
-                        if (node.pos.x - fg_node.x() as f64).abs() > (node.pos.y - fg_node.y() as f64).abs() {
-                            largest_movement = (node.pos.x-fg_node.x() as f64).abs();
-                        } else {
-                            largest_movement = (node.pos.y-fg_node.y() as f64).abs();
-                        }
-                        if largest_movement > update_largest_movement {
-                            update_largest_movement = largest_movement;
-                        }
-                        node.pos = Vec2::new(fg_node.x() as f64, fg_node.y() as f64);
-                    } else {
-                        if (node.pos.x - fg_node.x() as f64).abs() > (node.pos.y - fg_node.y() as f64).abs() {
-                            self.largest_node_movement = Some((node.pos.x-fg_node.x() as f64).abs());
-                        } else {
-                            self.largest_node_movement = Some((node.pos.y-fg_node.y() as f64).abs());
-                        }
-                    }
-                    //Update node mass and anchor in global node HashMap
-                    node.mass = fg_node.data.mass;
-                    node.anchored = fg_node.data.is_anchor;
-                }
-                None => {
-                    panic!("Attempted to update non-existent node coords from graph")
-                }
-            }
-        });
-        //If the largest movement this cycle exceeds an arbitrary const, stop animation and recomputation
-        // until there is a change in the graph structure
-        self.largest_node_movement = Some(update_largest_movement);
-        if self.largest_node_movement.unwrap() < ANIMATION_MOVEMENT_THRESHOLD {
-            self.animating = false;
-        }
-    }
+    // pub fn update_node_coords(&mut self) -> () {
+    //     let mut update_largest_movement: f64 = 0.;
+    //     self.graph.visit_nodes(|fg_node| {
+    //         let node: Option<&mut VMNode> = self.nodes.get_mut(&fg_node.data.user_data);
+    //         match node {
+    //             Some(node) => {
+    //                 //Get the largest node movement (x or y) from the current update cycle
+    //                 if let Some(_) = self.largest_node_movement {
+    //                     let largest_movement: f64;
+    //                     if (node.pos.x - fg_node.x() as f64).abs() > (node.pos.y - fg_node.y() as f64).abs() {
+    //                         largest_movement = (node.pos.x-fg_node.x() as f64).abs();
+    //                     } else {
+    //                         largest_movement = (node.pos.y-fg_node.y() as f64).abs();
+    //                     }
+    //                     if largest_movement > update_largest_movement {
+    //                         update_largest_movement = largest_movement;
+    //                     }
+    //                     node.pos = Vec2::new(fg_node.x() as f64, fg_node.y() as f64);
+    //                 } else {
+    //                     if (node.pos.x - fg_node.x() as f64).abs() > (node.pos.y - fg_node.y() as f64).abs() {
+    //                         self.largest_node_movement = Some((node.pos.x-fg_node.x() as f64).abs());
+    //                     } else {
+    //                         self.largest_node_movement = Some((node.pos.y-fg_node.y() as f64).abs());
+    //                     }
+    //                 }
+    //                 //Update node mass and anchor in global node HashMap
+    //                 node.mass = fg_node.data.mass;
+    //                 node.anchored = fg_node.data.is_anchor;
+    //             }
+    //             None => {
+    //                 panic!("Attempted to update non-existent node coords from graph")
+    //             }
+    //         }
+    //     });
+    //     //If the largest movement this cycle exceeds an arbitrary const, stop animation and recomputation
+    //     // until there is a change in the graph structure
+    //     self.largest_node_movement = Some(update_largest_movement);
+    //     if self.largest_node_movement.unwrap() < ANIMATION_MOVEMENT_THRESHOLD {
+    //         self.animating = false;
+    //     }
+    // }
 
     pub fn invalidate_node_layouts(&mut self) {
         self.nodes.iter_mut().for_each(|(_, node)| {
@@ -844,6 +856,7 @@ impl VimMapper {
             let affine_scale = Affine::scale(self.scale.as_tuple().1);
             let affine_translate = Affine::translate(self.translate.as_tuple().0);
             let node = item.1;
+            let node_pos = &self.get_node_pos(node.index).clone();
             // let size = node.container.layout.as_ref().unwrap().size();
             let size = node.enabled_layout.as_ref().unwrap().size();
             let mut rect = size.to_rect();
@@ -851,13 +864,13 @@ impl VimMapper {
             rect = rect.inflate(border*2.0,border*2.0);
             let pos_translate = Affine::translate(
                 (affine_scale * (
-                    node.pos - Vec2::new(size.width/2.0, size.height/2.0)
+                    *node_pos - Vec2::new(size.width/2.0, size.height/2.0)
                 ).to_point()).to_vec2()
             );
             rect = affine_scale.transform_rect_bbox(rect);
             rect = (affine_translate).transform_rect_bbox(rect);
             rect = (pos_translate).transform_rect_bbox(rect);
-            self.last_collision_rects.push(rect);
+            // self.last_collision_rects.push(rect);
             if rect.contains(point) {
                 add_to_index = Some(node.index);
             }
@@ -1015,9 +1028,12 @@ impl<'a> Widget<()> for VimMapper {
         match event {
             Event::AnimFrame(_interval) => {
                 if self.is_hot && self.animating {
-                    self.graph.update(DEFAULT_UPDATE_DELTA);
-                    self.update_node_coords();
+                    self.largest_node_movement = Some(self.graph.update(DEFAULT_UPDATE_DELTA));
+                    // self.update_node_coords();
                     ctx.request_anim_frame();
+                    if self.largest_node_movement < Some(ANIMATION_MOVEMENT_THRESHOLD) {
+                        self.animating = false;
+                    }
                 }
                 ctx.request_update();
                 ctx.request_layout();
@@ -1120,7 +1136,6 @@ impl<'a> Widget<()> for VimMapper {
                 ctx.request_anim_frame();
             }
             Event::Command(note) if note.is(REFRESH) => {
-                println!("Received REFRESH command");
                 self.invalidate_node_layouts();
                 ctx.request_update();
                 ctx.request_layout();
@@ -1234,14 +1249,16 @@ impl<'a> Widget<()> for VimMapper {
                         Action::TargetNode => todo!(),
                         Action::CenterNode => {
                             let node = self.nodes.get(&payload.index.unwrap()).expect("Tried to center a non-existent node.");
-                            self.offset_x = node.pos.x;
-                            self.offset_y = node.pos.y;
+                            let node_pos = self.get_node_pos(node.index);
+                            self.offset_x = node_pos.x;
+                            self.offset_y = node_pos.y;
                         }
                         Action::CenterActiveNode => {
                             if let Some(active_idx) = self.get_active_node_idx() {
                                 let node = self.nodes.get(&active_idx).expect("Tried to get non-existent active node.");
-                                self.offset_x = -1. * node.pos.x;
-                                self.offset_y = -1. * node.pos.y;
+                                let node_pos = self.get_node_pos(node.index);
+                                self.offset_x = -1. * node_pos.x;
+                                self.offset_y = -1. * node_pos.y;
                             }
                         }
                         Action::SearchNodes => {
@@ -1366,7 +1383,8 @@ impl<'a> Widget<()> for VimMapper {
         if let Some(idx) = self.get_active_node_idx() {
             let node = self.nodes.get(&idx).unwrap();
             let size = node.enabled_layout.as_ref().unwrap().size().clone();
-            let bottom_left = Point::new(node.pos.x-(size.width/2.), node.pos.y+(size.height/2.)+DEFAULT_BORDER_WIDTH);
+            let node_pos = self.get_node_pos(node.index);
+            let bottom_left = Point::new(node_pos.x-(size.width/2.), node_pos.y+(size.height/2.)+DEFAULT_BORDER_WIDTH);
             self.node_editor.container.set_origin(ctx, &self.node_editor.title_text, _env, self.translate*self.scale*bottom_left);
         } else {
             self.node_editor.container.set_origin(ctx, &self.node_editor.title_text, _env, Point::new(0., 0.));
@@ -1419,6 +1437,8 @@ impl<'a> Widget<()> for VimMapper {
         self.graph.visit_nodes(|fg_node| {
             let node = self.nodes.get_mut(&fg_node.data.user_data)
             .expect("Expected non-option node in paint loop.");
+            // let node_pos = self.get_node_pos(node.index).clone();
+            let node_pos = Vec2::new(self.graph.get_graph()[node.fg_index.unwrap()].x(), self.graph.get_graph()[node.fg_index.unwrap()].y());
             let mut enabled = true;
             if self.node_render_mode == NodeRenderMode::OnlyTargetsEnabled {
                 enabled = false;
@@ -1437,6 +1457,7 @@ impl<'a> Widget<()> for VimMapper {
                         enabled,
                         &self.config, 
                         target_node, 
+                        node_pos,
                         &self.translate, 
                         &self.scale, 
                         self.debug_data); 
@@ -1476,12 +1497,14 @@ impl<'a> Widget<()> for VimMapper {
                     false
                 }
             };
+            let active_node_pos = self.get_node_pos(active_idx);
             self.nodes.get_mut(&active_idx).unwrap().paint_node(
                         ctx, 
                         0,
                         enabled,
                         &self.config, 
                         target_node, 
+                        active_node_pos,
                         &self.translate, 
                         &self.scale, 
                         self.debug_data); 
@@ -1503,12 +1526,14 @@ impl<'a> Widget<()> for VimMapper {
                     false
                 }
             };
+            let target_node_pos = self.get_node_pos(target_idx);
             self.nodes.get_mut(&target_idx).unwrap().paint_node(
                         ctx, 
                         0,
                         enabled,
                         &self.config, 
                         target_node, 
+                        target_node_pos,
                         &self.translate, 
                         &self.scale, 
                         self.debug_data); 

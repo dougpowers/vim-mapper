@@ -36,7 +36,7 @@ pub struct VMNode {
     pub edges: Vec<u16>,
     pub index: u16,
     pub fg_index: Option<DefaultNodeIdx>,
-    pub pos: Vec2,
+    // pub pos: Vec2,
     pub enabled_layout: Option<PietTextLayout>,
     pub disabled_layout: Option<PietTextLayout>,
     pub is_active: bool,
@@ -55,7 +55,7 @@ impl Default for VMNode {
             edges: Vec::with_capacity(10),
             index: 0,
             fg_index: None,
-            pos: Vec2::new(0.0, 0.0),
+            // pos: Vec2::new(0.0, 0.0),
             // container: VMNodeLayoutContainer::new(0),
             enabled_layout: None,
             disabled_layout: None,
@@ -86,6 +86,7 @@ impl VMNode {
         enabled: bool,
         config: &VMConfig, 
         target: Option<u16>,
+        pos: Vec2,
         translate: &TranslateScale,
         scale: &TranslateScale,
         debug_data: bool,
@@ -98,7 +99,7 @@ impl VMNode {
             ctx.transform(Affine::from(*translate));
             ctx.transform(Affine::from(*scale));
             ctx.transform(Affine::from(TranslateScale::new(-1.0*(label_size.to_vec2())/2.0, 1.0)));
-            ctx.transform(Affine::from(TranslateScale::new(self.pos, 1.0)));
+            ctx.transform(Affine::from(TranslateScale::new(pos, 1.0)));
             let rect = label_size.to_rect().inflate(DEFAULT_BORDER_WIDTH, DEFAULT_BORDER_WIDTH);
             let border = druid::piet::kurbo::RoundedRect::from_rect(rect, DEFAULT_BORDER_RADIUS);
             //Cache this node's screen space-transformed rect

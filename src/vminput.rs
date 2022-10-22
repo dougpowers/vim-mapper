@@ -1102,7 +1102,6 @@ impl VMInputManager {
     }
 
     pub fn set_keybind_mode(&mut self, mode: KeybindMode) {
-        println!("Changing mode to {:?}", mode);
         match mode {
             KeybindMode::Start => {
 

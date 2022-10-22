@@ -246,7 +246,6 @@ impl Widget<()> for VMCanvas {
                 for payload in &payloads {
                     if let Some(payload) = payload {
                         if payload.action == Action::ToggleColorScheme {
-                            println!("{:?}", payload.action);
                             self.config.toggle_color_scheme();
                             self.config.save();
                             if let Some(vm) = &mut self.inner {
@@ -330,7 +329,6 @@ impl Widget<()> for VMCanvas {
                                         Some(KeybindMode::SearchedSheet) => {
                                             self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
                                             if inner.widget().get_target_list_length() == 1 {
-                                                println!("Execute doubleaction.");
                                                 ctx.submit_command(EXECUTE_ACTION.with(
                                                     ActionPayload {
                                                         action: Action::ActivateTargetedNode,
