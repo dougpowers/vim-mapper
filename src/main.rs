@@ -18,6 +18,7 @@ use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Comm
 use druid::piet::{Text, TextLayout, TextLayoutBuilder};
 use std::fs;
 use std::path::{PathBuf, Path};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 mod vmnode;
 
@@ -40,6 +41,7 @@ struct VMCanvas {
     path: Option<PathBuf>,
     config: VMConfig,
     input_manager: VMInputManager,
+    last_frame_time: u128,
 }
 
 impl VMCanvas {
@@ -51,6 +53,7 @@ impl VMCanvas {
             path: None,
             config,
             input_manager: VMInputManager::new(),
+            last_frame_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
         }
     }
 
@@ -239,106 +242,128 @@ impl Widget<()> for VMCanvas {
                 }
             }
             Event::KeyDown(key_event) => {
-                let payload = self.input_manager.accept_key(key_event.clone(), ctx);
-                if let Some(payload) = &payload {
-                    if payload.action == Action::ToggleColorScheme {
-                        println!("{:?}", payload.action);
-                        self.config.toggle_color_scheme();
-                        self.config.save();
-                        if let Some(vm) = &mut self.inner {
-                            vm.widget_mut().set_config(self.config.clone());
-                            ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
-                        }
-                        self.dialog = VMCanvas::make_dialog(&self.config);
-                        ctx.children_changed();
-                        ctx.request_layout();
-                        ctx.request_paint();
-                        ctx.set_handled();
-                    }
-                }
-                if let Some(inner) = &mut self.inner {
-                    if !inner.widget().is_editor_open() {
-                        if let Some(payload) = payload {
-                            if payload.action != Action::ChangeModeWithTimeoutRevert {
-                                self.input_manager.clear_timeout();
+                let payloads = self.input_manager.accept_key(key_event.clone(), ctx);
+                for (_, payload) in payloads.iter().enumerate() {
+                    if let Some(payload) = payload {
+                        if payload.action == Action::ToggleColorScheme {
+                            println!("{:?}", payload.action);
+                            self.config.toggle_color_scheme();
+                            self.config.save();
+                            if let Some(vm) = &mut self.inner {
+                                vm.widget_mut().set_config(self.config.clone());
+                                ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
                             }
-                            match payload.action {
-                                Action::CreateNewNodeAndEdit => {
-                                    if let Some(idx) = inner.widget().get_active_node_idx() {
-                                        if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New label"), None) {
+                            self.dialog = VMCanvas::make_dialog(&self.config);
+                            ctx.children_changed();
+                            ctx.request_layout();
+                            ctx.request_paint();
+                            ctx.set_handled();
+                        }
+                    }
+                    if let Some(inner) = &mut self.inner {
+                        if !inner.widget().is_editor_open() {
+                            if let Some(payload) = payload {
+                                if payload.action != Action::ChangeModeWithTimeoutRevert {
+                                    self.input_manager.clear_timeout();
+                                }
+                                match payload.action {
+                                    Action::CreateNewNodeAndEdit => {
+                                        if let Some(idx) = inner.widget().get_active_node_idx() {
+                                            if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New label"), None) {
+                                                self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
+                                                inner.widget_mut().open_editor(ctx, new_idx);
+                                                ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                                                ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Auto));
+                                            }
+                                        }
+                                    },
+                                    Action::EditActiveNodeSelectAll => {
+                                        if let Some(idx) = inner.widget().get_active_node_idx() {
                                             self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
-                                            inner.widget_mut().open_editor(ctx, new_idx);
+                                            inner.widget_mut().open_editor(ctx, idx);
                                             ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
                                             ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Auto));
                                         }
                                     }
-                                },
-                                Action::EditActiveNodeSelectAll => {
-                                    if let Some(idx) = inner.widget().get_active_node_idx() {
-                                        self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
-                                        inner.widget_mut().open_editor(ctx, idx);
+                                    // Action::ToggleColorScheme => {
+                                    //     println!("{:?}", payload.action);
+                                    //     self.config.toggle_color_scheme();
+                                    //     self.config.save();
+                                    //     if let Some(vm) = &mut self.inner {
+                                    //         vm.widget_mut().set_config(self.config.clone());
+                                    //         ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                                    //     }
+                                    //     self.dialog = VMCanvas::make_dialog(&self.config);
+                                    //     ctx.children_changed();
+                                    //     ctx.request_layout();
+                                    //     ctx.request_paint();
+                                    //     ctx.set_handled();
+                                    // }
+                                    Action::ChangeModeWithTimeoutRevert => {
+                                        self.input_manager.set_timeout_revert_mode(Some(self.input_manager.get_keybind_mode()));
+                                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                                        match payload.mode {
+                                            Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
+                                                if let Some(inner) = &mut self.inner {
+                                                    inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
+                                                }
+                                            }
+                                            _ => {
+                                                if let Some(inner) = &mut self.inner {
+                                                    inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
+                                                }
+                                            }
+                                        }
                                         ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
-                                        ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Auto));
+                                    },
+                                    Action::ChangeMode => {
+                                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                                        match payload.mode {
+                                            Some(KeybindMode::SearchBuild) => {
+                                                if let Some(inner) = &mut self.inner {
+                                                    inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
+                                                }
+                                            },
+                                            Some(KeybindMode::SearchedSheet) => {
+                                                if inner.widget().get_target_list_length() == 1 {
+                                                    ctx.submit_command(EXECUTE_ACTION.with(
+                                                        ActionPayload {
+                                                            action: Action::ActivateTargetedNode,
+                                                            ..Default::default()
+                                                        }
+                                                    ));
+                                                    ctx.submit_command(EXECUTE_ACTION.with(
+                                                        ActionPayload {
+                                                            action: Action::ChangeMode,
+                                                            mode: Some(KeybindMode::Sheet),
+                                                            ..Default::default()
+                                                        }
+                                                    ))
+                                                }
+                                            }
+                                            _ => {
+                                                if let Some(inner) = &mut self.inner {
+                                                    inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
+                                                }
+                                            }
+                                        }
+                                        ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
                                     }
-                                }
-                                // Action::ToggleColorScheme => {
-                                //     println!("{:?}", payload.action);
-                                //     self.config.toggle_color_scheme();
-                                //     self.config.save();
-                                //     if let Some(vm) = &mut self.inner {
-                                //         vm.widget_mut().set_config(self.config.clone());
-                                //         ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
-                                //     }
-                                //     self.dialog = VMCanvas::make_dialog(&self.config);
-                                //     ctx.children_changed();
-                                //     ctx.request_layout();
-                                //     ctx.request_paint();
-                                //     ctx.set_handled();
-                                // }
-                                Action::ChangeModeWithTimeoutRevert => {
-                                    self.input_manager.set_timeout_revert_mode(Some(self.input_manager.get_keybind_mode()));
-                                    self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
-                                    match payload.mode {
-                                        Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
-                                            if let Some(inner) = &mut self.inner {
-                                                inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
-                                            }
-                                        }
-                                        _ => {
-                                            if let Some(inner) = &mut self.inner {
-                                                inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
-                                            }
-                                        }
-                                    }
-                                },
-                                Action::ChangeMode => {
-                                    self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
-                                    match payload.mode {
-                                        Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
-                                            if let Some(inner) = &mut self.inner {
-                                                inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
-                                            }
-                                        }
-                                        _ => {
-                                            if let Some(inner) = &mut self.inner {
-                                                inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
+                                    _ => {
+                                        if let Some(inner) = &self.inner {
+                                            if !inner.widget().is_editor_open() {
+                                                ctx.submit_command(EXECUTE_ACTION.with(payload.clone()));
                                             }
                                         }
                                     }
-                                }
-                                _ => {
-                                    if let Some(inner) = &self.inner {
-                                        if !inner.widget().is_editor_open() {
-                                            ctx.submit_command(EXECUTE_ACTION.with(payload));
-                                        }
-                                    }
-                                }
-                            } 
+                                } 
+                            }
+                        } else {
+                            inner.event(ctx, event, data, env);
                         }
-                    } else {
-                        inner.event(ctx, event, data, env);
                     }
                 }
+                println!("{:?}", payloads);
             }
             Event::Timer(token) => {
                 if Some(*token) == self.input_manager.get_timout_token() {
@@ -389,6 +414,18 @@ impl Widget<()> for VMCanvas {
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &(), env: &Env) {
         let ctx_size = ctx.size();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+        let fps_layout = ctx.text().new_text_layout(
+        format!("FPS: {}", (1000./(now - self.last_frame_time) as f64).round()))
+        .font(FontFamily::SANS_SERIF, 24.)
+        .text_color(self.config.get_color(VMColor::ComposeIndicatorTextColor).unwrap())
+        .build().unwrap();
+        ctx.paint_with_z_index(100, move|ctx| {
+            ctx.draw_text(&fps_layout, 
+                Point::new(ctx_size.width-fps_layout.size().width, ctx_size.height-fps_layout.size().height)
+            );
+        });
+        self.last_frame_time = now;
         if let Some(path) = &self.path {
             ctx.window().set_title(format!("VimMapper - {}", path.display()).as_str());
         }

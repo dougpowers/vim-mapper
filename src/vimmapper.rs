@@ -12,17 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use druid::kurbo::{Line, TranslateScale, Circle};
-use druid::piet::{ Text, TextLayoutBuilder, TextLayout};
+use druid::kurbo::{Line, TranslateScale};
+use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
 use force_graph::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 #[allow(unused_imports)]
 use druid::widget::{prelude::*, SvgData, Svg};
 use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
+use regex::Regex;
 use std::collections::HashMap;
 
 use crate::vminput::*;
-use crate::vmnode::{VMEdge, VMNode, VMNodeEditor, VMNodeLayoutContainer};
+use crate::vmnode::{VMEdge, VMNode, VMNodeEditor};
 
 use crate::constants::*;
 
@@ -74,8 +75,11 @@ pub struct VimMapper {
     //This bool allows Vim-Mapper to determine if the sheet or VMNodeEditor has focus. Notifications
     // and Commands are used to pass focus between the two.
     is_focused: bool,
-    target_list: Vec<u16>,
-    target_idx: Option<usize>,
+    // target_list: Vec<u16>,
+    // target_idx: Option<usize>,
+
+    target_node_list: Vec<u16>,
+    target_node_idx: Option<usize>,
     //A struct that holds state and widgets for the modal node editor.
     node_editor: VMNodeEditor,
     //A bool that specifies whether or not a MouseUp event has been received. If not, MouseMoves will 
@@ -100,6 +104,7 @@ pub struct VimMapper {
     debug_data: bool,
     //Toggle to display various debug visuals, including the last collision and click events as well
     // as the system palette colors in the Environment
+    #[allow(dead_code)]
     debug_visuals: bool,
     //Stores the largest individual movement (in either x or y) of any nodes during an update.
     // Used to pause computation once the graph has stabilized. 
@@ -168,7 +173,7 @@ pub struct BareEdge {
     index: u16,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum NodeRenderMode {
     OnlyTargetsEnabled,
     AllEnabled,
@@ -185,7 +190,7 @@ impl VimMapper {
             edges: Vec::with_capacity(10),
             index: 0,
             pos: Vec2::new(0.0, 0.0),
-            container: VMNodeLayoutContainer::new(0),
+            // container: VMNodeLayoutContainer::new(0),
             is_active: true,
             ..Default::default()
         };
@@ -217,8 +222,10 @@ impl VimMapper {
             node_editor: VMNodeEditor::new(),
             is_dragging: false,
             drag_point: None,
-            target_list: vec![],
-            target_idx: None,
+            // target_list: vec![],
+            // target_idx: None,
+            target_node_idx: None,
+            target_node_list: vec![],
             translate_at_drag: None,
             double_click_timer: None,
             double_click: false,
@@ -271,7 +278,7 @@ impl VimMapper {
                 index: v.index, 
                 fg_index: fg_index, 
                 pos: Vec2::new(v.pos.0, v.pos.1), 
-                container: VMNodeLayoutContainer::new(v.index), 
+                // container: VMNodeLayoutContainer::new(v.index), 
                 mark: v.mark,
                 ..Default::default()
             });
@@ -310,8 +317,10 @@ impl VimMapper {
             last_click_point: None,
             last_collision_rects: Vec::new(),
             is_focused: true,
-            target_list: vec![],
-            target_idx: None,
+            // target_list: vec![],
+            // target_idx: None,
+            target_node_list: vec![],
+            target_node_idx: None,
             node_editor: VMNodeEditor::new(),
             is_dragging: false,
             drag_point: None,
@@ -370,55 +379,83 @@ impl VimMapper {
     }
 
     pub fn set_render_mode(&mut self, mode: NodeRenderMode) {
+        println!("Setting render mode to {:?}", mode);
         self.node_render_mode = mode;
     }
 
+    #[allow(dead_code)]
     pub fn get_render_mode(&mut self) -> NodeRenderMode {
         self.node_render_mode.clone()
     }
 
     fn build_target_list_from_neighbors(&mut self, idx: u16) {
-        self.target_list.clear();
-        self.target_idx = None;
+        // self.target_list.clear();
+        // self.target_idx = None;
+        // let node = self.nodes.get(&idx).expect("Tried to build target list from non-existent node");
+        // for edge in self.graph.get_graph().edges(node.fg_index.unwrap()) {
+        //     self.target_list.push(edge.weight().user_data);
+        // }
+        self.target_node_list.clear();
+        self.target_node_idx = None;
         let node = self.nodes.get(&idx).expect("Tried to build target list from non-existent node");
-        for edge in self.graph.get_graph().edges(node.fg_index.unwrap()) {
-            self.target_list.push(edge.weight().user_data);
+        for node_fg_idx in self.graph.get_graph().neighbors(
+            node.fg_index.expect("Tried to get a non-existent fg_index from a node"))
+        {
+            let node = self.graph.get_graph()[node_fg_idx].data.user_data;
+            self.target_node_list.push(node);
         }
     }
 
+    fn build_target_list_from_string(&mut self, search_string: String) {
+        self.target_node_idx = None;
+        self.target_node_list.clear();
+        let regex_string = format!("(?i){}", search_string);
+        let regex = Regex::new(&regex_string).expect("Failed to compile search regex");
+        for (idx, node) in &self.nodes {
+            if regex.is_match(&node.label) {
+                if Some(*idx) != self.get_active_node_idx() {
+                    self.target_node_list.push(*idx);
+                }
+            }
+        }
+        if self.target_node_list.len() > 0 {
+            self.target_node_idx = Some(0);
+        }
+    }
+
+    pub fn get_target_list_length(&self) -> usize {
+        self.target_node_list.len()
+    }
+
     fn cycle_target_forward(&mut self) {
-        if self.target_idx == None && self.target_list.len() > 0 {
+        if self.target_node_idx == None && self.target_node_list.len() > 0 {
             //If not index set, set to front of list
-            self.target_idx = Some(0);
-        } else if let Some(idx) = self.target_idx {
-            if idx == self.target_list.len()-1 {
-                self.target_idx = Some(0);
+            self.target_node_idx = Some(0);
+        } else if let Some(idx) = self.target_node_idx {
+            if idx == self.target_node_list.len()-1 {
+                self.target_node_idx = Some(0);
             } else {
-                self.target_idx = Some(self.target_idx.unwrap()+1);
+                self.target_node_idx = Some(self.target_node_idx.unwrap()+1);
             }
         }
     }
 
     fn cycle_target_backward(&mut self) {
-        if self.target_idx == None && self.target_list.len() > 0 {
+        if self.target_node_idx == None && self.target_node_list.len() > 0 {
             //If no index set, set to back of list
-            self.target_idx = Some(self.target_list.len()-1);
-        } else if let Some(idx) = self.target_idx {
+            self.target_node_idx = Some(self.target_node_list.len()-1);
+        } else if let Some(idx) = self.target_node_idx {
             if idx == 0 {
-                self.target_idx = Some(self.target_list.len()-1);
+                self.target_node_idx = Some(self.target_node_list.len()-1);
             } else {
-                self.target_idx = Some(self.target_idx.unwrap()-1);
+                self.target_node_idx = Some(self.target_node_idx.unwrap()-1);
             }
         }
     }
 
     pub fn get_target_node_idx(&self) -> Option<u16> {
-        if let Some(idx) = self.target_idx {
-            if let Some(idx) = self.get_non_active_node_from_edge(self.target_list[idx]) {
-                return Some(idx);
-            } else {
-                return None;
-            }
+        if let Some(idx) = self.target_node_idx {
+            return Some(self.target_node_list[idx]);
         } else {
             return None;
         }
@@ -444,7 +481,7 @@ impl VimMapper {
                     edges: Vec::with_capacity(10),
                     index: new_node_idx,
                     pos: Vec2::new(from_node.pos.x + offset_vec.x, from_node.pos.y + offset_vec.y),
-                    container: VMNodeLayoutContainer::new(new_node_idx),
+                    // container: VMNodeLayoutContainer::new(new_node_idx),
                     ..Default::default()
                 };
                 let new_edge: VMEdge;
@@ -482,6 +519,9 @@ impl VimMapper {
             _ => {
                 panic!("Tried to add to a non-existent node")
             } 
+        }
+        if let Some(idx) = self.get_active_node_idx() {
+            self.build_target_list_from_neighbors(idx)
         }
         Some(new_node_idx)
     }
@@ -656,7 +696,9 @@ impl VimMapper {
 
     pub fn invalidate_node_layouts(&mut self) {
         self.nodes.iter_mut().for_each(|(_, node)| {
-            node.container.layout = None;
+            // node.container.layout = None;
+            node.enabled_layout = None;
+            node.disabled_layout = None;
             node.node_rect = None;
         });
     }
@@ -759,7 +801,8 @@ impl VimMapper {
             let affine_scale = Affine::scale(self.scale.as_tuple().1);
             let affine_translate = Affine::translate(self.translate.as_tuple().0);
             let node = item.1;
-            let size = node.container.layout.as_ref().unwrap().size();
+            // let size = node.container.layout.as_ref().unwrap().size();
+            let size = node.enabled_layout.as_ref().unwrap().size();
             let mut rect = size.to_rect();
             let border = DEFAULT_BORDER_WIDTH*self.scale.as_tuple().1;
             rect = rect.inflate(border*2.0,border*2.0);
@@ -830,6 +873,7 @@ impl VimMapper {
     }
 
     //Given an edge index, determine which, if any, of the connected nodes is not the active one.
+    #[allow(dead_code)]
     pub fn get_non_active_node_from_edge(&self, edge_idx: u16) -> Option<u16> {
         let from = self.edges.get(&edge_idx).unwrap().from;
         let to = self.edges.get(&edge_idx).unwrap().to;
@@ -844,14 +888,14 @@ impl VimMapper {
 
     //Loop over node label generation until it fits within a set of BoxConstraints. Wraps the contents
     // once and then, if it still doesn't fit, reduce the font until it does.
-    pub fn build_label_layout_for_constraints(ctx: &mut LayoutCtx, text: String, bc: BoxConstraints, config: VMConfig) -> Result<PietTextLayout, String> {
+    pub fn build_label_layout_for_constraints(factory: &mut PietText, text: String, bc: BoxConstraints, color: &Color) -> Result<PietTextLayout, String> {
         let mut layout: PietTextLayout;
         let mut font_size = DEFAULT_LABEL_FONT_SIZE;
         let max_width = NODE_LABEL_MAX_CONSTRAINTS.0;
 
-        if let Ok(layout) = ctx.text().new_text_layout(text.clone())
+        if let Ok(layout) = factory.new_text_layout(text.clone())
         .font(FontFamily::SANS_SERIF, font_size)
-        .text_color(config.get_color(VMColor::LabelTextColor).ok().expect("label text color not found in config"))
+        .text_color((*color).clone())
         .max_width(max_width)
         .build() {
             if bc.contains(layout.size()) {
@@ -859,12 +903,10 @@ impl VimMapper {
             }
         }
 
-        // let text = VimMapper::split_string_in_half(text);
-
         loop {
-            if let Ok(built) = ctx.text().new_text_layout(text.clone()) 
+            if let Ok(built) = factory.new_text_layout(text.clone()) 
             .font(FontFamily::SANS_SERIF, font_size)
-            .text_color(config.get_color(VMColor::LabelTextColor).ok().expect("label text color not found in config"))
+            .text_color(color.clone())
             .max_width(max_width)
             .build() {
                 layout = built;
@@ -930,14 +972,13 @@ impl<'a> Widget<()> for VimMapper {
         match event {
             Event::AnimFrame(_interval) => {
                 if self.is_hot && self.animating {
-                    // for _ in 0..5 {
-                        self.graph.update(DEFAULT_UPDATE_DELTA);
-                    // }
+                    self.graph.update(DEFAULT_UPDATE_DELTA);
                     self.update_node_coords();
                     ctx.request_anim_frame();
                 }
-                ctx.request_paint();
+                ctx.request_update();
                 ctx.request_layout();
+                ctx.request_paint();
             }
             Event::MouseUp(event) if event.button.is_left() => {
                 if self.is_dragging {
@@ -1071,27 +1112,16 @@ impl<'a> Widget<()> for VimMapper {
                             }
                         }
                         Action::CreateNewNode => todo!(),
-                        // Action::CreateNewNodeAndEdit => {
-                        //     if let Some(idx) = self.get_active_node_idx() {
-                        //         if let Some(new_idx) = self.add_node(idx, format!("New label"), None) {
-                        //             self.open_editor(ctx, new_idx);
-                        //         }
-                        //     }
-                        // }
                         Action::ActivateTargetedNode => {
-                            if let Some(idx) = self.target_idx {
-                                if let Some(node_idx) = self.get_non_active_node_from_edge(self.target_list[idx]) {
-                                    self.set_node_as_active(node_idx);
-                                    self.scroll_node_into_view(node_idx);
-                                    ctx.set_handled();
-                                }
+                            self.set_render_mode(NodeRenderMode::AllEnabled);
+                            if let Some(idx) = self.target_node_idx {
+                                let node_idx = self.target_node_list[idx];
+                                self.invalidate_node_layouts();
+                                self.set_node_as_active(node_idx);
+                                self.scroll_node_into_view(node_idx);
+                                ctx.set_handled();
                             }
                         }
-                        // Action::EditActiveNodeSelectAll => {
-                        //     if let Some(idx) = self.get_active_node_idx() {
-                        //         self.open_editor(ctx, idx);
-                        //     }
-                        // }
                         Action::EditActiveNodeAppend => todo!(),
                         Action::EditActiveNodeInsert => todo!(),
                         Action::DeleteActiveNode => {
@@ -1171,8 +1201,10 @@ impl<'a> Widget<()> for VimMapper {
                             }
                         }
                         Action::SearchNodes => {
-                            println!("Building search list with string {}", payload.string.clone().unwrap());
-                            self.node_render_mode = NodeRenderMode::OnlyTargetsEnabled;
+                            if let Some(string) = payload.string.clone() {
+                                self.build_target_list_from_string(string);
+                                // self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
+                            }
                         },
                         Action::PanUp => {
                             self.offset_y += payload.float.unwrap();
@@ -1224,6 +1256,7 @@ impl<'a> Widget<()> for VimMapper {
             LifeCycle::WidgetAdded => {
                 //Register children with druid
                 ctx.children_changed();
+                // self.nodes.get_mut(&0).unwrap().editor.rebuild_if_needed(ctx.text(), _env);
                 //Kick off animation and calculation
                 ctx.request_layout();
                 ctx.request_anim_frame();
@@ -1240,30 +1273,51 @@ impl<'a> Widget<()> for VimMapper {
     fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &(), _data: &(), _env: &Env) {
         //Pass any updates to children
         self.node_editor.container.update(ctx, &self.node_editor.title_text, _env);
+        for (_, node) in &mut self.nodes {
+            node.editor.update(ctx, &node.label, _env);
+        }
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &(), _env: &Env) -> Size {
         if let Some(rect) = self.canvas_rect {
             let vec = rect.size();
             self.translate = TranslateScale::new((vec.to_vec2()/2.0)+Vec2::new(self.offset_x, self.offset_y), 1.0);
         }
+
         self.graph.visit_nodes(|fg_node| {
             let node = self.nodes.get_mut(&fg_node.data.user_data).unwrap();
-                //Layout node label. Use cached version if available
-                if let Some(_) = node.container.layout {
-                } else {
+            node.editor.rebuild_if_needed(ctx.text(), _env);
+            match node.enabled_layout {
+                Some(_) => (),
+                None => {
                     if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
-                        ctx, node.label.clone(), BoxConstraints::new(
+                        ctx.text(), node.label.clone(), BoxConstraints::new(
                             Size::new(0., 0.),
                             Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
                         ),
-                        self.config.clone()
+                        &self.config.get_color(VMColor::LabelTextColor).ok().expect("Couldn't find label text color in config."),
                     ) {
-                        node.container.layout = Some(layout.clone());
+                        node.enabled_layout = Some(layout.clone());
                     } else {
-                        panic!("Could not build an appropriate sized label for node {:?}", node);
+                        panic!("Could not build an appropriate sized enabled label for node {:?}", node);
                     }
                 }
-
+            }
+            match node.disabled_layout {
+                Some(_) => (),
+                None => {
+                    if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
+                        ctx.text(), node.label.clone(), BoxConstraints::new(
+                            Size::new(0., 0.),
+                            Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
+                        ),
+                        &self.config.get_color(VMColor::DisabledLabelTextColor).ok().expect("Couldn't find label text color in config."),
+                    ) {
+                        node.disabled_layout = Some(layout.clone());
+                    } else {
+                        panic!("Could not build an appropriate sized disabled label for node {:?}", node);
+                    }
+                }
+            }
         });
 
         //Layout editor
@@ -1271,7 +1325,7 @@ impl<'a> Widget<()> for VimMapper {
         self.node_editor.container.layout(ctx, &ne_bc, &self.node_editor.title_text, _env);
         if let Some(idx) = self.get_active_node_idx() {
             let node = self.nodes.get(&idx).unwrap();
-            let size = node.container.layout.as_ref().unwrap().size().clone();
+            let size = node.enabled_layout.as_ref().unwrap().size().clone();
             let bottom_left = Point::new(node.pos.x-(size.width/2.), node.pos.y+(size.height/2.)+DEFAULT_BORDER_WIDTH);
             self.node_editor.container.set_origin(ctx, &self.node_editor.title_text, _env, self.translate*self.scale*bottom_left);
         } else {
@@ -1291,39 +1345,7 @@ impl<'a> Widget<()> for VimMapper {
         //Fill the canvas with background
         ctx.fill(ctx_rect, &self.config.get_color(VMColor::SheetBackgroundColor).ok().expect("sheet background color not found"));
 
-        //Draw click events, collision rects, and system palette
-        if self.debug_visuals {
-            if let Some(lcp) = self.last_click_point {
-                ctx.fill(Circle::new(lcp, 5.0), &Color::RED);
-            }
-
-            self.last_collision_rects.iter().for_each(|r| {
-                ctx.stroke(r, &Color::RED, 3.0);
-            });
-
-            let mut env_consts = _env.get_all();
-
-            //Draw swatches of the system palette. NOTE: This palette will probably not be used for
-            // Vim-Mapper coloring
-            let mut x = 10.;
-            let mut y = 10.;
-            while let Some(item) = env_consts.next() {
-                match item.1 {
-                    druid::Value::Color(color) => {
-                        ctx.fill(Rect::new(x, y, x+50., y+25.), color);
-                        let layout = ctx.text().new_text_layout(format!("{:?}", item.0)).build().unwrap();
-                        ctx.draw_text(&layout, Point::new(x+60., y));
-                        if (y+35.) > ctx_size.height {
-                            x += 60.;
-                            y = 10.;
-                        } else {
-                            y += 35.;
-                        }
-                    }
-                    _ => ()
-                }
-            }
-        }
+        // self.nodes.get(&0).unwrap().editor.layout().draw(ctx, Point::new(0., 0.));
 
         //Draw edges
         self.graph.visit_edges(|node1, node2, _edge| {
@@ -1360,8 +1382,8 @@ impl<'a> Widget<()> for VimMapper {
             let mut enabled = true;
             if self.node_render_mode == NodeRenderMode::OnlyTargetsEnabled {
                 enabled = false;
-                for idx in &self.target_list {
-                    if self.edges[idx].to == node.index || self.edges[idx].from == node.index {
+                for idx in &self.target_node_list {
+                    if node.index == *idx {
                         enabled = true;
                     }
                 }
@@ -1393,7 +1415,7 @@ impl<'a> Widget<()> for VimMapper {
 
         //Paint debug dump
         if self.debug_data {
-            if let Some(node_idx) = self.get_active_node_idx() {
+            if let Some(_) = self.get_active_node_idx() {
                 let text = format!(
                         "Is Animating: {:?}\nLarget Node Movement: {:?}\nActive Node:{:?}", 
                         self.animating,

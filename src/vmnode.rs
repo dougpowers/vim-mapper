@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::Selection, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::{TranslateScale}, Point, FontFamily, FontWeight, Color};
+use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::{Selection, Editor}, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
 use force_graph::DefaultNodeIdx;
 
 use crate::{constants::*, vmconfig::*};
@@ -37,33 +37,39 @@ pub struct VMNode {
     pub index: u16,
     pub fg_index: Option<DefaultNodeIdx>,
     pub pos: Vec2,
-    pub container: VMNodeLayoutContainer,
+    pub enabled_layout: Option<PietTextLayout>,
+    pub disabled_layout: Option<PietTextLayout>,
     pub is_active: bool,
-    //The index to the internal 'edges' array that corresponds to the target edge. 
-    // Reference the main edges HashMap and filter out the non local node to determine target.
-    // pub targeted_internal_edge_idx: Option<usize>,
     pub mark: Option<String>,
     //Cached rect of the node, transformed to screen coords. Used to scroll node into view.
     pub node_rect: Option<Rect>,
     pub anchored: bool,
     pub mass: f64,
+    pub editor: Editor<String>,
 }
 
 impl Default for VMNode {
     fn default() -> Self {
+        let mut editor = Editor::<String>::new();
+        editor.set_multiline(true);
+        editor.set_wrap_width(NODE_LABEL_MAX_CONSTRAINTS.0);
+        let label = DEFAULT_ROOT_LABEL.to_string();
+        editor.set_text(label.clone());
         let node = VMNode {
-            label: DEFAULT_ROOT_LABEL.to_string(),
+            label,
             edges: Vec::with_capacity(10),
             index: 0,
             fg_index: None,
             pos: Vec2::new(0.0, 0.0),
-            container: VMNodeLayoutContainer::new(0),
+            // container: VMNodeLayoutContainer::new(0),
+            enabled_layout: None,
+            disabled_layout: None,
             is_active: false,
-            // targeted_internal_edge_idx: None,
             mark: None,
             node_rect: None,
             anchored: false,
             mass: DEFAULT_NODE_MASS,
+            editor,
         };
         node
     }
@@ -93,7 +99,7 @@ impl VMNode {
         ctx.with_save(|ctx| {
             // let node = vm.nodes.get_mut(&node.data.user_data)
             // .expect("Attempted to retrieve a non-existent node.");
-            let label_size = self.container.layout.as_mut()
+            let label_size = self.enabled_layout.as_mut()
             .expect("Node layout container was empty.").size();
             ctx.transform(Affine::from(*translate));
             ctx.transform(Affine::from(*scale));
@@ -112,16 +118,23 @@ impl VMNode {
                 }
             }
 
-            let badge_border_color = border_color.clone();
-            let mut container = self.container.layout.clone();
-            let border_background = config.get_color(VMColor::NodeBackgroundColor).ok().expect("Node background color not found in config");
-            if enabled {
-                ctx.paint_with_z_index(z_index, move |ctx| {
-                    ctx.stroke(border, &border_color, DEFAULT_BORDER_WIDTH);
-                    ctx.fill(border, &border_background);
-                    ctx.draw_text(container.as_mut().unwrap(), Point::new(0.0, 0.0));
-                });
+            let border_background;
+            let mut container;
+            if !enabled {
+                container = self.disabled_layout.clone();
+                border_background = config.get_color(VMColor::DisabledNodeBackgroundColor).ok().expect("DIsabled node background color not found in config");
+            } else {
+                container = self.enabled_layout.clone();
+                border_background = config.get_color(VMColor::NodeBackgroundColor).ok().expect("Node background color not found in config");
             }
+
+            let badge_border_color = border_color.clone();
+
+            ctx.paint_with_z_index(z_index, move |ctx| {
+                ctx.stroke(border, &border_color, DEFAULT_BORDER_WIDTH);
+                ctx.fill(border, &border_background);
+                ctx.draw_text(container.as_mut().unwrap(), Point::new(0.0, 0.0));
+            });
 
             if let Some(char) = self.mark.clone() {
                 self.paint_node_badge(ctx, z_index, enabled, config, &char, BadgePosition::TopRight, &rect, &badge_border_color);
@@ -209,11 +222,20 @@ impl VMNode {
         let layout = ctx.text()
         .new_text_layout(character.clone())
         .font(FontFamily::SANS_SERIF, 12.)
-        .text_color(config.get_color(VMColor::LabelTextColor).ok().expect("label text color not found in config"))
+        .text_color(
+            if enabled {
+                config.get_color(VMColor::LabelTextColor).ok().expect("label text color not found in config")
+            } else {
+                config.get_color(VMColor::DisabledLabelTextColor).ok().expect("label text color not found in config")
+            })
         .build().unwrap();
         ctx.with_save(move |ctx| {
             let circle = druid::piet::kurbo::Circle::new(mark_point.to_point().clone(), layout.size().max_side()/1.8);
-            let background_color = config.get_color(VMColor::NodeBackgroundColor).ok().expect("badge background color not found in config");
+            let background_color = if enabled {
+                config.get_color(VMColor::NodeBackgroundColor).ok().expect("badge background color not found in config")
+            } else {
+                config.get_color(VMColor::DisabledNodeBackgroundColor).ok().expect("badge background color not found in config")
+            };
             let badge_border_color = border_color.clone();
             ctx.with_save(|ctx| {
                 ctx.paint_with_z_index(z_index, move |ctx| {
@@ -260,22 +282,6 @@ impl VMNodeEditor {
             editor_rect: None,
         };
         nodeeditor
-    }
-}
-
-#[derive(Debug)]
-pub struct VMNodeLayoutContainer {
-    pub layout: Option<PietTextLayout>,
-    pub index: u16,
-}
-
-impl VMNodeLayoutContainer {
-    pub fn new(index: u16) -> VMNodeLayoutContainer {
-        let new_layout = VMNodeLayoutContainer {
-            layout: None,
-            index,
-        };
-        new_layout
     }
 }
 

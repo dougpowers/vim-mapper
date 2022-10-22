@@ -121,12 +121,13 @@ pub enum KeybindType {
 
 #[derive(Clone, Debug)]
 struct Keybind {
+    #[allow(dead_code)]
     kb_type: KeybindType,
     regex: Option<Regex>,
-    group_actions: Option<HashMap<String, HashMap<String, ActionPayload>>>,
+    group_actions: Option<HashMap<String, HashMap<String, Vec<Option<ActionPayload>>>>>,
     key: Option<Key>,
     modifiers: Option<Modifiers>,
-    action_payload: Option<ActionPayload>,
+    action_payloads: Vec<Option<ActionPayload>>,
     mode: KeybindMode,
 }
 
@@ -149,11 +150,11 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("n"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::CycleNodeForward,
                             ..Default::default()
-                        }),
+                        })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -162,12 +163,38 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("N"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::CycleNodeBackward,
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("n"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::CycleNodeForward,
+                            ..Default::default()
+                        })],
+                    mode: KeybindMode::SearchedSheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("N"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::CycleNodeBackward,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::SearchedSheet,
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -175,11 +202,11 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("o"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::CreateNewNodeAndEdit,
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -188,11 +215,11 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("c"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::EditActiveNodeSelectAll,
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -201,11 +228,11 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("d"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::DeleteActiveNode,
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -214,12 +241,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("k"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::PanUp,
                             float: Some(DEFAULT_PAN_AMOUNT_SMALL),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -228,12 +255,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("k"))),
                     modifiers: Some(Modifiers::CONTROL), 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ZoomIn,
                             float: Some(1.25),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -242,12 +269,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("K"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::PanUp,
                             float: Some(DEFAULT_PAN_AMOUNT_LARGE),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -256,12 +283,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("j"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::PanDown,
                             float: Some(DEFAULT_PAN_AMOUNT_SMALL),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -270,12 +297,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("j"))),
                     modifiers: Some(Modifiers::CONTROL), 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ZoomOut,
                             float: Some(0.75),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -284,12 +311,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("J"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::PanDown,
                             float: Some(DEFAULT_PAN_AMOUNT_LARGE),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -298,12 +325,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("l"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::PanRight,
                             float: Some(DEFAULT_PAN_AMOUNT_SMALL),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -312,12 +339,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("L"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::PanRight,
                             float: Some(DEFAULT_PAN_AMOUNT_LARGE),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -326,12 +353,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("h"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::PanLeft,
                             float: Some(DEFAULT_PAN_AMOUNT_SMALL),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -340,12 +367,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("H"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::PanLeft,
                             float: Some(DEFAULT_PAN_AMOUNT_LARGE),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -354,11 +381,11 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Enter),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ActivateTargetedNode,
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -367,11 +394,11 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::F10),
                     modifiers: Some(Modifiers::ALT),
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ToggleColorScheme,
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -380,11 +407,11 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::F10),
                     modifiers: Some(Modifiers::ALT),
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ToggleColorScheme,
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Start,
                 },
                 Keybind { 
@@ -393,12 +420,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("m"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ChangeModeWithTimeoutRevert,
                             mode: Some(KeybindMode::Mark),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -407,12 +434,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("'"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ChangeModeWithTimeoutRevert,
                             mode: Some(KeybindMode::Jump),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -421,12 +448,20 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("/"))),
                     modifiers: None, 
-                    action_payload: Some(
-                        ActionPayload {
-                            action: Action::ChangeMode,
-                            mode: Some(KeybindMode::SearchBuild),
-                            ..Default::default()
-                    }),
+                    action_payloads: vec![Some(
+                            ActionPayload {
+                                action: Action::ChangeMode,
+                                mode: Some(KeybindMode::SearchBuild),
+                                ..Default::default()
+                            }
+                        ),
+                        Some(
+                            ActionPayload {
+                                action: Action::SearchNodes,
+                                string: Some(String::from("")),
+                                ..Default::default()
+                            }
+                        )],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -435,12 +470,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("G"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::CenterNode,
                             index: Some(0),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -449,11 +484,11 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("-"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::DecreaseActiveNodeMass,
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -462,11 +497,11 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("+"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::IncreaseActiveNodeMass,
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -475,11 +510,11 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("="))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ResetActiveNodeMass,
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -488,11 +523,11 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("@"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::AnchorActiveNode,
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -501,12 +536,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("`"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::Move),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -515,12 +550,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("`"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::Sheet),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Move,
                 },
                 Keybind { 
@@ -529,12 +564,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("@"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::Sheet),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Move,
                 },
                 Keybind { 
@@ -543,12 +578,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("j"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::MoveActiveNodeDown,
                             float: Some(DEFAULT_NODE_MOVE_AMOUNT_SMALL),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Move,
                 },
                 Keybind { 
@@ -557,12 +592,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("k"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::MoveActiveNodeUp,
                             float: Some(DEFAULT_NODE_MOVE_AMOUNT_SMALL),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Move,
                 },
                 Keybind { 
@@ -571,12 +606,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("h"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::MoveActiveNodeLeft,
                             float: Some(DEFAULT_NODE_MOVE_AMOUNT_SMALL),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Move,
                 },
                 Keybind { 
@@ -585,12 +620,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("l"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::MoveActiveNodeRight,
                             float: Some(DEFAULT_NODE_MOVE_AMOUNT_SMALL),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Move,
                 },
                 Keybind { 
@@ -599,12 +634,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("J"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::MoveActiveNodeDown,
                             float: Some(DEFAULT_NODE_MOVE_AMOUNT_LARGE),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Move,
                 },
                 Keybind { 
@@ -613,12 +648,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("K"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::MoveActiveNodeUp,
                             float: Some(DEFAULT_NODE_MOVE_AMOUNT_LARGE),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Move,
                 },
                 Keybind { 
@@ -627,12 +662,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("H"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::MoveActiveNodeLeft,
                             float: Some(DEFAULT_NODE_MOVE_AMOUNT_LARGE),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Move,
                 },
                 Keybind { 
@@ -641,12 +676,12 @@ impl Default for VMInputManager {
                     group_actions: None,
                     key: Some(Key::Character(String::from("L"))),
                     modifiers: None, 
-                    action_payload: Some(
+                    action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::MoveActiveNodeRight,
                             float: Some(DEFAULT_NODE_MOVE_AMOUNT_LARGE),
                             ..Default::default()
-                    }),
+                    })],
                     mode: KeybindMode::Move,
                 },
                 Keybind { 
@@ -657,15 +692,15 @@ impl Default for VMInputManager {
                     ").ok().expect("Keybind regex failed to compile.")),
                     group_actions: Some(hash_map!{
                         String::from("n") => hash_map!{
-                            String::from("g") => ActionPayload {
+                            String::from("g") => vec![Some(ActionPayload {
                             action: Action::CenterActiveNode,
                             ..Default::default()
-                            }
+                            })]
                         }
                     }),
                     key: None,
                     modifiers: None, 
-                    action_payload: None,
+                    action_payloads: vec![None],
                     mode: KeybindMode::Sheet,
                 },
             ],
@@ -684,7 +719,7 @@ impl VMInputManager {
         }
     }
 
-    pub fn accept_key(&mut self, event: KeyEvent, ctx: &mut EventCtx) -> Option<ActionPayload> {
+    pub fn accept_key(&mut self, event: KeyEvent, ctx: &mut EventCtx) -> Vec<Option<ActionPayload>> {
         //Discard modifier key presses
         if event.key == Key::Shift || 
             event.key == Key::Control ||
@@ -693,7 +728,7 @@ impl VMInputManager {
             event.key == Key::Meta ||
             event.key == Key::ScrollLock 
         {
-            return None;
+            return vec![None];
         } 
         match self.mode {
             KeybindMode::Start => {
@@ -704,19 +739,19 @@ impl VMInputManager {
                             if let Some(mods) = keybind.modifiers {
                                 if event.mods.contains(mods) {
                                     self.clear_timeout();
-                                    return Some(keybind.action_payload.clone().unwrap());
+                                    return keybind.action_payloads.clone();
                                 }
                             }
                         } else {
                             self.clear_timeout();
-                            return Some(keybind.action_payload.clone().unwrap());
+                            return keybind.action_payloads.clone();
                         }
                     }
                 }
-                return None;
+                return vec![None];
             },
             KeybindMode::Dialog => {
-                return None;
+                return vec![None];
             },
             KeybindMode::Sheet => {
                 self.set_new_timeout(ctx);
@@ -727,33 +762,40 @@ impl VMInputManager {
                             if let Some(mods) = keybind.modifiers {
                                 if event.mods.contains(mods) {
                                     self.clear_timeout();
-                                    return Some(keybind.action_payload.clone().unwrap());
+                                    return keybind.action_payloads.clone();
                                 }
                             }
                         } else {
                             self.clear_timeout();
-                            return Some(keybind.action_payload.clone().unwrap());
+                            return keybind.action_payloads.clone();
                         }
                     }
                 }
                 if let Key::Character(character) = event.key {
                     if event.mods.alt() || event.mods.ctrl() {
-                        return None;
+                        return vec![None];
                     }
                     if character == String::from(" ") {
-                        return None;
+                        return vec![None];
                     } else {
                         self.set_timeout_revert_mode(Some(self.mode.clone()));
-                        self.set_keybind_mode(KeybindMode::KeybindBuild);
+                        // self.set_keybind_mode(KeybindMode::KeybindBuild);
                         self.string += &character;
-                        return None;
+                        // return vec![None];
+                        return vec![Some(
+                            ActionPayload {
+                                action: Action::ChangeModeWithTimeoutRevert,
+                                mode: Some(KeybindMode::KeybindBuild),
+                                ..Default::default()
+                            }
+                        )];
                     }
                 }
                 if let Key::Escape = event.key {
                     self.clear_build();
-                    return None;
+                    return vec![None];
                 }
-                return None;
+                return vec![None];
             },
             KeybindMode::Move => {
                 let keybinds = self.keybinds.clone();
@@ -762,75 +804,113 @@ impl VMInputManager {
                         if event.mods.alt() || event.mods.ctrl() {
                             if let Some(mods) = keybind.modifiers {
                                 if event.mods.contains(mods) {
-                                    return Some(keybind.action_payload.clone().unwrap());
+                                    return keybind.action_payloads.clone();
                                 }
                             }
                         } else {
-                            return Some(keybind.action_payload.clone().unwrap());
+                            return keybind.action_payloads.clone();
                         }
                         self.clear_timeout();
                     }
                 }
                 if event.key == Key::Escape || event.key == Key::Enter {
-                    self.set_keybind_mode(KeybindMode::Sheet);
+                    // self.set_keybind_mode(KeybindMode::Sheet);
+                    return vec![Some(
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Sheet),
+                            ..Default::default()
+                        }
+                    )];
                 }
-                return None;
+                return vec![None];
             }
             KeybindMode::Jump => {
                 if let Key::Character(character) = event.key {
                     if event.mods.alt() || event.mods.ctrl() {
                         self.set_new_timeout(ctx);
-                        return None;
+                        return vec![None];
                     }
                     self.clear_build();
-                    self.set_keybind_mode(KeybindMode::Sheet);
+                    // self.set_keybind_mode(KeybindMode::Sheet);
                     self.clear_timeout();
-                    return Some(
-                        ActionPayload {
+                    return vec![
+                        Some(ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Sheet),
+                            ..Default::default()
+                        }),
+                        Some(ActionPayload {
                             action: Action::JumpToMarkedNode,
                             string: Some(character),
                             ..Default::default()
-                    });
+                    })];
                 } else {
                     self.clear_build();
                     self.clear_timeout();
-                    self.set_keybind_mode(KeybindMode::Sheet);
-                    return None;
+                    // self.set_keybind_mode(KeybindMode::Sheet);
+                    return vec![
+                        Some(
+                            ActionPayload {
+                                action: Action::ChangeMode,
+                                mode: Some(KeybindMode::Sheet),
+                                ..Default::default()
+                            }
+                        )
+                    ];
                 }
             },
             KeybindMode::Mark => {
                 if let Key::Character(character) = event.key {
                     if event.mods.alt() || event.mods.ctrl() {
                         self.set_new_timeout(ctx);
-                        return None;
+                        return vec![None];
                     }
                     self.clear_build();
-                    self.set_keybind_mode(KeybindMode::Sheet);
+                    // self.set_keybind_mode(KeybindMode::Sheet);
                     self.clear_timeout();
-                    return Some(
-                        ActionPayload {
-                            action: Action::MarkActiveNode,
-                            string: Some(character),
-                            ..Default::default()
-                    });
+                    return vec![
+                        Some(
+                            ActionPayload {
+                                action: Action::ChangeMode,
+                                mode: Some(KeybindMode::Sheet),
+                                ..Default::default()
+                            }
+                        ),
+                        Some(
+                            ActionPayload {
+                                action: Action::MarkActiveNode,
+                                string: Some(character),
+                                ..Default::default()
+                            }
+                        )
+                    ];
                 } else {
                     self.clear_build();
                     self.clear_timeout();
-                    self.set_keybind_mode(KeybindMode::Sheet);
-                    return None;
+                    // self.set_keybind_mode(KeybindMode::Sheet);
+                    return vec![
+                        Some(
+                            ActionPayload {
+                                action: Action::ChangeMode,
+                                mode: Some(KeybindMode::Sheet),
+                                ..Default::default()
+                            }
+                        ),
+                    ];
                 }
             },
             KeybindMode::KeybindBuild => {
                 if let Key::Character(character) = event.key {
                     if event.mods.alt() || event.mods.ctrl() {
                         self.set_new_timeout(ctx);
-                        return None;
+                        return vec![None];
                     }
                     if character == String::from(" ") {
                         self.clear_build();
                         self.clear_timeout();
                         self.revert_mode();
-                        return None;
+                        return vec![None];
                     } else {
                         self.set_new_timeout(ctx);
                         self.string += &character;
@@ -842,85 +922,112 @@ impl VMInputManager {
                                     self.clear_build();
                                     self.clear_timeout();
                                     self.revert_mode();
-                                    return Some(VMInputManager::process_regex_keybind(keybind.clone(), matched));
+                                    return VMInputManager::process_regex_keybind(keybind.clone(), matched);
                                 }
                             }
                         }
-                        return None;
+                        return vec![None];
                     }
                 } else {
                     self.clear_build();
                     self.clear_timeout();
                     self.revert_mode();
-                    return None;
+                    return vec![None];
                 }
             },
             KeybindMode::Edit => {
-                return None;
+                return vec![None];
             },
             KeybindMode::EditBrowse => {
-                return None;
+                return vec![None];
             },
             KeybindMode::SearchedSheet => {
-                return None;
-            },
-            KeybindMode::SearchBuild => {
-                if let Key::Character(character) = event.key {
-                    if event.mods.alt() || event.mods.ctrl() {
-                        self.set_new_timeout(ctx);
-                        return None;
-                    }
-                    self.string += &character;
-                    return Some(
-                        ActionPayload {
-                            action: Action::SearchNodes,
-                            string: Some(self.string.clone()),
-                            ..Default::default()
+                self.clear_timeout();
+                for keybind in &self.keybinds {
+                    if Some(event.key.clone()) == keybind.key && keybind.mode == self.mode {
+                        if event.mods.alt() || event.mods.ctrl() {
+                            if let Some(mods) = keybind.modifiers {
+                                if event.mods.contains(mods) {
+                                    return keybind.action_payloads.clone();
+                                }
+                            }
+                        } else {
+                            return keybind.action_payloads.clone();
                         }
-                    )
-                } else if let Key::Backspace = event.key {
-                    if self.string == "/".to_string() {
-                        self.clear_build();
-                        self.clear_timeout();
-                        // self.set_keybind_mode(KeybindMode::Sheet);
-                        return Some(
+                    }
+                }
+                if event.key == Key::Enter {
+                    return vec![
+                        Some(
                             ActionPayload {
                                 action: Action::ChangeMode,
                                 mode: Some(KeybindMode::Sheet),
                                 ..Default::default()
                             }
-                        );
-                    } else {
-                        self.string.pop();
-                        return Some(
+                        ),
+                        Some(
                             ActionPayload {
-                                action: Action::SearchNodes,
-                                string: Some(self.string.clone()),
+                                action: Action::ActivateTargetedNode,
                                 ..Default::default()
                             }
                         )
+                    ];
+                }
+                if event.key == Key::Escape {
+                    return vec![Some(ActionPayload {
+                        action: Action::ChangeMode,
+                        mode: Some(KeybindMode::Sheet),
+                        ..Default::default()
+                    })];
+                }
+                return vec![None];
+            },
+            KeybindMode::SearchBuild => {
+                if let Key::Character(character) = event.key {
+                    if event.mods.alt() || event.mods.ctrl() {
+                        self.set_new_timeout(ctx);
+                        return vec![None];
+                    }
+                    self.string += &character;
+                    return vec![Some(ActionPayload {
+                            action: Action::SearchNodes,
+                            string: Some(self.string[1..].to_string()),
+                            ..Default::default()
+                        })]
+                } else if let Key::Backspace = event.key {
+                    if self.string == "/".to_string() {
+                        self.clear_build();
+                        self.clear_timeout();
+                        return vec![Some(ActionPayload {
+                                action: Action::ChangeMode,
+                                mode: Some(KeybindMode::Sheet),
+                                ..Default::default()
+                            })];
+                    } else {
+                        self.string.pop();
+                        return vec![Some(ActionPayload {
+                                action: Action::SearchNodes,
+                                string: Some(self.string[1..].to_string()),
+                                ..Default::default()
+                            })];
                     }
 
                 } else if let Key::Enter = event.key {
                     self.clear_build();
                     self.clear_timeout();
-                    return Some(
-                        ActionPayload {
+                    return vec![Some(ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::SearchedSheet),
                             ..Default::default()
-                        }
-                    );
+                        })];
                 } else {
                     self.clear_build();
                     self.clear_timeout();
-                    return Some(
-                        ActionPayload {
+                    return vec![Some(ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::Sheet),
                             ..Default::default()
-                        }
-                    );
+                        })];
                 }
             },
         }
@@ -930,7 +1037,7 @@ impl VMInputManager {
         self.string = String::from("");
     }
 
-    fn process_regex_keybind(keybind: Keybind, string: String) -> ActionPayload {
+    fn process_regex_keybind(keybind: Keybind, string: String) -> Vec<Option<ActionPayload>> {
         let cap = keybind.clone().regex.unwrap().captures(&string).unwrap();
         for name in keybind.clone().regex.unwrap().capture_names() {
             if let Some(string) = name {
@@ -941,9 +1048,9 @@ impl VMInputManager {
                 }
             }
         }
-        return ActionPayload {
+        return vec![Some(ActionPayload {
             ..Default::default()
-        }
+        })]
     }
 
     pub fn set_new_timeout(&mut self, ctx: &mut EventCtx) {
@@ -958,6 +1065,7 @@ impl VMInputManager {
         self.timeout_revert_mode = mode;
     }
 
+    #[allow(dead_code)]
     pub fn clear_timeout_revert_mode(&mut self) {
         self.timeout_revert_mode = None;
     }

@@ -35,10 +35,13 @@ pub struct VMConfig {
 #[derive(Hash,Eq,PartialEq,Clone,Serialize,Deserialize)]
 pub enum VMColor {
     LabelTextColor,
+    DisabledLabelTextColor,
     NodeBorderColor,
+    DisabledNodeBorderColor,
     ActiveNodeBorderColor,
     TargetNodeBorderColor,
     NodeBackgroundColor,
+    DisabledNodeBackgroundColor,
     EdgeColor,
     ComposeIndicatorTextColor,
     SheetBackgroundColor,
@@ -51,18 +54,24 @@ impl Default for VMConfig {
         let mut dark_palette: HashMap<VMColor, (u8,u8,u8,u8)> = HashMap::new();
         let mut light_palette: HashMap<VMColor, (u8,u8,u8,u8)> = HashMap::new();
         light_palette.insert(LabelTextColor, (0,0,0,255));
+        light_palette.insert(DisabledLabelTextColor, (0,0,0,128));
+        light_palette.insert(DisabledNodeBorderColor, (0,0,0,128));
         light_palette.insert(NodeBorderColor, (0,0,0,255));
         light_palette.insert(ActiveNodeBorderColor, (125,125,255,255));
         light_palette.insert(TargetNodeBorderColor, (255,125,125,255));
         light_palette.insert(NodeBackgroundColor, (200,200,200,255));
+        light_palette.insert(DisabledNodeBackgroundColor, (200,200,200,128));
         light_palette.insert(EdgeColor, (192,192,192,255));
         light_palette.insert(ComposeIndicatorTextColor, (255,0,0,255));
         light_palette.insert(SheetBackgroundColor, (255,255,255,255));
         dark_palette.insert(LabelTextColor, (255,255,255,255));
+        dark_palette.insert(DisabledLabelTextColor, (255,255,255,128));
         dark_palette.insert(NodeBorderColor, (215,215,215,255));
+        dark_palette.insert(DisabledNodeBorderColor, (215,215,215,128));
         dark_palette.insert(ActiveNodeBorderColor, (125,125,255,255));
         dark_palette.insert(TargetNodeBorderColor, (255,125,125,255));
         dark_palette.insert(NodeBackgroundColor, (100,100,100,255));
+        dark_palette.insert(DisabledNodeBackgroundColor, (100,100,100,128));
         dark_palette.insert(EdgeColor, (132,132,132,255));
         dark_palette.insert(ComposeIndicatorTextColor, (255,0,0,255));
         dark_palette.insert(SheetBackgroundColor, (0,0,0,255));
@@ -105,7 +114,11 @@ impl VMConfig {
             } else {
                 if let Ok(string) = fs::read_to_string(path.clone()) {
                     if let Ok(config) = serde_json::from_str::<VMConfig>(&string) {
-                        return Ok(config)
+                        if let Ok(_) = config.get_color(VMColor::DisabledLabelTextColor) {
+                            return Ok(config)
+                        } else {
+                            return Err(format!("Old config detected. Replacing with new default"));
+                        }
                     } else {
                         return Err(format!("Couldn't serialize config file at {}", path.display()))
                     }
