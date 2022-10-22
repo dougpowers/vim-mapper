@@ -19,6 +19,8 @@ use force_graph::SimulationParameters;
 use crate::vminput::ActionPayload;
 
 pub const DEFAULT_BORDER_WIDTH: f64 = 3.;
+pub const DEFAULT_ACTIVE_BORDER_WIDTH: f64 = 8.;
+pub const DEFAULT_TARGET_BORDER_WIDTH: f64 = 7.;
 pub const DEFAULT_BORDER_RADIUS: f64 = 5.;
 pub const DEFAULT_MARK_BORDER_WIDTH: f64 = 1.5;
 pub const DEFAULT_EDGE_WIDTH: f64 = 3.;

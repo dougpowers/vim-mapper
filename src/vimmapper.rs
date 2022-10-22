@@ -398,11 +398,31 @@ impl VimMapper {
         self.target_node_list.clear();
         self.target_node_idx = None;
         let node = self.nodes.get(&idx).expect("Tried to build target list from non-existent node");
+        let mut sort_vec: Vec<(u16, f64)> = vec![];
         for node_fg_idx in self.graph.get_graph().neighbors(
             node.fg_index.expect("Tried to get a non-existent fg_index from a node"))
         {
-            let node = self.graph.get_graph()[node_fg_idx].data.user_data;
-            self.target_node_list.push(node);
+            let new_target_node_idx = self.graph.get_graph()[node_fg_idx].data.user_data;
+
+            let target_node = self.nodes.get(&new_target_node_idx).unwrap();
+            
+            let angle = Vec2::new(target_node.pos.x-node.pos.x, target_node.pos.y-node.pos.y).atan2();
+            sort_vec.push((new_target_node_idx, angle));
+            // self.target_node_list.push(new_target_node_idx);
+        }
+        for i in 0..sort_vec.len() {
+            sort_vec[i].1 += std::f64::consts::FRAC_PI_2;
+            if sort_vec[i].1 < 0. {sort_vec[i].1 += std::f64::consts::PI*2.}
+        }
+        sort_vec.sort_unstable_by(|a1, a2| {
+            if a1.1 > a2.1 {
+                std::cmp::Ordering::Greater
+            } else {
+                std::cmp::Ordering::Less
+            }
+        });
+        for i in sort_vec {
+            self.target_node_list.push(i.0);
         }
     }
 
@@ -608,11 +628,9 @@ impl VimMapper {
             }
         });
         self.build_target_list_from_neighbors(idx);
-        // if let Some(node) = self.nodes.get(&self.get_active_node_idx().unwrap()) {
-        //     if let Some(rect) = node.node_rect {
-        //         self.scroll_rect_into_view(rect);
-        //     }
-        // }
+        if self.target_node_list.len() > 0 {
+            self.cycle_target_forward();
+        }
     }
 
     //Iterate through the nodes HashMap until a node with the matching mark is found. Return if found.
@@ -974,6 +992,9 @@ impl<'a> Widget<()> for VimMapper {
                 if self.is_hot && self.animating {
                     self.graph.update(DEFAULT_UPDATE_DELTA);
                     self.update_node_coords();
+                    if let Some(active_idx) = self.get_active_node_idx() {
+                        self.build_target_list_from_neighbors(active_idx);
+                    }
                     ctx.request_anim_frame();
                 }
                 ctx.request_update();
@@ -1111,7 +1132,6 @@ impl<'a> Widget<()> for VimMapper {
                                 self.scroll_node_into_view(0);
                             }
                         }
-                        Action::CreateNewNode => todo!(),
                         Action::ActivateTargetedNode => {
                             self.set_render_mode(NodeRenderMode::AllEnabled);
                             if let Some(idx) = self.target_node_idx {
@@ -1273,9 +1293,6 @@ impl<'a> Widget<()> for VimMapper {
     fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &(), _data: &(), _env: &Env) {
         //Pass any updates to children
         self.node_editor.container.update(ctx, &self.node_editor.title_text, _env);
-        for (_, node) in &mut self.nodes {
-            node.editor.update(ctx, &node.label, _env);
-        }
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &(), _env: &Env) -> Size {
         if let Some(rect) = self.canvas_rect {
@@ -1285,7 +1302,6 @@ impl<'a> Widget<()> for VimMapper {
 
         self.graph.visit_nodes(|fg_node| {
             let node = self.nodes.get_mut(&fg_node.data.user_data).unwrap();
-            node.editor.rebuild_if_needed(ctx.text(), _env);
             match node.enabled_layout {
                 Some(_) => (),
                 None => {
@@ -1345,7 +1361,6 @@ impl<'a> Widget<()> for VimMapper {
         //Fill the canvas with background
         ctx.fill(ctx_rect, &self.config.get_color(VMColor::SheetBackgroundColor).ok().expect("sheet background color not found"));
 
-        // self.nodes.get(&0).unwrap().editor.layout().draw(ctx, Point::new(0., 0.));
 
         //Draw edges
         self.graph.visit_edges(|node1, node2, _edge| {
@@ -1370,10 +1385,11 @@ impl<'a> Widget<()> for VimMapper {
         //Determine target node for painting
         let target_node: Option<u16> = self.get_target_node_idx();
 
-        let mut active_node: Option<u16> = None;
-        if let Some(active_idx) = self.get_active_node_idx() {
-            active_node = Some(active_idx);
-        }
+        // let mut active_node: Option<u16> = None;
+        // if let Some(active_idx) = self.get_active_node_idx() {
+        //     active_node = Some(active_idx);
+        // }
+        let active_node = self.get_active_node_idx();
 
         //Draw nodes
         self.graph.visit_nodes(|fg_node| {
@@ -1389,27 +1405,95 @@ impl<'a> Widget<()> for VimMapper {
                 }
             }
 
-            node.paint_node(
-                ctx, 
-                {
-                    match node.index {
-                        i if Some(i) == active_node => 1,
-                        i if Some(i) == target_node => 2,
-                        _ => 0,
-                    }
+            match node.index {
+                i if Some(i) != active_node && Some(i) != target_node => {
+                    node.paint_node(
+                        ctx, 
+                        0,
+                        enabled,
+                        &self.config, 
+                        target_node, 
+                        &self.translate, 
+                        &self.scale, 
+                        self.debug_data); 
                 },
-                enabled,
-                &self.config, 
-                target_node, 
-                &self.translate, 
-                &self.scale, 
-                self.debug_data); 
+                _ => ()
+            }
+            // node.paint_node(
+            //     ctx, 
+            //     {
+            //         match node.index {
+            //             i if Some(i) == active_node => 1,
+            //             i if Some(i) == target_node => 2,
+            //             _ => 0,
+            //         }
+            //     },
+            //     enabled,
+            //     &self.config, 
+            //     target_node, 
+            //     &self.translate, 
+            //     &self.scale, 
+            //     self.debug_data); 
         });
+
+        if let Some(active_idx) = active_node {
+            let mut enabled = true;
+
+            if self.get_render_mode() == NodeRenderMode::OnlyTargetsEnabled {
+                enabled = if let Some(_) = self.target_node_list.iter().find(|idx| {
+                    if **idx == active_idx {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }) {
+                    true
+                } else {
+                    false
+                }
+            };
+            self.nodes.get_mut(&active_idx).unwrap().paint_node(
+                        ctx, 
+                        0,
+                        enabled,
+                        &self.config, 
+                        target_node, 
+                        &self.translate, 
+                        &self.scale, 
+                        self.debug_data); 
+        }
+
+        if let Some(target_idx) = target_node {
+            let mut enabled = true;
+
+            if self.get_render_mode() == NodeRenderMode::OnlyTargetsEnabled {
+                enabled = if let Some(_) = self.target_node_list.iter().find(|idx| {
+                    if **idx == target_idx {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }) {
+                    true
+                } else {
+                    false
+                }
+            };
+            self.nodes.get_mut(&target_idx).unwrap().paint_node(
+                        ctx, 
+                        0,
+                        enabled,
+                        &self.config, 
+                        target_node, 
+                        &self.translate, 
+                        &self.scale, 
+                        self.debug_data); 
+        }
 
         //Paint editor dialog
         if self.node_editor.is_visible {
             if let Some(_idx) = self.get_active_node_idx() {
-                self.node_editor.container.paint(ctx, &self.node_editor.title_text, _env);
+                self.node_editor.container.paint(ctx, &self.node_editor.title_text, &_env);
             }
         }
 

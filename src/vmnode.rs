@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::{Selection, Editor}, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
+use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::{Selection}, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
 use force_graph::DefaultNodeIdx;
 
 use crate::{constants::*, vmconfig::*};
@@ -45,16 +45,11 @@ pub struct VMNode {
     pub node_rect: Option<Rect>,
     pub anchored: bool,
     pub mass: f64,
-    pub editor: Editor<String>,
 }
 
 impl Default for VMNode {
     fn default() -> Self {
-        let mut editor = Editor::<String>::new();
-        editor.set_multiline(true);
-        editor.set_wrap_width(NODE_LABEL_MAX_CONSTRAINTS.0);
         let label = DEFAULT_ROOT_LABEL.to_string();
-        editor.set_text(label.clone());
         let node = VMNode {
             label,
             edges: Vec::with_capacity(10),
@@ -69,7 +64,6 @@ impl Default for VMNode {
             node_rect: None,
             anchored: false,
             mass: DEFAULT_NODE_MASS,
-            editor,
         };
         node
     }
@@ -110,12 +104,15 @@ impl VMNode {
             //Cache this node's screen space-transformed rect
             self.node_rect = Some(ctx.current_transform().transform_rect_bbox(rect).clone());
             let mut border_color = config.get_color(VMColor::NodeBorderColor).ok().expect("node border color not found in config");
+            let mut border_width = DEFAULT_BORDER_WIDTH;
             if self.is_active {
                 border_color = config.get_color(VMColor::ActiveNodeBorderColor).ok().expect("active node border color not found in config");
+                border_width = DEFAULT_ACTIVE_BORDER_WIDTH;
             } else if let Some(idx) = target {
                 if idx == self.index {
                     border_color = config.get_color(VMColor::TargetNodeBorderColor).ok().expect("target node border color not found in config");
-                }
+                    border_width = DEFAULT_TARGET_BORDER_WIDTH;
+                } 
             }
 
             let border_background;
@@ -130,11 +127,11 @@ impl VMNode {
 
             let badge_border_color = border_color.clone();
 
-            ctx.paint_with_z_index(z_index, move |ctx| {
-                ctx.stroke(border, &border_color, DEFAULT_BORDER_WIDTH);
+            // ctx.paint_with_z_index(z_index, move |ctx| {
+                ctx.stroke(border, &border_color, border_width);
                 ctx.fill(border, &border_background);
                 ctx.draw_text(container.as_mut().unwrap(), Point::new(0.0, 0.0));
-            });
+            // });
 
             if let Some(char) = self.mark.clone() {
                 self.paint_node_badge(ctx, z_index, enabled, config, &char, BadgePosition::TopRight, &rect, &badge_border_color);
@@ -171,7 +168,7 @@ impl VMNode {
     // TODO: End transformation and reexecute it within function
     pub fn paint_node_badge(&mut self,
          ctx: &mut PaintCtx,
-         z_index: u32,
+         _z_index: u32,
          enabled: bool,
          config: &VMConfig, 
          character: &String,
@@ -238,15 +235,15 @@ impl VMNode {
             };
             let badge_border_color = border_color.clone();
             ctx.with_save(|ctx| {
-                ctx.paint_with_z_index(z_index, move |ctx| {
+                // ctx.paint_with_z_index(z_index, move |ctx| {
                     ctx.fill(circle, &background_color);
                     ctx.stroke(circle, &badge_border_color, DEFAULT_MARK_BORDER_WIDTH);
-                });
+                // });
             });
             ctx.transform(Affine::from(TranslateScale::new(-1.*layout.size().to_vec2()/2., 1.)));
-            ctx.paint_with_z_index(z_index, move |ctx| {
+            // ctx.paint_with_z_index(z_index, move |ctx| {
                 ctx.draw_text(&layout, mark_point.to_point());
-            });
+            // });
         });
     }
 }
@@ -269,10 +266,12 @@ pub struct VMNodeEditor {
 
 impl VMNodeEditor {
     pub fn new() -> VMNodeEditor {
+        let textbox = TextBox::<String>::multiline().with_text_size(DEFAULT_LABEL_FONT_SIZE)
+        .controller(
+            VMNodeEditorController::new()
+        ).expand_width();
         let widget = Container::new(
-            TextBox::<String>::new().controller(
-                VMNodeEditorController::new()
-            ).expand_width()
+            textbox
         );
             
         let nodeeditor = VMNodeEditor {
