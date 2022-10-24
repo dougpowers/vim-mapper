@@ -113,7 +113,7 @@ pub struct VimMapper {
     // Rect into view.
     canvas_rect: Option<Rect>,
     // Struct to hold persistent VMConfig struct.
-    config: VMConfig,
+    config: VMConfigVersion4,
     // Whether to render non-target nodes as disabled
     node_render_mode: NodeRenderMode,
 }
@@ -180,7 +180,7 @@ pub enum NodeRenderMode {
 }
 
 impl VimMapper {
-    pub fn new(config: VMConfig) -> VimMapper {
+    pub fn new(config: VMConfigVersion4) -> VimMapper {
         let mut graph = <ForceGraph<u16, u16>>::new(
             DEFAULT_SIMULATION_PARAMTERS
         );
@@ -243,7 +243,7 @@ impl VimMapper {
 
     //Instantiates a new VimMapper struct from a deserialized VMSave. The ForceGraph is created from scratch
     // and no fg_index values are guaranteed to persist from session to session.
-    pub fn from_save(save: VMSave, config: VMConfig) -> VimMapper {
+    pub fn from_save(save: VMSave, config: VMConfigVersion4) -> VimMapper {
         let mut graph = <ForceGraph<u16, u16>>::new(DEFAULT_SIMULATION_PARAMTERS);
         let mut nodes: HashMap<u16, VMNode> = HashMap::with_capacity(50);
         let mut edges: HashMap<u16, VMEdge> = HashMap::with_capacity(100);
@@ -770,11 +770,12 @@ impl VimMapper {
     pub fn toggle_node_anchor(&mut self, idx: u16) {
         //Only allow non-root nodes to unanchor themselves
         if idx != 0 {
-            if let Some(node) = self.nodes.get(&idx) {
+            if let Some(node) = self.nodes.get_mut(&idx) {
                 if let Some(fg_idx) = node.fg_index {
                     self.graph.visit_nodes_mut(|fg_node| {
                         if fg_node.index() == fg_idx {
                             fg_node.toggle_anchor();
+                            node.anchored = fg_node.data.is_anchor;
                             self.animating = true;
                         }
                     });
@@ -967,7 +968,7 @@ impl VimMapper {
         }
     }
 
-    pub fn set_config(&mut self, config: VMConfig) {
+    pub fn set_config(&mut self, config: VMConfigVersion4) {
         self.config = config;
     }
 }
@@ -1164,7 +1165,7 @@ impl<'a> Widget<()> for VimMapper {
                                 self.reset_node_mass(idx);
                             }
                         }
-                        Action::AnchorActiveNode => {
+                        Action::ToggleAnchorActiveNode => {
                             if let Some(idx) = self.get_active_node_idx() {
                                 self.toggle_node_anchor(idx);
                             }

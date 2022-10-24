@@ -39,13 +39,13 @@ struct VMCanvas {
     dialog: WidgetPod<(), Flex<()>>,
     dialog_visible: bool,
     path: Option<PathBuf>,
-    config: VMConfig,
+    config: VMConfigVersion4,
     input_manager: VMInputManager,
     last_frame_time: u128,
 }
 
 impl VMCanvas {
-    pub fn new(config: VMConfig) -> VMCanvas {
+    pub fn new(config: VMConfigVersion4) -> VMCanvas {
         VMCanvas {
             inner: None,
             dialog: VMCanvas::make_dialog(&config),
@@ -108,7 +108,7 @@ impl VMCanvas {
         self.dialog_visible = false;
     }
 
-    pub fn make_dialog(config: &VMConfig) -> WidgetPod<(), Flex<()>> {
+    pub fn make_dialog(config: &VMConfigVersion4) -> WidgetPod<(), Flex<()>> {
         let open_button = Button::new("Open...")
             .on_click(move |ctx, _, _| {
             ctx.submit_command(
@@ -247,7 +247,7 @@ impl Widget<()> for VMCanvas {
                     if let Some(payload) = payload {
                         if payload.action == Action::ToggleColorScheme {
                             self.config.toggle_color_scheme();
-                            self.config.save();
+                            VMConfigSerde::save(self.config.clone());
                             if let Some(vm) = &mut self.inner {
                                 vm.widget_mut().set_config(self.config.clone());
                                 ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
@@ -449,6 +449,7 @@ impl Widget<()> for VMCanvas {
     }
 }
 
+#[allow(unused_must_use)]
 pub fn main() {
 
     let open_dialog_options = FileDialogOptions::new()
@@ -478,16 +479,19 @@ pub fn main() {
     .append_separator()
     .append(druid::platform_menus::win::file::exit());
 
-    let mut canvas: VMCanvas;
-    match VMConfig::load() {
+    let mut canvas;
+    match VMConfigSerde::load() {
         Ok(config) => {
-            canvas = VMCanvas::new(config);
+            canvas = VMCanvas::new(config.clone());
+            VMConfigSerde::save(config);
         }
-        Err(error) => {
-            println!("Failed to load config with error: {}", error);
-            canvas = VMCanvas::new(VMConfig::default());
+        Err((err, config)) => {
+            println!("{}", err);
+            canvas = VMCanvas::new(config.clone());
+            VMConfigSerde::save(config);
         }
     }
+
 
     let args: Vec<String> = std::env::args().collect();
     if let Some(str) = args.get(1) {

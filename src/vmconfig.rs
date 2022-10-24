@@ -19,6 +19,9 @@ use serde::{Serialize, Deserialize};
 
 use crate::constants::{DEFAULT_CONFIG_DIR_NAME, DEFAULT_CONFIG_FILE_NAME};
 
+#[allow(dead_code)]
+const VERSIONS: &'static [&'static str] = &["0.4.0"];
+
 #[derive(PartialEq, Serialize, Deserialize, Clone, Debug)]
 pub enum ColorScheme {
     LIGHT,
@@ -26,10 +29,112 @@ pub enum ColorScheme {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct VMConfig {
+struct VMConfigNoVersion {
     pub color_scheme: ColorScheme,
-    pub dark_palette: HashMap<VMColor, (u8,u8,u8,u8)>,
-    pub light_palette: HashMap<VMColor, (u8,u8,u8,u8)>,
+    pub dark_palette: HashMap<String, (u8,u8,u8,u8)>,
+    pub light_palette: HashMap<String, (u8,u8,u8,u8)>,
+}
+
+impl VMConfigNoVersion {
+    fn convert_to_current(&mut self) -> VMConfigVersion4 {
+        self.fill_missing_colors();
+        let mut dark_palette: HashMap<VMColor, (u8,u8,u8,u8)> = HashMap::new();
+        let mut light_palette: HashMap<VMColor, (u8,u8,u8,u8)> = HashMap::new();
+        for (key, color) in &self.light_palette {
+            light_palette.insert(VMConfigNoVersion::string_to_vmcolor((*key).clone()), color.clone());
+        }
+        for (key, color) in &self.dark_palette {
+            dark_palette.insert(VMConfigNoVersion::string_to_vmcolor((*key).clone()), color.clone());
+        }
+        VMConfigVersion4 {
+            color_scheme: self.color_scheme.clone(),
+            dark_palette,
+            light_palette,
+            ..Default::default()
+        }
+    }
+
+    fn fill_missing_colors(&mut self) {
+        let current_config = VMConfigVersion4::default();
+        for (key, color) in &current_config.light_palette {
+            if !self.light_palette.contains_key(&VMConfigNoVersion::vmcolor_to_string((*key).clone())) {
+                self.light_palette.insert(VMConfigNoVersion::vmcolor_to_string((*key).clone()), (*color).clone());
+            }
+        }
+        for (key, color) in &current_config.dark_palette {
+            if !self.dark_palette.contains_key(&VMConfigNoVersion::vmcolor_to_string((*key).clone())) {
+                self.dark_palette.insert(VMConfigNoVersion::vmcolor_to_string((*key).clone()), (*color).clone());
+            }
+        }
+    }
+
+    fn vmcolor_to_string(color: VMColor) -> String {
+        match color {
+            LabelTextColor => {
+                String::from("label-text-color")
+            },
+            DisabledLabelTextColor => {
+                String::from("")
+            },
+            NodeBorderColor => {
+                String::from("node-border-color")
+            },
+            DisabledNodeBorderColor => {
+                String::from("")
+            },
+            ActiveNodeBorderColor => {
+                String::from("active-node-border-color")
+            },
+            TargetNodeBorderColor => {
+                String::from("target-node-border-color")
+            },
+            NodeBackgroundColor => {
+                String::from("node-background-color")
+            },
+            DisabledNodeBackgroundColor => {
+                String::from("")
+            },
+            EdgeColor => {
+                String::from("edge-color")
+            },
+            ComposeIndicatorTextColor => {
+                String::from("compose-indicator-text-color")
+            },
+            SheetBackgroundColor => {
+                String::from("sheet-background-color")
+            },
+        }
+    }
+
+    fn string_to_vmcolor(string: String) -> VMColor {
+        match string.as_str() {
+            "label-text-color" => {
+                VMColor::LabelTextColor
+            }
+            "node-border-color" => {
+                VMColor::NodeBorderColor
+            }
+            "active-node-border-color" => {
+                VMColor::ActiveNodeBorderColor
+            }
+            "target-node-border-color" => {
+                VMColor::TargetNodeBorderColor
+            }
+            "node-background-color" => {
+                VMColor::NodeBackgroundColor
+            }
+            "edge-color" => {
+                VMColor::EdgeColor
+            }
+            "compose-indicator-text-color" => {
+                VMColor::ComposeIndicatorTextColor
+            }
+            "sheet-background-color" => {
+                VMColor::SheetBackgroundColor
+            }
+            _ => VMColor::ComposeIndicatorTextColor
+        }
+    }
 }
 
 #[derive(Hash,Eq,PartialEq,Clone,Serialize,Deserialize)]
@@ -47,8 +152,86 @@ pub enum VMColor {
     SheetBackgroundColor,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct VMConfigVersion4 {
+    pub file_version: String,
+    pub color_scheme: ColorScheme,
+    dark_palette: HashMap<VMColor, (u8,u8,u8,u8)>,
+    light_palette: HashMap<VMColor, (u8,u8,u8,u8)>,
+}
+
+pub struct VMConfigSerde;
+
+#[allow(unused_must_use)]
+impl VMConfigSerde {
+    pub fn load() -> Result<VMConfigVersion4, (String, VMConfigVersion4)> {
+        if let Some(mut path) = dirs::config_dir() {
+            path.push(DEFAULT_CONFIG_DIR_NAME);
+            if !path.clone().exists() {
+                if let Ok(_) = fs::create_dir(path.clone()) {
+                } else {
+                    return Err((
+                        format!("Couldn't create configuration directory at {:?}", path.clone()),
+                        VMConfigVersion4::default()
+                    ));
+                }
+            }
+            path.push(DEFAULT_CONFIG_FILE_NAME);
+            if !path.exists() {
+                println!("No config file found. Creating at {}", path.display());
+                let mut config = VMConfigVersion4::default();
+                let system_mode = dark_light::detect();
+
+                match system_mode {
+                    dark_light::Mode::Light => {
+                        config.set_color_scheme(ColorScheme::LIGHT);
+                    }
+                    dark_light::Mode::Dark => {
+                        config.set_color_scheme(ColorScheme::DARK);
+                    }
+                }
+
+                fs::write(path, serde_json::to_string_pretty(&config).ok().expect("Failed to serialize default config!")).expect("Failed to write default config to file");
+                return Ok(config)
+            } else {
+                if let Ok(string) = fs::read_to_string(path.clone()) {
+                    if let Ok(config) = serde_json::from_str::<VMConfigVersion4>(&string) {
+                        return Ok(config);
+                    } else if let Ok(mut config) = serde_json::from_str::<VMConfigNoVersion>(&string) {
+                        config.fill_missing_colors();
+                        let mut config_path_renamed = path.clone();
+                        config_path_renamed.set_extension("old");
+                        fs::rename(path, config_path_renamed);
+                        return Ok(config.convert_to_current());
+                    } else {
+                        let mut config_path_renamed = path.clone();
+                        config_path_renamed.set_extension("old");
+                        fs::rename(path, config_path_renamed);
+                        return Err((
+                            String::from("Could not serialized config file as any known version"),
+                            VMConfigVersion4::default()
+                        ));
+                    }
+                }
+            }
+        }
+        Err((
+            "General filesystem error".to_string(),
+            VMConfigVersion4::default()
+        ))
+    }
+
+    pub fn save(config: VMConfigVersion4) -> Result<String, String> {
+        let mut path = dirs::config_dir().expect("no user config dir found");
+        path.push(DEFAULT_CONFIG_DIR_NAME);
+        path.push(DEFAULT_CONFIG_FILE_NAME);
+        fs::write(path, serde_json::to_string_pretty(&config).ok().expect("Failed to serialize config")).ok().expect("Failed to save config");
+        Ok("".to_string())
+    }
+}
+
 use VMColor::*;
-impl Default for VMConfig {
+impl Default for VMConfigVersion4 {
 
     fn default() -> Self {
         let mut dark_palette: HashMap<VMColor, (u8,u8,u8,u8)> = HashMap::new();
@@ -75,7 +258,8 @@ impl Default for VMConfig {
         dark_palette.insert(EdgeColor, (132,132,132,255));
         dark_palette.insert(ComposeIndicatorTextColor, (255,0,0,255));
         dark_palette.insert(SheetBackgroundColor, (0,0,0,255));
-        VMConfig {
+        VMConfigVersion4 {
+            file_version: String::from("0.4.0"),
             color_scheme: ColorScheme::LIGHT,
             light_palette,
             dark_palette,
@@ -84,57 +268,57 @@ impl Default for VMConfig {
 
 }
 
-impl VMConfig {
-    pub fn load() -> Result<Self, String> {
-        if let Some(mut path) = dirs::config_dir() {
-            path.push(DEFAULT_CONFIG_DIR_NAME);
-            if !path.clone().exists() {
-                if let Ok(_) = fs::create_dir(path.clone()) {
-                } else {
-                    return Err(format!("Couldn't create configuration directory at {:?}", path.clone()));
-                }
-            }
-            path.push(DEFAULT_CONFIG_FILE_NAME);
-            if !path.exists() {
-                println!("No config file found. Creating at {}", path.display());
-                let mut config = VMConfig::default();
-                let system_mode = dark_light::detect();
+impl VMConfigVersion4 {
+    // pub fn load() -> Result<Self, String> {
+    //     if let Some(mut path) = dirs::config_dir() {
+    //         path.push(DEFAULT_CONFIG_DIR_NAME);
+    //         if !path.clone().exists() {
+    //             if let Ok(_) = fs::create_dir(path.clone()) {
+    //             } else {
+    //                 return Err(format!("Couldn't create configuration directory at {:?}", path.clone()));
+    //             }
+    //         }
+    //         path.push(DEFAULT_CONFIG_FILE_NAME);
+    //         if !path.exists() {
+    //             println!("No config file found. Creating at {}", path.display());
+    //             let mut config = VMConfigVersion4::default();
+    //             let system_mode = dark_light::detect();
 
-                match system_mode {
-                    dark_light::Mode::Light => {
-                        config.set_color_scheme(ColorScheme::LIGHT);
-                    }
-                    dark_light::Mode::Dark => {
-                        config.set_color_scheme(ColorScheme::DARK);
-                    }
-                }
+    //             match system_mode {
+    //                 dark_light::Mode::Light => {
+    //                     config.set_color_scheme(ColorScheme::LIGHT);
+    //                 }
+    //                 dark_light::Mode::Dark => {
+    //                     config.set_color_scheme(ColorScheme::DARK);
+    //                 }
+    //             }
 
-                fs::write(path, serde_json::to_string_pretty(&config).ok().expect("Failed to serialize default config!")).expect("Failed to write default config to file");
-                return Ok(config)
-            } else {
-                if let Ok(string) = fs::read_to_string(path.clone()) {
-                    if let Ok(config) = serde_json::from_str::<VMConfig>(&string) {
-                        if let Ok(_) = config.get_color(VMColor::DisabledLabelTextColor) {
-                            return Ok(config)
-                        } else {
-                            return Err(format!("Old config detected. Replacing with new default"));
-                        }
-                    } else {
-                        return Err(format!("Couldn't serialize config file at {}", path.display()))
-                    }
-                }
-            }
-        }
-        Err("General filesystem error".to_string())
-    }
+    //             fs::write(path, serde_json::to_string_pretty(&config).ok().expect("Failed to serialize default config!")).expect("Failed to write default config to file");
+    //             return Ok(config)
+    //         } else {
+    //             if let Ok(string) = fs::read_to_string(path.clone()) {
+    //                 if let Ok(config) = serde_json::from_str::<VMConfigVersion4>(&string) {
+    //                     if let Ok(_) = config.get_color(VMColor::DisabledLabelTextColor) {
+    //                         return Ok(config)
+    //                     } else {
+    //                         return Err(format!("Old config detected. Replacing with new default"));
+    //                     }
+    //                 } else {
+    //                     return Err(format!("Couldn't serialize config file at {}", path.display()))
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     Err("General filesystem error".to_string())
+    // }
 
-    pub fn save(&self) -> Result<String, String> {
-        let mut path = dirs::config_dir().expect("no user config dir found");
-        path.push(DEFAULT_CONFIG_DIR_NAME);
-        path.push(DEFAULT_CONFIG_FILE_NAME);
-        fs::write(path, serde_json::to_string_pretty(self).ok().expect("Failed to serialize config")).ok().expect("Failed to save config");
-        Ok("".to_string())
-    }
+    // pub fn save(&self) -> Result<String, String> {
+    //     let mut path = dirs::config_dir().expect("no user config dir found");
+    //     path.push(DEFAULT_CONFIG_DIR_NAME);
+    //     path.push(DEFAULT_CONFIG_FILE_NAME);
+    //     fs::write(path, serde_json::to_string_pretty(self).ok().expect("Failed to serialize config")).ok().expect("Failed to save config");
+    //     Ok("".to_string())
+    // }
 
     pub fn set_color_scheme(&mut self, scheme: ColorScheme) {
         self.color_scheme = scheme;

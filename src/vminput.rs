@@ -69,7 +69,7 @@ pub enum Action {
     IncreaseActiveNodeMass,
     DecreaseActiveNodeMass,
     ResetActiveNodeMass,
-    AnchorActiveNode,
+    ToggleAnchorActiveNode,
     ActivateTargetedNode,
     EditActiveNodeSelectAll,
     EditActiveNodeAppend,
@@ -538,7 +538,7 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::AnchorActiveNode,
+                            action: Action::ToggleAnchorActiveNode,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
@@ -579,6 +579,10 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![Some(
                         ActionPayload {
+                            action: Action::ToggleAnchorActiveNode,
+                            ..Default::default()
+                        }),
+                        Some(ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::Sheet),
                             ..Default::default()
