@@ -34,6 +34,9 @@ use vimmapper::*;
 mod vmconfig;
 use vmconfig::*;
 
+mod vmsave;
+use vmsave::*;
+
 struct VMCanvas {
     inner: Option<WidgetPod<(), VimMapper>>,
     dialog: WidgetPod<(), Flex<()>>,
@@ -57,46 +60,46 @@ impl VMCanvas {
         }
     }
 
-    pub fn open_file(&mut self, path: String) -> Result<(), String> {
-        if let Ok(string) = fs::read_to_string(path.clone()) {
-            if let Ok(save) = serde_json::from_str::<VMSave>(string.as_str()) {
-                if let Ok(path) = Path::new(&path.clone()).canonicalize() {
-                    self.path = Some(path);
-                    self.load_new_mapper(VimMapper::from_save(save, self.config.clone()));
-                    Ok(())
-                } else {
-                    Err("Not a valid path.".to_string())
-                }
-            } else {
-                Err("Not a valid path.".to_string())
-            }
-        } else {
-        Err("Couldn't load file.".to_string())
-        }
-    }
+    // pub fn open_file(&mut self, path: String) -> Result<(), String> {
+    //     if let Ok(string) = fs::read_to_string(path.clone()) {
+    //         if let Ok(save) = serde_json::from_str::<VMSaveVersion4>(string.as_str()) {
+    //             if let Ok(path) = Path::new(&path.clone()).canonicalize() {
+    //                 self.path = Some(path);
+    //                 self.load_new_mapper(VMSaveSerde::from_save(save, self.config.clone()));
+    //                 Ok(())
+    //             } else {
+    //                 Err("Not a valid path.".to_string())
+    //             }
+    //         } else {
+    //             Err("Not a valid path.".to_string())
+    //         }
+    //     } else {
+    //     Err("Couldn't load file.".to_string())
+    //     }
+    // }
 
-    pub fn save_file(&mut self) -> Result<String, String> {
-        if let Some(mapper_pod) = &self.inner {
-            match &self.path {
-                Some(path) => {
-                    if let Ok(string) = serde_json::to_string(&mapper_pod.widget().to_save()) {
-                        if let Ok(_) = fs::write(path, string) {
-                            Ok("File saved".to_string())
-                        } else {
-                            Err("Could not save to file.".to_string())
-                        }
-                    } else {
-                        Err("Could not serialize map".to_string())
-                    }
-                }
-                None => {
-                    Err("No path set.".to_string())
-                }
-            }
-        } else {
-            Err("No sheet was openend.".to_string())
-        }
-    }
+    // pub fn save_file(&mut self) -> Result<String, String> {
+    //     if let Some(mapper_pod) = &self.inner {
+    //         match &self.path {
+    //             Some(path) => {
+    //                 if let Ok(string) = serde_json::to_string::<VMSaveVersion4>(&VMSaveSerde::to_save(&mapper_pod.widget())) {
+    //                     if let Ok(_) = fs::write(path, string) {
+    //                         Ok("File saved".to_string())
+    //                     } else {
+    //                         Err("Could not save to file.".to_string())
+    //                     }
+    //                 } else {
+    //                     Err("Could not serialize map".to_string())
+    //                 }
+    //             }
+    //             None => {
+    //                 Err("No path set.".to_string())
+    //             }
+    //         }
+    //     } else {
+    //         Err("No sheet was openend.".to_string())
+    //     }
+    // }
 
     pub fn set_path(&mut self, path: PathBuf) -> Result<PathBuf, String> {
         self.path = Some(path.clone());
@@ -178,15 +181,19 @@ impl Widget<()> for VMCanvas {
             }
             Event::Command(command) if command.is(druid::commands::OPEN_FILE) => {
                 let payload = command.get_unchecked(druid::commands::OPEN_FILE);
-                if let Ok(_) = self.open_file(payload.path().to_str().unwrap().to_string()) {
+                if let Ok((save, path)) = VMSaveSerde::load(payload.path().to_str().unwrap().to_string()) {
+                    let vm = VMSaveSerde::from_save(save, self.config.clone());
+                    self.path = Some(path);
+                    self.load_new_mapper(vm);
                     ctx.children_changed();
                     ctx.request_layout();
                 }
             }
             Event::Command(command) if command.is(druid::commands::SAVE_FILE) => {
-                if let Some(_) = self.inner {
-                    if let Some(_) = self.path {
-                        self.save_file();
+                if let Some(inner) = &self.inner {
+                    if let Some(path) = &self.path {
+                        // self.save_file();
+                        VMSaveSerde::save(&VMSaveSerde::to_save(&inner.widget()), (*path).clone());
                     } else {
                         ctx.submit_command(Command::new(
                             druid::commands::SHOW_SAVE_PANEL,
@@ -203,8 +210,9 @@ impl Widget<()> for VMCanvas {
                 if let Some(_) = self.inner {
                     let payload = command.get_unchecked(druid::commands::SAVE_FILE_AS);
                     let res = self.set_path(payload.path().to_path_buf());
-                    if let Ok(_path) = res {
-                        self.save_file();
+                    if let Ok(path) = res {
+                        // self.save_file();
+                        VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
                     } else if let Err(err) = res {
                         panic!("{}", err);
                     }
@@ -247,7 +255,7 @@ impl Widget<()> for VMCanvas {
                     if let Some(payload) = payload {
                         if payload.action == Action::ToggleColorScheme {
                             self.config.toggle_color_scheme();
-                            VMConfigSerde::save(self.config.clone());
+                            VMConfigSerde::save(&self.config);
                             if let Some(vm) = &mut self.inner {
                                 vm.widget_mut().set_config(self.config.clone());
                                 ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
@@ -482,13 +490,11 @@ pub fn main() {
     let mut canvas;
     match VMConfigSerde::load() {
         Ok(config) => {
-            canvas = VMCanvas::new(config.clone());
-            VMConfigSerde::save(config);
+            canvas = VMCanvas::new(config);
         }
         Err((err, config)) => {
             println!("{}", err);
-            canvas = VMCanvas::new(config.clone());
-            VMConfigSerde::save(config);
+            canvas = VMCanvas::new(config);
         }
     }
 
@@ -499,7 +505,10 @@ pub fn main() {
         if path.exists() {
             if let Some(ext) = path.extension() {
                 if ext == "vmd" {
-                    if let Ok(_) = canvas.open_file(path.display().to_string()) {
+                    if let Ok((save, path)) = VMSaveSerde::load(path.display().to_string()) {
+                        let vm = VMSaveSerde::from_save(save, canvas.config.clone());
+                        canvas.path = Some(path.clone());
+                        canvas.load_new_mapper(vm);
                         println!("Launching with open sheet: {}.", path.display());
                     }
                 }

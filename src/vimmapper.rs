@@ -34,149 +34,209 @@ use serde::Deserialize;
 
 //VimMapper is the controller class for the graph implementation and UI. 
 
-pub struct VimMapper {
+pub(crate) struct VimMapper {
     //The ForceGraph is contained as a background object, shadowed by the the nodes and edges HashMaps.
     // The user_data structures provided are populated by the u16 index to the corresponding nodes and edges
     // in the global HashMaps. This inefficiency will be rectified in future versions of Vim-Mapper by 
     // forking force_graph and implementing a trait-based interface that will bind directly to the 
     // global nodes.
-    graph: ForceGraph<u16, u16>,
+    pub(crate) graph: ForceGraph<u16, u16>,
     //A boolean that determines if, when an AnimFrame is received, whether another is requested.
     // ForceGraph and global HashMaps are only updated regularly when this value is true.
-    animating: bool,
+    pub(crate) animating: bool,
     //The global map of nodes. All references to nodes use this u16 key to avoid holding references
     // in structs.
-    nodes: HashMap<u16, VMNode>,
+    pub(crate) nodes: HashMap<u16, VMNode>,
     //The global map of edges. All references to edges use this u16 key to avoid holding references
     // in structs.
-    edges: HashMap<u16, VMEdge>,
+    pub(crate) edges: HashMap<u16, VMEdge>,
     //The global index count that provides new nodes with a unique u16 key.
-    node_idx_count: u16,
+    pub(crate) node_idx_count: u16,
     //The global index count that provides new edges with a unique u16 key.
-    edge_idx_count: u16,
+    pub(crate) edge_idx_count: u16,
     //The translate portion of the canvas transform. This pans the canvas. Updated only during paints.
-    translate: TranslateScale,
+    pub(crate) translate: TranslateScale,
     //The scale portion of the canvas transform. This zooms the canvas. These two transforms are
     // kept separate to allow various vectors to be scaled without translation or vice versa. Updated
     // only during paints.
-    scale: TranslateScale,
+    pub(crate) scale: TranslateScale,
     //Constantly updated value for x panning. Is initialized using the DEFAULT_OFFSET_X constant. All
     // events which affect panning modify this value. It is used to build the translate TranslateScale
     // during painting.
-    offset_x: f64,
+    pub(crate) offset_x: f64,
     //Constantly updated value for y panning. Is initialized using the DEFAULT_OFFSET_Y constant. All
     // events which affect panning modify this value. It is used to build the translate TranslateScale
     // during painting.
-    offset_y: f64,
+    pub(crate) offset_y: f64,
     //This holds the last location the user clicked in order to determine double clicks 
-    last_click_point: Option<Point>,
+    pub(crate) last_click_point: Option<Point>,
     //This is a debug vector containing all the node collision rects from the last click interaction.
-    last_collision_rects: Vec<Rect>,
+    pub(crate) last_collision_rects: Vec<Rect>,
     //This bool allows Vim-Mapper to determine if the sheet or VMNodeEditor has focus. Notifications
     // and Commands are used to pass focus between the two.
-    is_focused: bool,
+    pub(crate) is_focused: bool,
     // target_list: Vec<u16>,
     // target_idx: Option<usize>,
 
-    target_node_list: Vec<u16>,
-    target_node_idx: Option<usize>,
+    pub(crate) target_node_list: Vec<u16>,
+    pub(crate) target_node_idx: Option<usize>,
     //A struct that holds state and widgets for the modal node editor.
-    node_editor: VMNodeEditor,
+    pub(crate) node_editor: VMNodeEditor,
     //A bool that specifies whether or not a MouseUp event has been received. If not, MouseMoves will 
     // pan the canvas.
-    is_dragging: bool,
+    pub(crate) is_dragging: bool,
     //The point at which the last MouseDown was received. This is used to create a Vec2 that can be
     // applied to the translate TranslateScale.
-    drag_point: Option<Point>,
+    pub(crate) drag_point: Option<Point>,
     //The timer that, when expired, determines that the use submitted two distinct clicks rather than
     // a double click. Duration is the DOUBLE_CLICK_THRESHOLD constant.
-    double_click_timer: Option<TimerToken>,
+    pub(crate) double_click_timer: Option<TimerToken>,
     //This value is true until the double_click_timer has passed the DOUBLE_CLICK_THRESHOLD and signals
     // that the subsequent click should be interpreted as a double click.
-    double_click: bool,
+    pub(crate) double_click: bool,
     //This tuple captures the state of canvas translation so that all MouseMove deltas can be accumulated
     // to compute panning
-    translate_at_drag: Option<(f64, f64)>,
+    pub(crate) translate_at_drag: Option<(f64, f64)>,
     //This captures the is_hot context value during lifecycle changes to allow for the VimCanvas widget
     // to isolate click events for the dialog widgets
-    is_hot: bool,
+    pub(crate) is_hot: bool,
     //Toggle to display data from the VimMapper struct on-screen. (Alt-F12)
-    debug_data: bool,
+    pub(crate) debug_data: bool,
     //Toggle to display various debug visuals, including the last collision and click events as well
     // as the system palette colors in the Environment
     #[allow(dead_code)]
-    debug_visuals: bool,
+    pub(crate) debug_visuals: bool,
     //Stores the largest individual movement (in either x or y) of any nodes during an update.
     // Used to pause computation once the graph has stabilized. 
-    largest_node_movement: Option<f64>,
+    pub(crate) largest_node_movement: Option<f64>,
     // Cached dimensions of the screen. Used to compute the offsets required to scroll a given
     // Rect into view.
-    canvas_rect: Option<Rect>,
+    pub(crate) canvas_rect: Option<Rect>,
     // Struct to hold persistent VMConfig struct.
-    config: VMConfigVersion4,
+    pub(crate) config: VMConfigVersion4,
     // Whether to render non-target nodes as disabled
-    node_render_mode: NodeRenderMode,
+    pub(crate) node_render_mode: NodeRenderMode,
 }
 
 //A boiled-down struct to hold the essential data to serialize and deserialize a graph sheet. Used to
 // enable the app state to be saved to disk as a .vmd file.
-#[derive(Serialize, Deserialize)]
-pub struct VMSave {
-    nodes: HashMap<u16, BareNode>,
-    edges: HashMap<u16, BareEdge>,
-    node_idx_count: u16,
-    edge_idx_count: u16,
-    translate: (f64, f64),
-    scale: f64,
-    offset_x: f64,
-    offset_y: f64,
-}
+// #[derive(Serialize, Deserialize)]
+// pub struct VMSave {
+//     nodes: HashMap<u16, BareNode>,
+//     edges: HashMap<u16, BareEdge>,
+//     node_idx_count: u16,
+//     edge_idx_count: u16,
+//     translate: (f64, f64),
+//     scale: f64,
+//     offset_x: f64,
+//     offset_y: f64,
+// }
 
-//A boiled-down struct to hold the essential data to serialize and deserialize a node. Used to
-// enable the app state to be saved to disk as a .vmd file.
-#[derive(Serialize, Deserialize)]
-pub struct BareNode {
-    label: String,
-    edges: Vec<u16>,
-    index: u16,
-    pos: (f64, f64),
-    is_active: bool,
-    mark: Option<String>,
-    targeted_internal_edge_idx: Option<usize>,
-    mass: f64,
-    anchored: bool,
-}
+// //A boiled-down struct to hold the essential data to serialize and deserialize a node. Used to
+// // enable the app state to be saved to disk as a .vmd file.
+// #[derive(Serialize, Deserialize)]
+// pub struct BareNode {
+//     label: String,
+//     edges: Vec<u16>,
+//     index: u16,
+//     pos: (f64, f64),
+//     is_active: bool,
+//     mark: Option<String>,
+//     targeted_internal_edge_idx: Option<usize>,
+//     mass: f64,
+//     anchored: bool,
+// }
 
-impl Default for BareNode {
-    fn default() -> Self {
-        BareNode { 
-            label: DEFAULT_NEW_NODE_LABEL.to_string(),
-            edges: vec![0], 
-            index: 0, 
-            pos: (0.,0.), 
-            is_active: false, 
-            mark: None, 
-            targeted_internal_edge_idx: None, 
-            mass: DEFAULT_NODE_MASS, 
-            anchored: false 
-        }
-    }
-}
+// impl Default for BareNode {
+//     fn default() -> Self {
+//         BareNode { 
+//             label: DEFAULT_NEW_NODE_LABEL.to_string(),
+//             edges: vec![0], 
+//             index: 0, 
+//             pos: (0.,0.), 
+//             is_active: false, 
+//             mark: None, 
+//             targeted_internal_edge_idx: None, 
+//             mass: DEFAULT_NODE_MASS, 
+//             anchored: false 
+//         }
+//     }
+// }
 
-//A boiled-down struct to hold the essential data to serialize and deserialize an edge. Used to
-// enable the app state to be saved to disk as a .vmd file.
-#[derive(Serialize, Deserialize)]
-pub struct BareEdge {
-    label: Option<String>,
-    from: u16,
-    to: u16,
-    index: u16,
-}
+// //A boiled-down struct to hold the essential data to serialize and deserialize an edge. Used to
+// // enable the app state to be saved to disk as a .vmd file.
+// #[derive(Serialize, Deserialize)]
+// pub struct BareEdge {
+//     label: Option<String>,
+//     from: u16,
+//     to: u16,
+//     index: u16,
+// }
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum NodeRenderMode {
     OnlyTargetsEnabled,
     AllEnabled,
+}
+
+impl Default for VimMapper {
+    fn default() -> Self {
+        let config = VMConfigVersion4::default();
+        let mut graph = <ForceGraph<u16, u16>>::new(
+            DEFAULT_SIMULATION_PARAMTERS
+        );
+        //The default node. Is always at index 0 and position (0.0, 0.0).
+        let mut root_node = VMNode {
+            label: DEFAULT_ROOT_LABEL.to_string(),
+            edges: Vec::with_capacity(10),
+            index: 0,
+            is_active: true,
+            ..Default::default()
+        };
+        // Capture the DefaultNodeIdx and store it in the VMNode. This allows nodes to refer to the 
+        // bare ForceGraph to remove themselves.
+        root_node.fg_index = Some(graph.add_node(NodeData 
+            { x: 0.0, 
+            y: 0.0, 
+            is_anchor: true, 
+            user_data: 0, 
+            mass: DEFAULT_NODE_MASS, 
+            ..Default::default() 
+        }));
+        let mut mapper = VimMapper {
+            graph: graph, 
+            animating: true,
+            nodes: HashMap::with_capacity(50),
+            edges: HashMap::with_capacity(100),
+            //Account for the already-added root node
+            node_idx_count: 1,
+            edge_idx_count: 0,
+            translate: DEFAULT_TRANSLATE,
+            scale: DEFAULT_SCALE,
+            offset_x: DEFAULT_OFFSET_X,
+            offset_y: DEFAULT_OFFSET_Y,
+            last_click_point: None,
+            last_collision_rects: Vec::new(),
+            is_focused: true,
+            node_editor: VMNodeEditor::new(),
+            is_dragging: false,
+            drag_point: None,
+            target_node_idx: None,
+            target_node_list: vec![],
+            translate_at_drag: None,
+            double_click_timer: None,
+            double_click: false,
+            is_hot: true,
+            debug_data: false,
+            debug_visuals: false,
+            largest_node_movement: None,
+            canvas_rect: None,
+            config,
+            node_render_mode: NodeRenderMode::AllEnabled,
+        };
+        mapper.nodes.insert(0, root_node);
+        mapper
+    }
 }
 
 impl VimMapper {
@@ -241,145 +301,177 @@ impl VimMapper {
         mapper
     }
 
-    //Instantiates a new VimMapper struct from a deserialized VMSave. The ForceGraph is created from scratch
-    // and no fg_index values are guaranteed to persist from session to session.
-    pub fn from_save(save: VMSave, config: VMConfigVersion4) -> VimMapper {
-        let mut graph = <ForceGraph<u16, u16>>::new(DEFAULT_SIMULATION_PARAMTERS);
-        let mut nodes: HashMap<u16, VMNode> = HashMap::with_capacity(50);
-        let mut edges: HashMap<u16, VMEdge> = HashMap::with_capacity(100);
-        for (_k ,v) in save.nodes {
-            let fg_index: Option<DefaultNodeIdx>;
-            if v.index == 0 {
-                fg_index = Some(graph.add_node(NodeData {
-                    is_anchor: true,
-                    x: v.pos.0,
-                    y: v.pos.1,
-                    mass: v.mass,
-                    user_data: {
-                        0
-                    },
-                    ..Default::default()
-                }));
-            } else {
-                fg_index = Some(graph.add_node(NodeData {
-                    is_anchor: v.anchored,
-                    x: v.pos.0,
-                    y: v.pos.1,
-                    mass: v.mass,
-                    user_data: {
-                        v.index
-                    },
-                    ..Default::default()
-                }));
-            }
-            nodes.insert(v.index, VMNode {
-                label: v.label.clone(), 
-                edges: v.edges, 
-                index: v.index, 
-                fg_index: fg_index, 
-                // pos: Vec2::new(v.pos.0, v.pos.1), 
-                // container: VMNodeLayoutContainer::new(v.index), 
-                mark: v.mark,
-                ..Default::default()
-            });
-        }
-        for (_k,v) in save.edges {
-            graph.add_edge(
-                nodes.get(&v.from).unwrap().fg_index.unwrap(), 
-                nodes.get(&v.to).unwrap().fg_index.unwrap(), 
-                EdgeData { user_data: v.index });
-            edges.insert(v.index, VMEdge { 
-                label: None, 
-                from: v.from, 
-                to: v.to, 
-                index: v.index, 
-                });
-        }
-        let mut vm = VimMapper {
-            graph,
-            animating: true,
-            nodes,
-            edges,
-            node_idx_count: save.node_idx_count,
-            edge_idx_count: save.edge_idx_count,
-            translate: TranslateScale::new(
-                Vec2::new(
-                    save.translate.0, 
-                    save.translate.1),
-                0.),
-            scale: TranslateScale::new(
-                Vec2::new(
-                    0., 
-                    0.),
-                save.scale),
-            offset_x: save.offset_x,
-            offset_y: save.offset_y,
-            last_click_point: None,
-            last_collision_rects: Vec::new(),
-            is_focused: true,
-            // target_list: vec![],
-            // target_idx: None,
-            target_node_list: vec![],
-            target_node_idx: None,
-            node_editor: VMNodeEditor::new(),
-            is_dragging: false,
-            drag_point: None,
-            double_click_timer: None,
-            double_click: false,
-            translate_at_drag: None,
-            is_hot: true,
-            debug_data: false,
-            debug_visuals: false,
-            largest_node_movement: None,
-            canvas_rect: None,
-            config,
-            node_render_mode: NodeRenderMode::AllEnabled,
-        };
-        vm.set_node_as_active(0);
-        vm.build_target_list_from_neighbors(0);
-        vm.cycle_target_forward();
-        vm
+    // //Instantiates a new VimMapper struct from a deserialized VMSave. The ForceGraph is created from scratch
+    // // and no fg_index values are guaranteed to persist from session to session.
+    // pub fn from_save(save: VMSave, config: VMConfigVersion4) -> VimMapper {
+    //     let mut graph = <ForceGraph<u16, u16>>::new(DEFAULT_SIMULATION_PARAMTERS);
+    //     let mut nodes: HashMap<u16, VMNode> = HashMap::with_capacity(50);
+    //     let mut edges: HashMap<u16, VMEdge> = HashMap::with_capacity(100);
+    //     for (_k ,v) in save.nodes {
+    //         let fg_index: Option<DefaultNodeIdx>;
+    //         if v.index == 0 {
+    //             fg_index = Some(graph.add_node(NodeData {
+    //                 is_anchor: true,
+    //                 x: v.pos.0,
+    //                 y: v.pos.1,
+    //                 mass: v.mass,
+    //                 user_data: {
+    //                     0
+    //                 },
+    //                 ..Default::default()
+    //             }));
+    //         } else {
+    //             fg_index = Some(graph.add_node(NodeData {
+    //                 is_anchor: v.anchored,
+    //                 x: v.pos.0,
+    //                 y: v.pos.1,
+    //                 mass: v.mass,
+    //                 user_data: {
+    //                     v.index
+    //                 },
+    //                 ..Default::default()
+    //             }));
+    //         }
+    //         nodes.insert(v.index, VMNode {
+    //             label: v.label.clone(), 
+    //             edges: v.edges, 
+    //             index: v.index, 
+    //             fg_index: fg_index, 
+    //             // pos: Vec2::new(v.pos.0, v.pos.1), 
+    //             // container: VMNodeLayoutContainer::new(v.index), 
+    //             mark: v.mark,
+    //             ..Default::default()
+    //         });
+    //     }
+    //     for (_k,v) in save.edges {
+    //         graph.add_edge(
+    //             nodes.get(&v.from).unwrap().fg_index.unwrap(), 
+    //             nodes.get(&v.to).unwrap().fg_index.unwrap(), 
+    //             EdgeData { user_data: v.index });
+    //         edges.insert(v.index, VMEdge { 
+    //             label: None, 
+    //             from: v.from, 
+    //             to: v.to, 
+    //             index: v.index, 
+    //             });
+    //     }
+    //     let mut vm = VimMapper {
+    //         graph,
+    //         animating: true,
+    //         nodes,
+    //         edges,
+    //         node_idx_count: save.node_idx_count,
+    //         edge_idx_count: save.edge_idx_count,
+    //         translate: TranslateScale::new(
+    //             Vec2::new(
+    //                 save.translate.0, 
+    //                 save.translate.1),
+    //             0.),
+    //         scale: TranslateScale::new(
+    //             Vec2::new(
+    //                 0., 
+    //                 0.),
+    //             save.scale),
+    //         offset_x: save.offset_x,
+    //         offset_y: save.offset_y,
+    //         last_click_point: None,
+    //         last_collision_rects: Vec::new(),
+    //         is_focused: true,
+    //         // target_list: vec![],
+    //         // target_idx: None,
+    //         target_node_list: vec![],
+    //         target_node_idx: None,
+    //         node_editor: VMNodeEditor::new(),
+    //         is_dragging: false,
+    //         drag_point: None,
+    //         double_click_timer: None,
+    //         double_click: false,
+    //         translate_at_drag: None,
+    //         is_hot: true,
+    //         debug_data: false,
+    //         debug_visuals: false,
+    //         largest_node_movement: None,
+    //         canvas_rect: None,
+    //         config,
+    //         node_render_mode: NodeRenderMode::AllEnabled,
+    //     };
+    //     vm.set_node_as_active(0);
+    //     vm.build_target_list_from_neighbors(0);
+    //     vm.cycle_target_forward();
+    //     vm
+    // }
+
+    // //Instantiates a serializable VMSave from the VimMapper struct. All ForceGraph data is discarded and
+    // // must be recreated when the VMSave is deserialized and instantiated into a VimMapper struct
+    // pub fn to_save(&self) -> VMSave {
+    //     let mut nodes: HashMap<u16, BareNode> = HashMap::with_capacity(50);
+    //     let mut edges: HashMap<u16, BareEdge> = HashMap::with_capacity(100);
+    //     self.nodes.iter().for_each(|(index, node)| {
+    //         let pos = self.get_node_pos(*index);
+    //         nodes.insert(*index, BareNode {
+    //             label: node.label.clone(),
+    //             edges: node.edges.clone(),
+    //             index: node.index,
+    //             // pos: (node.pos.x, node.pos.y),
+    //             pos: (pos.x, pos.y),
+    //             is_active: false,
+    //             targeted_internal_edge_idx: None,
+    //             mark: node.mark.clone(),
+    //             mass: node.mass,
+    //             anchored: node.anchored,
+    //         });
+    //     });
+    //     self.edges.iter().for_each(|(index, edge)| {
+    //         edges.insert(*index, BareEdge {
+    //             label: None,
+    //             from: edge.from,
+    //             to: edge.to,
+    //             index: *index,
+    //         });
+    //     });
+    //     let save = VMSave {
+    //         nodes: nodes,
+    //         edges: edges,
+    //         node_idx_count: self.node_idx_count,
+    //         edge_idx_count: self.edge_idx_count,
+    //         translate: (self.translate.as_tuple().0.x, self.translate.as_tuple().0.y),
+    //         scale: self.scale.as_tuple().1,
+    //         offset_x: self.offset_x,
+    //         offset_y: self.offset_y,
+    //     };
+    //     save
+    // }
+
+    pub fn get_nodes(&self) -> &HashMap<u16, VMNode> {
+        return &self.nodes;
     }
 
-    //Instantiates a serializable VMSave from the VimMapper struct. All ForceGraph data is discarded and
-    // must be recreated when the VMSave is deserialized and instantiated into a VimMapper struct
-    pub fn to_save(&self) -> VMSave {
-        let mut nodes: HashMap<u16, BareNode> = HashMap::with_capacity(50);
-        let mut edges: HashMap<u16, BareEdge> = HashMap::with_capacity(100);
-        self.nodes.iter().for_each(|(index, node)| {
-            let pos = self.get_node_pos(*index);
-            nodes.insert(*index, BareNode {
-                label: node.label.clone(),
-                edges: node.edges.clone(),
-                index: node.index,
-                // pos: (node.pos.x, node.pos.y),
-                pos: (pos.x, pos.y),
-                is_active: false,
-                targeted_internal_edge_idx: None,
-                mark: node.mark.clone(),
-                mass: node.mass,
-                anchored: node.anchored,
-            });
-        });
-        self.edges.iter().for_each(|(index, edge)| {
-            edges.insert(*index, BareEdge {
-                label: None,
-                from: edge.from,
-                to: edge.to,
-                index: *index,
-            });
-        });
-        let save = VMSave {
-            nodes: nodes,
-            edges: edges,
-            node_idx_count: self.node_idx_count,
-            edge_idx_count: self.edge_idx_count,
-            translate: (self.translate.as_tuple().0.x, self.translate.as_tuple().0.y),
-            scale: self.scale.as_tuple().1,
-            offset_x: self.offset_x,
-            offset_y: self.offset_y,
-        };
-        save
+    pub fn get_nodes_mut(&mut self) -> &HashMap<u16, VMNode> {
+        return &mut self.nodes;
+    }
+
+    pub fn get_edges(&self) -> &HashMap<u16, VMEdge> {
+        return &self.edges;
+    }
+
+    pub fn get_edges_mut(&mut self) -> &HashMap<u16, VMEdge> {
+        return &mut self.edges;
+    }
+
+    pub fn get_offset_x(&self) -> f64 {
+        return self.offset_x;
+    }
+
+    pub fn set_offset_x(&mut self, offset_x: f64) {
+        self.offset_x = offset_x;
+    }
+
+    pub fn get_offset_y(&self) -> f64 {
+        return self.offset_y;
+    }
+
+    pub fn set_offset_y(&mut self, offset_x: f64) {
+        self.offset_y = offset_x;
     }
 
     pub fn set_render_mode(&mut self, mode: NodeRenderMode) {
@@ -391,13 +483,31 @@ impl VimMapper {
         self.node_render_mode.clone()
     }
 
-    fn get_node_pos(&self, idx: u16) -> Vec2 {
+    pub fn get_node_pos(&self, idx: u16) -> Vec2 {
         let node = self.nodes.get(&idx).expect("Tried to get position of a non-existent node");
         let fg_node = &self.graph.get_graph()[node.fg_index.unwrap()];
         return Vec2::new(fg_node.x(), fg_node.y());
     }
 
-    fn build_target_list_from_neighbors(&mut self, idx: u16) {
+    pub fn get_translate(&self) -> TranslateScale {
+        return self.translate;
+    }
+
+    pub fn get_scale(&self) -> TranslateScale {
+        return self.scale;
+    }
+
+    pub fn get_node_idx_count(&self) -> u16 {
+        return self.node_idx_count;
+    }
+
+    pub fn get_edge_idx_count(&self) -> u16 {
+        return self.edge_idx_count;
+    }
+
+
+
+    pub fn build_target_list_from_neighbors(&mut self, idx: u16) {
         // self.target_list.clear();
         // self.target_idx = None;
         // let node = self.nodes.get(&idx).expect("Tried to build target list from non-existent node");
@@ -446,7 +556,7 @@ impl VimMapper {
         }
     }
 
-    fn build_target_list_from_string(&mut self, search_string: String) {
+    pub fn build_target_list_from_string(&mut self, search_string: String) {
         self.target_node_idx = None;
         self.target_node_list.clear();
         let regex_string = format!("(?i){}", search_string);
@@ -477,7 +587,7 @@ impl VimMapper {
         self.target_node_list.len()
     }
 
-    fn cycle_target_forward(&mut self) {
+    pub fn cycle_target_forward(&mut self) {
         if self.target_node_idx == None && self.target_node_list.len() > 0 {
             //If not index set, set to front of list
             self.target_node_idx = Some(0);
@@ -490,7 +600,7 @@ impl VimMapper {
         }
     }
 
-    fn cycle_target_backward(&mut self) {
+    pub fn cycle_target_backward(&mut self) {
         if self.target_node_idx == None && self.target_node_list.len() > 0 {
             //If no index set, set to back of list
             self.target_node_idx = Some(self.target_node_list.len()-1);
@@ -1326,7 +1436,7 @@ impl<'a> Widget<()> for VimMapper {
                             Size::new(0., 0.),
                             Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
                         ),
-                        &self.config.get_color(VMColor::DisabledLabelTextColor).ok().expect("Couldn't find label text color in config."),
+                        &self.config.get_color(VMColor::DisabledLabelTextColor).ok().expect("Couldn't find disabled label text color in config."),
                     ) {
                         node.disabled_layout = Some(layout.clone());
                     } else {

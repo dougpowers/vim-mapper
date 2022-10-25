@@ -18,6 +18,9 @@ use druid::{kurbo::TranslateScale, Selector, Vec2};
 use force_graph::SimulationParameters;
 use crate::vminput::ActionPayload;
 
+pub const CURRENT_SAVE_FILE_VERSION: &str = "0.4.0";
+pub const CURRENT_CONFIG_FILE_VERSION: &str = "0.4.0";
+
 pub const DEFAULT_BORDER_WIDTH: f64 = 3.;
 pub const DEFAULT_ACTIVE_BORDER_WIDTH: f64 = 8.;
 pub const DEFAULT_TARGET_BORDER_WIDTH: f64 = 7.;
