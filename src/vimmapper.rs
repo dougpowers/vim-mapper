@@ -15,12 +15,11 @@
 use druid::kurbo::{Line, TranslateScale};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
-use force_graph::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
+use force_graph::{ForceGraph, NodeData, EdgeData};
 #[allow(unused_imports)]
 use druid::widget::{prelude::*, SvgData, Svg};
 use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
 use regex::Regex;
-use std::alloc::LayoutErr;
 use std::collections::HashMap;
 use std::f64::consts::*;
 
@@ -30,9 +29,6 @@ use crate::vmnode::{VMEdge, VMNode, VMNodeEditor};
 use crate::constants::*;
 
 use crate::vmconfig::*;
-
-use serde::Serialize;
-use serde::Deserialize;
 
 //VimMapper is the controller class for the graph implementation and UI. 
 
@@ -247,6 +243,7 @@ impl Default for VimMapper {
     }
 }
 
+#[allow(dead_code)]
 impl VimMapper {
     pub fn new(config: VMConfigVersion4) -> VimMapper {
         let mut graph = <ForceGraph<u16, u16>>::new(
@@ -310,147 +307,6 @@ impl VimMapper {
         mapper.nodes.insert(0, root_node);
         mapper
     }
-
-    // //Instantiates a new VimMapper struct from a deserialized VMSave. The ForceGraph is created from scratch
-    // // and no fg_index values are guaranteed to persist from session to session.
-    // pub fn from_save(save: VMSave, config: VMConfigVersion4) -> VimMapper {
-    //     let mut graph = <ForceGraph<u16, u16>>::new(DEFAULT_SIMULATION_PARAMTERS);
-    //     let mut nodes: HashMap<u16, VMNode> = HashMap::with_capacity(50);
-    //     let mut edges: HashMap<u16, VMEdge> = HashMap::with_capacity(100);
-    //     for (_k ,v) in save.nodes {
-    //         let fg_index: Option<DefaultNodeIdx>;
-    //         if v.index == 0 {
-    //             fg_index = Some(graph.add_node(NodeData {
-    //                 is_anchor: true,
-    //                 x: v.pos.0,
-    //                 y: v.pos.1,
-    //                 mass: v.mass,
-    //                 user_data: {
-    //                     0
-    //                 },
-    //                 ..Default::default()
-    //             }));
-    //         } else {
-    //             fg_index = Some(graph.add_node(NodeData {
-    //                 is_anchor: v.anchored,
-    //                 x: v.pos.0,
-    //                 y: v.pos.1,
-    //                 mass: v.mass,
-    //                 user_data: {
-    //                     v.index
-    //                 },
-    //                 ..Default::default()
-    //             }));
-    //         }
-    //         nodes.insert(v.index, VMNode {
-    //             label: v.label.clone(), 
-    //             edges: v.edges, 
-    //             index: v.index, 
-    //             fg_index: fg_index, 
-    //             // pos: Vec2::new(v.pos.0, v.pos.1), 
-    //             // container: VMNodeLayoutContainer::new(v.index), 
-    //             mark: v.mark,
-    //             ..Default::default()
-    //         });
-    //     }
-    //     for (_k,v) in save.edges {
-    //         graph.add_edge(
-    //             nodes.get(&v.from).unwrap().fg_index.unwrap(), 
-    //             nodes.get(&v.to).unwrap().fg_index.unwrap(), 
-    //             EdgeData { user_data: v.index });
-    //         edges.insert(v.index, VMEdge { 
-    //             label: None, 
-    //             from: v.from, 
-    //             to: v.to, 
-    //             index: v.index, 
-    //             });
-    //     }
-    //     let mut vm = VimMapper {
-    //         graph,
-    //         animating: true,
-    //         nodes,
-    //         edges,
-    //         node_idx_count: save.node_idx_count,
-    //         edge_idx_count: save.edge_idx_count,
-    //         translate: TranslateScale::new(
-    //             Vec2::new(
-    //                 save.translate.0, 
-    //                 save.translate.1),
-    //             0.),
-    //         scale: TranslateScale::new(
-    //             Vec2::new(
-    //                 0., 
-    //                 0.),
-    //             save.scale),
-    //         offset_x: save.offset_x,
-    //         offset_y: save.offset_y,
-    //         last_click_point: None,
-    //         last_collision_rects: Vec::new(),
-    //         is_focused: true,
-    //         // target_list: vec![],
-    //         // target_idx: None,
-    //         target_node_list: vec![],
-    //         target_node_idx: None,
-    //         node_editor: VMNodeEditor::new(),
-    //         is_dragging: false,
-    //         drag_point: None,
-    //         double_click_timer: None,
-    //         double_click: false,
-    //         translate_at_drag: None,
-    //         is_hot: true,
-    //         debug_data: false,
-    //         debug_visuals: false,
-    //         largest_node_movement: None,
-    //         canvas_rect: None,
-    //         config,
-    //         node_render_mode: NodeRenderMode::AllEnabled,
-    //     };
-    //     vm.set_node_as_active(0);
-    //     vm.build_target_list_from_neighbors(0);
-    //     vm.cycle_target_forward();
-    //     vm
-    // }
-
-    // //Instantiates a serializable VMSave from the VimMapper struct. All ForceGraph data is discarded and
-    // // must be recreated when the VMSave is deserialized and instantiated into a VimMapper struct
-    // pub fn to_save(&self) -> VMSave {
-    //     let mut nodes: HashMap<u16, BareNode> = HashMap::with_capacity(50);
-    //     let mut edges: HashMap<u16, BareEdge> = HashMap::with_capacity(100);
-    //     self.nodes.iter().for_each(|(index, node)| {
-    //         let pos = self.get_node_pos(*index);
-    //         nodes.insert(*index, BareNode {
-    //             label: node.label.clone(),
-    //             edges: node.edges.clone(),
-    //             index: node.index,
-    //             // pos: (node.pos.x, node.pos.y),
-    //             pos: (pos.x, pos.y),
-    //             is_active: false,
-    //             targeted_internal_edge_idx: None,
-    //             mark: node.mark.clone(),
-    //             mass: node.mass,
-    //             anchored: node.anchored,
-    //         });
-    //     });
-    //     self.edges.iter().for_each(|(index, edge)| {
-    //         edges.insert(*index, BareEdge {
-    //             label: None,
-    //             from: edge.from,
-    //             to: edge.to,
-    //             index: *index,
-    //         });
-    //     });
-    //     let save = VMSave {
-    //         nodes: nodes,
-    //         edges: edges,
-    //         node_idx_count: self.node_idx_count,
-    //         edge_idx_count: self.edge_idx_count,
-    //         translate: (self.translate.as_tuple().0.x, self.translate.as_tuple().0.y),
-    //         scale: self.scale.as_tuple().1,
-    //         offset_x: self.offset_x,
-    //         offset_y: self.offset_y,
-    //     };
-    //     save
-    // }
 
     pub fn get_nodes(&self) -> &HashMap<u16, VMNode> {
         return &self.nodes;
@@ -538,14 +394,13 @@ impl VimMapper {
             sort_vec.push((new_target_node_idx, angle, angle.atan2()));
         }
         if !sort_vec.is_empty() {
-            for i in 0..sort_vec.len() {
-                // sort_vec[i].1 += target_angle;
-            }
             sort_vec.sort_unstable_by(|a1, a2| {
                 if a1.1.atan2() > a2.1.atan2() {
                     std::cmp::Ordering::Greater
-                } else {
+                } else if a1.1.atan2() < a2.1.atan2() {
                     std::cmp::Ordering::Less
+                } else {
+                    std::cmp::Ordering::Equal
                 }
             });
             for i in 0..sort_vec.len() {
@@ -563,8 +418,10 @@ impl VimMapper {
                     std::cmp::Ordering::Less
                 } else if a1.1 > a2.1 {
                     std::cmp::Ordering::Greater
-                } else {
+                } else if a1.1 < a2.1 {
                     std::cmp::Ordering::Less
+                } else {
+                    std::cmp::Ordering::Equal
                 }
             });
             sort_vec.rotate_left(offsets[0].0);
@@ -1131,7 +988,7 @@ impl<'a> Widget<()> for VimMapper {
                     self.largest_node_movement = Some(self.graph.update(DEFAULT_UPDATE_DELTA));
                     // self.update_node_coords();
                     ctx.request_anim_frame();
-                    if self.largest_node_movement < Some(ANIMATION_MOVEMENT_THRESHOLD) {
+                    if self.largest_node_movement < Some(ANIMATION_MOVEMENT_THRESHOLD) && self.animation_timer_token == None {
                         // self.animating = false;
                         self.animation_timer_token = Some(ctx.request_timer(DEFAULT_ANIMATION_TIMEOUT));
                     }
@@ -1212,11 +1069,13 @@ impl<'a> Widget<()> for VimMapper {
                     self.double_click = false;
                 } else if Some(*event) == self.animation_timer_token {
                     ctx.set_handled();
-                    if self.largest_node_movement < Some(ANIMATION_MOVEMENT_THRESHOLD) {
-                        self.animating = false;
-                        self.animation_timer_token = None;
-                    } else {
-                        self.animation_timer_token = Some(ctx.request_timer(DEFAULT_ANIMATION_TIMEOUT));
+                    if let Some(delta) = self.largest_node_movement {
+                        if delta < ANIMATION_MOVEMENT_THRESHOLD {
+                            self.animating = false;
+                            self.animation_timer_token = None;
+                        } else {
+                            self.animation_timer_token = Some(ctx.request_timer(DEFAULT_ANIMATION_TIMEOUT));
+                        }
                     }
                 }
                 ctx.request_anim_frame();
@@ -1308,7 +1167,7 @@ impl<'a> Widget<()> for VimMapper {
                         Action::DeleteTargetNode => {
                             if let Some(remove_idx) = self.target_node_idx {
                                 let target = self.target_node_list[remove_idx];
-                                if let Ok(idx) = self.delete_node(target) {
+                                if let Ok(_) = self.delete_node(target) {
                                     if let Some(active_idx) = self.get_active_node_idx() {
                                         self.build_target_list_from_neighbors(active_idx);
                                     }

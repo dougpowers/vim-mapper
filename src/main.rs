@@ -430,7 +430,11 @@ impl Widget<()> for VMCanvas {
         });
         self.last_frame_time = now;
         if let Some(path) = &self.path {
-            ctx.window().set_title(format!("VimMapper - {}", path.display()).as_str());
+            if path.display().to_string().starts_with(r"\\?") {
+                ctx.window().set_title(format!("VimMapper - {}", &(path.display().to_string())[4..]).as_str());
+            } else {
+                ctx.window().set_title(format!("VimMapper - {}", path.display()).as_str());
+            }
         }
         if self.dialog_visible {
             let rect = ctx.size().to_rect();
