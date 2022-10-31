@@ -75,6 +75,7 @@ pub enum Action {
     EditActiveNodeAppend,
     EditActiveNodeInsert,
     DeleteActiveNode,
+    DeleteTargetNode,
     MarkActiveNode,
     JumpToMarkedNode,
     TargetNode,
@@ -111,6 +112,7 @@ pub enum Action {
     CursorBackwardToBeginningOfWord,
     CursorToNthCharacter,
     ToggleColorScheme,
+    ToggleDebug,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -244,6 +246,19 @@ impl Default for VMInputManager {
                     action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::DeleteActiveNode,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("D"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::DeleteTargetNode,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
@@ -397,6 +412,19 @@ impl Default for VMInputManager {
                     action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ActivateTargetedNode,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::F12),
+                    modifiers: Some(Modifiers::ALT),
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::ToggleDebug,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,

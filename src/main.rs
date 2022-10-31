@@ -16,7 +16,6 @@
 use druid::widget::{prelude::*, Label, Flex, Button, MainAxisAlignment, SizedBox, ControllerHost};
 use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Command, Target, WidgetPod, WidgetExt, MenuDesc, LocalizedString, MenuItem, FileSpec, FontFamily};
 use druid::piet::{Text, TextLayout, TextLayoutBuilder};
-use std::fs;
 use std::path::{PathBuf, Path};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -372,7 +371,7 @@ impl Widget<()> for VMCanvas {
             Event::Timer(token) => {
                 if Some(*token) == self.input_manager.get_timout_token() {
                     self.input_manager.timeout();
-                }
+                } 
             }
             _ => {
                 if let Some(inner) = &mut self.inner {
@@ -442,6 +441,7 @@ impl Widget<()> for VMCanvas {
         } else if let Some(inner) = &mut self.inner {
             inner.paint(ctx, data, env);
         }
+
         //Paint VMInputManager indicator
         if let Some(_) = self.inner {
             let layout = ctx.text().new_text_layout(self.input_manager.get_string())
@@ -459,7 +459,6 @@ impl Widget<()> for VMCanvas {
 
 #[allow(unused_must_use)]
 pub fn main() {
-
     let open_dialog_options = FileDialogOptions::new()
     .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])]);
     let save_dialog_options = FileDialogOptions::new()

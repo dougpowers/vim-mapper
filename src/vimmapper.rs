@@ -20,7 +20,9 @@ use force_graph::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::{prelude::*, SvgData, Svg};
 use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
 use regex::Regex;
+use std::alloc::LayoutErr;
 use std::collections::HashMap;
+use std::f64::consts::*;
 
 use crate::vminput::*;
 use crate::vmnode::{VMEdge, VMNode, VMNodeEditor};
@@ -116,6 +118,10 @@ pub(crate) struct VimMapper {
     pub(crate) config: VMConfigVersion4,
     // Whether to render non-target nodes as disabled
     pub(crate) node_render_mode: NodeRenderMode,
+
+    pub(crate) animation_timer_token: Option<TimerToken>,
+
+    pub(crate) last_traverse_angle: f64,
 }
 
 //A boiled-down struct to hold the essential data to serialize and deserialize a graph sheet. Used to
@@ -233,6 +239,8 @@ impl Default for VimMapper {
             canvas_rect: None,
             config,
             node_render_mode: NodeRenderMode::AllEnabled,
+            animation_timer_token: None,
+            last_traverse_angle: TAU-FRAC_PI_2,
         };
         mapper.nodes.insert(0, root_node);
         mapper
@@ -296,6 +304,8 @@ impl VimMapper {
             canvas_rect: None,
             config,
             node_render_mode: NodeRenderMode::AllEnabled,
+            animation_timer_token: None,
+            ..Default::default()
         };
         mapper.nodes.insert(0, root_node);
         mapper
@@ -508,17 +518,13 @@ impl VimMapper {
 
 
     pub fn build_target_list_from_neighbors(&mut self, idx: u16) {
-        // self.target_list.clear();
-        // self.target_idx = None;
-        // let node = self.nodes.get(&idx).expect("Tried to build target list from non-existent node");
-        // for edge in self.graph.get_graph().edges(node.fg_index.unwrap()) {
-        //     self.target_list.push(edge.weight().user_data);
-        // }
         self.target_node_list.clear();
         self.target_node_idx = None;
         let node = self.nodes.get(&idx).expect("Tried to build target list from non-existent node");
         let node_pos = self.get_node_pos(node.index);
-        let mut sort_vec: Vec<(u16, f64)> = vec![];
+        let mut sort_vec: Vec<(u16, Vec2, f64)> = vec![];
+        let mut offsets: Vec<(usize, f64, u16)> = vec![];
+        let target_angle = Vec2::from_angle(self.last_traverse_angle).normalize();
         for node_fg_idx in self.graph.get_graph().neighbors(
             node.fg_index.expect("Tried to get a non-existent fg_index from a node"))
         {
@@ -528,28 +534,46 @@ impl VimMapper {
 
             let target_node_pos = self.get_node_pos(target_node.index);
             
-            let angle = Vec2::new(target_node_pos.x-node_pos.x, target_node_pos.y-node_pos.y).atan2();
-            sort_vec.push((new_target_node_idx, angle));
-            // self.target_node_list.push(new_target_node_idx);
+            let angle = Vec2::new(target_node_pos.x-node_pos.x, target_node_pos.y-node_pos.y).normalize();
+            sort_vec.push((new_target_node_idx, angle, angle.atan2()));
         }
         if !sort_vec.is_empty() {
             for i in 0..sort_vec.len() {
-                sort_vec[i].1 += std::f64::consts::FRAC_PI_2;
-                if sort_vec[i].1 < 0. {sort_vec[i].1 += std::f64::consts::PI*2.}
+                // sort_vec[i].1 += target_angle;
             }
             sort_vec.sort_unstable_by(|a1, a2| {
-                if a1.1 > a2.1 {
+                if a1.1.atan2() > a2.1.atan2() {
                     std::cmp::Ordering::Greater
                 } else {
                     std::cmp::Ordering::Less
                 }
             });
-            let len = sort_vec.len();
-            if sort_vec[0].1 > std::f64::consts::TAU-sort_vec[len-1].1 {
-                let mut el = vec![sort_vec.pop().unwrap()];
-                el.append(&mut sort_vec);
-                sort_vec = el;
+            for i in 0..sort_vec.len() {
+                // if sort_vec[i].1-self.last_traverse_angle < 0. {
+                    // offsets.push((i, (sort_vec[i].1-target_angle+TAU).abs()));
+                // } else {
+                    // offsets.push((i, sort_vec[i].1.cross(target_angle)));
+                    offsets.push((i, (sort_vec[i].1.dot(target_angle).acos()).abs(), sort_vec[i].0));
+                // }
             }
+            offsets.sort_unstable_by(|a1, a2| {
+                if a1.1.is_nan() {
+                    std::cmp::Ordering::Greater
+                } else if a2.1.is_nan() {
+                    std::cmp::Ordering::Less
+                } else if a1.1 > a2.1 {
+                    std::cmp::Ordering::Greater
+                } else {
+                    std::cmp::Ordering::Less
+                }
+            });
+            sort_vec.rotate_left(offsets[0].0);
+            // let len = sort_vec.len();
+            // if sort_vec[0].1 > TAU-sort_vec[len-1].1 {
+            //     let mut el = vec![sort_vec.pop().unwrap()];
+            //     el.append(&mut sort_vec);
+            //     sort_vec = el;
+            // }
         }
         for i in sort_vec {
             self.target_node_list.push(i.0);
@@ -768,6 +792,13 @@ impl VimMapper {
     //Iterate through the node HashMap to set the active node. All nodes except the specified are marked
     // as inactive in the process.
     pub fn set_node_as_active(&mut self, idx: u16) {
+        if let Some(node) = self.get_active_node_idx() {
+            let node_pos = self.get_node_pos(node);
+            let target_node_pos = self.get_node_pos(idx);
+            let angle = Vec2::new(target_node_pos.x-node_pos.x, target_node_pos.y-node_pos.y).atan2();
+            self.last_traverse_angle = angle;
+        }
+        // if self.last_traverse_angle < 0. {self.last_traverse_angle += TAU;}
         self.nodes.iter_mut().for_each(|item| {
             if item.1.index == idx {
                 item.1.is_active = true;
@@ -1101,7 +1132,8 @@ impl<'a> Widget<()> for VimMapper {
                     // self.update_node_coords();
                     ctx.request_anim_frame();
                     if self.largest_node_movement < Some(ANIMATION_MOVEMENT_THRESHOLD) {
-                        self.animating = false;
+                        // self.animating = false;
+                        self.animation_timer_token = Some(ctx.request_timer(DEFAULT_ANIMATION_TIMEOUT));
                     }
                 }
                 ctx.request_update();
@@ -1160,15 +1192,15 @@ impl<'a> Widget<()> for VimMapper {
                 ctx.request_anim_frame();
             }
             Event::Timer(event) => {
-                if let Some(token) = self.double_click_timer {
+                if Some(*event) == self.double_click_timer {
                     ctx.set_handled();
-                    if token == *event && self.double_click {
+                    if self.double_click {
                         if let Some(point) = self.last_click_point {
                             if let Some(idx) = self.does_point_collide(point) {
                                 self.open_editor(ctx, idx);
                             }
                         }
-                    } else if token == *event && !self.is_dragging {
+                    } else if !self.is_dragging {
                         if let Some(point) = self.last_click_point {
                             if let Some(idx) = self.does_point_collide(point) {
                                 self.set_node_as_active(idx);
@@ -1178,6 +1210,14 @@ impl<'a> Widget<()> for VimMapper {
                     }
                     self.double_click_timer = None;
                     self.double_click = false;
+                } else if Some(*event) == self.animation_timer_token {
+                    ctx.set_handled();
+                    if self.largest_node_movement < Some(ANIMATION_MOVEMENT_THRESHOLD) {
+                        self.animating = false;
+                        self.animation_timer_token = None;
+                    } else {
+                        self.animation_timer_token = Some(ctx.request_timer(DEFAULT_ANIMATION_TIMEOUT));
+                    }
                 }
                 ctx.request_anim_frame();
             }
@@ -1242,11 +1282,16 @@ impl<'a> Widget<()> for VimMapper {
                             self.set_render_mode(NodeRenderMode::AllEnabled);
                             if let Some(idx) = self.target_node_idx {
                                 let node_idx = self.target_node_list[idx];
+                                // let node_pos = self.get_node_pos(self.get_active_node_idx().unwrap());
+                                // let target_node_pos = self.get_node_pos(node_idx);
+                                // let offset = target_node_pos-node_pos;
+                                // let rect = Affine::from(self.scale).transform_rect_bbox(self.nodes.get(&node_idx).unwrap().node_rect.unwrap()+offset);
+                                self.scroll_node_into_view(node_idx);
+                                // self.scroll_rect_into_view(rect);
                                 self.invalidate_node_layouts();
                                 self.set_node_as_active(node_idx);
-                                self.build_target_list_from_neighbors(node_idx);
-                                self.cycle_target_forward();
-                                self.scroll_node_into_view(node_idx);
+                                // self.cycle_target_forward();
+                                // self.build_target_list_from_neighbors(node_idx);
                                 ctx.set_handled();
                             }
                         }
@@ -1257,6 +1302,16 @@ impl<'a> Widget<()> for VimMapper {
                                 if let Ok(idx) = self.delete_node(remove_idx) {
                                     self.set_node_as_active(idx);
                                     self.scroll_node_into_view(idx);
+                                }
+                            }
+                        }
+                        Action::DeleteTargetNode => {
+                            if let Some(remove_idx) = self.target_node_idx {
+                                let target = self.target_node_list[remove_idx];
+                                if let Ok(idx) = self.delete_node(target) {
+                                    if let Some(active_idx) = self.get_active_node_idx() {
+                                        self.build_target_list_from_neighbors(active_idx);
+                                    }
                                 }
                             }
                         }
@@ -1336,6 +1391,9 @@ impl<'a> Widget<()> for VimMapper {
                                 // self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                             }
                         },
+                        Action::ToggleDebug => {
+                            self.debug_data = !self.debug_data;
+                        }
                         Action::PanUp => {
                             self.offset_y += payload.float.unwrap();
                         }
@@ -1617,7 +1675,25 @@ impl<'a> Widget<()> for VimMapper {
 
         //Paint debug dump
         if self.debug_data {
-            if let Some(_) = self.get_active_node_idx() {
+            if let Some(idx) = self.get_active_node_idx() {
+                ctx.with_save(|ctx| {
+                    ctx.transform(Affine::from(self.translate));
+                    ctx.transform(Affine::from(self.scale));
+                    let node_pos = self.get_node_pos(idx);
+                    ctx.transform(Affine::translate(node_pos));
+                    let line = Line::new(Point::ORIGIN, (Vec2::from_angle(self.last_traverse_angle)*100.).to_point());
+                    ctx.stroke(line, &Color::BLUE, 5.);
+                    let mut red = 60;
+                    for i in &self.target_node_list {
+                        let target_node_pos = self.get_node_pos(*i);
+                        let angle = Vec2::from_angle(Vec2::new(target_node_pos.x-node_pos.x, target_node_pos.y-node_pos.y).atan2());
+                        let offset = angle.dot(Vec2::from_angle(self.last_traverse_angle).normalize()).acos().abs();
+                        ctx.stroke(Line::new(Point::ORIGIN, (angle*150.).to_point()), &Color::rgb8(red, 0, 0), 5.);
+                        let text = ctx.text().new_text_layout(format!("{:.3}", offset)).text_color(Color::WHITE).build().unwrap();
+                        ctx.draw_text(&text, VEC_ORIGIN.lerp(angle*150., 0.5).to_point());
+                        red += 195/self.target_node_list.len() as u8;
+                    }
+                });
                 let text = format!(
                         "Is Animating: {:?}\nLarget Node Movement: {:?}\nActive Node:{:?}", 
                         self.animating,

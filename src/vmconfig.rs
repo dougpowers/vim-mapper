@@ -57,12 +57,14 @@ impl VMConfigNoVersion {
     fn fill_missing_colors(&mut self) {
         let current_config = VMConfigVersion4::default();
         for (key, color) in &current_config.light_palette {
-            if !self.light_palette.contains_key(&VMConfigNoVersion::vmcolor_to_string((*key).clone())) {
+            if !self.light_palette.contains_key(&VMConfigNoVersion::vmcolor_to_string(((*key).clone()).clone())) {
+                println!("Adding {} to colors", VMConfigNoVersion::vmcolor_to_string((*key).clone()));
                 self.light_palette.insert(VMConfigNoVersion::vmcolor_to_string((*key).clone()), (*color).clone());
             }
         }
         for (key, color) in &current_config.dark_palette {
             if !self.dark_palette.contains_key(&VMConfigNoVersion::vmcolor_to_string((*key).clone())) {
+                println!("Adding {} to colors", VMConfigNoVersion::vmcolor_to_string((*key).clone()));
                 self.dark_palette.insert(VMConfigNoVersion::vmcolor_to_string((*key).clone()), (*color).clone());
             }
         }
@@ -74,7 +76,7 @@ impl VMConfigNoVersion {
                 String::from("label-text-color")
             },
             DisabledLabelTextColor => {
-                String::from("")
+                String::from("disabled-label-text-color")
             },
             NodeBorderColor => {
                 String::from("node-border-color")
@@ -92,7 +94,7 @@ impl VMConfigNoVersion {
                 String::from("node-background-color")
             },
             DisabledNodeBackgroundColor => {
-                String::from("")
+                String::from("disabled-node-background-color")
             },
             EdgeColor => {
                 String::from("edge-color")
@@ -131,6 +133,12 @@ impl VMConfigNoVersion {
             }
             "sheet-background-color" => {
                 VMColor::SheetBackgroundColor
+            }
+            "disabled-node-background-color" => {
+                VMColor::DisabledNodeBackgroundColor
+            }
+            "disabled-label-text-color" => {
+                VMColor::DisabledLabelTextColor
             }
             _ => VMColor::ComposeIndicatorTextColor
         }

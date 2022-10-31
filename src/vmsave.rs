@@ -147,30 +147,18 @@ impl VMSaveSerde {
                 save.scale),
             offset_x: save.offset_x,
             offset_y: save.offset_y,
-            last_click_point: None,
-            last_collision_rects: Vec::new(),
             is_focused: true,
-            // target_list: vec![],
-            // target_idx: None,
             target_node_list: vec![],
             target_node_idx: None,
             node_editor: VMNodeEditor::new(),
-            is_dragging: false,
-            drag_point: None,
-            double_click_timer: None,
-            double_click: false,
-            translate_at_drag: None,
             is_hot: true,
-            debug_data: false,
-            debug_visuals: false,
-            largest_node_movement: None,
-            canvas_rect: None,
             config,
             node_render_mode: NodeRenderMode::AllEnabled,
+            ..Default::default()
         };
         vm.set_node_as_active(0);
-        vm.build_target_list_from_neighbors(0);
-        vm.cycle_target_forward();
+        // vm.build_target_list_from_neighbors(0);
+        // vm.cycle_target_forward();
         vm
     }
 
