@@ -310,11 +310,12 @@ impl Controller<String, TextBox<String>> for VMNodeEditorController {
                 ctx.request_focus();
                 ctx.set_handled();
                 let selection = Selection::new(0,usize::MAX);
+                child.text_mut().borrow_mut().set_selection(selection);
                 // if let Some(text) = child.editor().layout().text() {
                 //     selection = selection.constrained(text);
                 //     selection.end = selection.max();
                 // }
-                child.set_selection(selection);
+                // child.set_selection(selection);
                 child.event(ctx, event, data, env);
                 child.set_text_alignment(druid::TextAlignment::Start);
             }

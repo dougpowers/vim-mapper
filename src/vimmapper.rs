@@ -17,7 +17,7 @@ use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
 use force_graph::{ForceGraph, NodeData, EdgeData};
 #[allow(unused_imports)]
-use druid::widget::{prelude::*, SvgData, Svg};
+use druid::widget::prelude::*;
 use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
 use regex::Regex;
 use std::collections::HashMap;
@@ -404,19 +404,10 @@ impl VimMapper {
                 }
             });
             for i in 0..sort_vec.len() {
-                // if sort_vec[i].1-self.last_traverse_angle < 0. {
-                    // offsets.push((i, (sort_vec[i].1-target_angle+TAU).abs()));
-                // } else {
-                    // offsets.push((i, sort_vec[i].1.cross(target_angle)));
-                    offsets.push((i, (sort_vec[i].1.dot(target_angle).acos()).abs(), sort_vec[i].0));
-                // }
+                offsets.push((i, (sort_vec[i].1.dot(target_angle).clamp(-1., 1.).acos()).abs(), sort_vec[i].0));
             }
             offsets.sort_unstable_by(|a1, a2| {
-                if a1.1.is_nan() {
-                    std::cmp::Ordering::Greater
-                } else if a2.1.is_nan() {
-                    std::cmp::Ordering::Less
-                } else if a1.1 > a2.1 {
+                if a1.1 > a2.1 {
                     std::cmp::Ordering::Greater
                 } else if a1.1 < a2.1 {
                     std::cmp::Ordering::Less
@@ -425,12 +416,6 @@ impl VimMapper {
                 }
             });
             sort_vec.rotate_left(offsets[0].0);
-            // let len = sort_vec.len();
-            // if sort_vec[0].1 > TAU-sort_vec[len-1].1 {
-            //     let mut el = vec![sort_vec.pop().unwrap()];
-            //     el.append(&mut sort_vec);
-            //     sort_vec = el;
-            // }
         }
         for i in sort_vec {
             self.target_node_list.push(i.0);

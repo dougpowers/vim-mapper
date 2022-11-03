@@ -17,7 +17,7 @@ use std::{collections::HashMap, fs};
 use druid::{Color};
 use serde::{Serialize, Deserialize};
 
-use crate::{constants::{DEFAULT_CONFIG_DIR_NAME, DEFAULT_CONFIG_FILE_NAME, CURRENT_CONFIG_FILE_VERSION}, vmsave::VMSaveSerde};
+use crate::constants::{DEFAULT_CONFIG_DIR_NAME, DEFAULT_CONFIG_FILE_NAME, CURRENT_CONFIG_FILE_VERSION};
 
 #[allow(dead_code)]
 const VERSIONS: &'static [&'static str] = &["0.4.0"];

@@ -6,9 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-druid = { version = "0.7.0", features = ["svg"]}
-druid-derive = "0.4.0"
-druid-shell = "0.7.0"
+druid = { git = "https://github.com/linebender/druid.git" }
 indexmap =  { version = "1.0.2", features = ["std"]}
 force_graph = { path = "force-graph-rs", version = "0.3.2" }
 rand = "0.8.5"
