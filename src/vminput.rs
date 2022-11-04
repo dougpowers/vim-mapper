@@ -113,6 +113,7 @@ pub enum Action {
     CursorToNthCharacter,
     ToggleColorScheme,
     ToggleDebug,
+    ToggleMenuVisible,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -438,6 +439,19 @@ impl Default for VMInputManager {
                     action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::ToggleColorScheme,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::F11),
+                    modifiers: Some(Modifiers::ALT),
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::ToggleMenuVisible,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,

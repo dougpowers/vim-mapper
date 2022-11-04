@@ -15,7 +15,7 @@
 #![windows_subsystem = "windows"]
 use druid::menu::MenuDesc;
 use druid::widget::{prelude::*, Label, Flex, Button, MainAxisAlignment, SizedBox, ControllerHost};
-use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Command, Target, WidgetPod, WidgetExt, LocalizedString, MenuItem, FileSpec, FontFamily, WindowId, Menu};
+use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Command, Target, WidgetPod, WidgetExt, LocalizedString, MenuItem, FileSpec, FontFamily, WindowId, Menu, AppDelegate};
 use druid::piet::{Text, TextLayout, TextLayoutBuilder};
 use std::path::{PathBuf, Path};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -70,7 +70,7 @@ impl VMCanvas {
         self.dialog_visible = false;
     }
 
-    pub fn handle_action(&mut self, ctx: &mut EventCtx, payload: &Option<ActionPayload>) -> Result<(), ()> {
+    pub fn handle_action(&mut self, ctx: &mut EventCtx, data: &mut AppState, payload: &Option<ActionPayload>) -> Result<(), ()> {
         if let Some(payload) = payload {
             if payload.action == Action::ToggleColorScheme {
                 self.config.toggle_color_scheme();
@@ -179,6 +179,10 @@ impl VMCanvas {
                         ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
                         return Ok(());
                     }
+                    Action::ToggleMenuVisible => {
+                        data.visible = !data.visible;
+                        return Ok(());
+                    }
                     _ => {
                         if let Some(inner) = &self.inner {
                             if !inner.widget().is_editor_open() {
@@ -249,44 +253,52 @@ impl VMCanvas {
         )
     }
 
-    pub fn make_menu(_id: Option<WindowId>, _data: &(), _env: &Env) -> Menu<()> {
-        let open_dialog_options = FileDialogOptions::new()
-        .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])]);
-        let save_dialog_options = FileDialogOptions::new()
-        .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])])
-        .default_type(FileSpec::new("VimMapper File", &["vmd"]))
-        .default_name(DEFAULT_SAVE_NAME);
+    pub fn make_menu(_id: Option<WindowId>, data: &AppState, _env: &Env) -> Menu<AppState> {
+        if data.visible { 
+            let base = Menu::<AppState>::empty();
+            let open_dialog_options = FileDialogOptions::new()
+            .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])]);
+            let save_dialog_options = FileDialogOptions::new()
+            .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])])
+            .default_type(FileSpec::new("VimMapper File", &["vmd"]))
+            .default_name(DEFAULT_SAVE_NAME);
 
-        let base = Menu::empty();
-        let file_menu: Menu<()> = Menu::new(LocalizedString::new("file-menu").with_placeholder("File"))
-        .entry(druid::platform_menus::win::file::new())
-        .entry(
-            MenuItem::new(
-                LocalizedString::new("common-menu-file-open"),
-                // druid::commands::SHOW_OPEN_PANEL.with(open_dialog_options),
+            let file_menu = Menu::new(LocalizedString::new("file-menu").with_placeholder("File"))
+            .entry(druid::platform_menus::win::file::new())
+            .entry(
+                MenuItem::new(
+                    LocalizedString::new("common-menu-file-open"),
+                    // druid::commands::SHOW_OPEN_PANEL.with(open_dialog_options),
+                )
+                .command(druid::commands::SHOW_OPEN_PANEL.with(open_dialog_options))
+                .hotkey(druid::SysMods::Cmd, "o")
             )
-            .command(druid::commands::SHOW_OPEN_PANEL.with(open_dialog_options))
-            .hotkey(druid::SysMods::Cmd, "o")
-        )
-        .entry(druid::platform_menus::win::file::save())
-        .entry(
-            MenuItem::new(
-                LocalizedString::new("common-menu-file-save-as"),
-                // druid::commands::SHOW_SAVE_PANEL.with(save_dialog_options),
+            .entry(druid::platform_menus::win::file::save())
+            .entry(
+                MenuItem::new(
+                    LocalizedString::new("common-menu-file-save-as"),
+                    // druid::commands::SHOW_SAVE_PANEL.with(save_dialog_options),
+                )
+                .command(druid::commands::SHOW_SAVE_PANEL.with(save_dialog_options))
+                .hotkey(druid::SysMods::CmdShift, "s")
             )
-            .command(druid::commands::SHOW_SAVE_PANEL.with(save_dialog_options))
-            .hotkey(druid::SysMods::CmdShift, "s")
-        )
-        .append_separator()
-        .entry(druid::platform_menus::win::file::exit());
-
-        base.entry(file_menu)
+            .separator()
+            .entry(druid::platform_menus::win::file::exit());
+            return base.entry(file_menu).rebuild_on(|old_data, data, _env| {
+                old_data.visible != data.visible
+            });
+        } else {
+            let base = Menu::<AppState>::empty();
+            return base.rebuild_on(|old_data, data, _env| {
+                old_data.visible != data.visible
+            });
+        }
     }
 }
 
 #[allow(unused_must_use)]
-impl Widget<()> for VMCanvas {
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut (), env: &Env) {
+impl Widget<AppState> for VMCanvas {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut AppState, env: &Env) {
         ctx.request_layout();
         ctx.request_paint();
         if let Some(_) = &self.inner {
@@ -375,13 +387,12 @@ impl Widget<()> for VMCanvas {
             Event::KeyDown(key_event) => {
                 let payloads = self.input_manager.accept_key(key_event.clone(), ctx);
                 for payload in &payloads {
-                    if let Ok(_) = self.handle_action(ctx, payload) {
-
+                    if let Ok(_) = self.handle_action(ctx, data, payload) {
                     } else {
                         if let Some(inner) = &mut self.inner {
-                            inner.event(ctx, event, data, env);
+                            inner.event(ctx, event, &mut(), env);
                         } else {
-                            self.dialog.event(ctx, event, data, env);
+                            self.dialog.event(ctx, event, &mut (), env);
                         }
                     }
                 }
@@ -393,47 +404,47 @@ impl Widget<()> for VMCanvas {
             }
             _ => {
                 if let Some(inner) = &mut self.inner {
-                    inner.event(ctx, event, data, env);
+                    inner.event(ctx, event, &mut (), env);
                 } else if self.dialog_visible {
-                    self.dialog.event(ctx, event, data, env);
+                    self.dialog.event(ctx, event, &mut (), env);
                 }
             }
         }
         ctx.request_paint();
     }
 
-    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &(), env: &Env) {
+    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &AppState, env: &Env) {
         if let LifeCycle::WidgetAdded = event {
         }
         if self.dialog_visible {
-            self.dialog.lifecycle(ctx, event, data, env);
+            self.dialog.lifecycle(ctx, event, &(), env);
         }
         if let Some(inner) = &mut self.inner {
-            inner.lifecycle(ctx, event, data, env);
+            inner.lifecycle(ctx, event, &(), env);
         }
     }
 
-    fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &(), data: &(), env: &Env) {
+    fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &AppState, data: &AppState, env: &Env) {
         if self.dialog_visible {
-            self.dialog.update(ctx, data, env);
+            self.dialog.update(ctx, &(), env);
         } else if let Some(inner) = &mut self.inner {
-            inner.update(ctx, data, env);
+            inner.update(ctx, &(), env);
         }
     }
 
-    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &(), env: &Env) -> Size {
+    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &AppState, env: &Env) -> Size {
         if self.dialog_visible {
-            self.dialog.layout(ctx, bc, data, env);
-            self.dialog.set_origin(ctx, data, env, Point::new(0., 0.));
+            self.dialog.layout(ctx, bc, &(), env);
+            self.dialog.set_origin(ctx, &(), env, Point::new(0., 0.));
         } 
         if let Some(inner) = &mut self.inner {
-            inner.layout(ctx, bc, data, env);
-            inner.set_origin(ctx, data, env, Point::new(0., 0.));
+            inner.layout(ctx, bc, &(), env);
+            inner.set_origin(ctx, &(), env, Point::new(0., 0.));
         }
         bc.max()
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &(), env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &AppState, env: &Env) {
         let ctx_size = ctx.size();
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
         if let Some(path) = &self.path {
@@ -448,9 +459,9 @@ impl Widget<()> for VMCanvas {
             ctx.fill(rect,
                  &self.config.get_color(VMColor::SheetBackgroundColor).expect("Couldn't get sheet background color from config")
                 );
-            self.dialog.paint(ctx, data, env);
+            self.dialog.paint(ctx, &(), env);
         } else if let Some(inner) = &mut self.inner {
-            inner.paint(ctx, data, env);
+            inner.paint(ctx, &(), env);
             let layout = ctx.text().new_text_layout(self.input_manager.get_string())
                 .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
                 .text_color( self.config.get_color(VMColor::ComposeIndicatorTextColor).ok().expect("compose indicator text color not found in config"))
@@ -477,6 +488,52 @@ impl Widget<()> for VMCanvas {
             }
         }
     }
+}
+
+#[derive(Data, Clone)]
+struct AppState {
+    visible: bool,
+}
+
+struct Delegate;
+
+impl AppDelegate<AppState> for Delegate {
+    fn event(
+        &mut self,
+        ctx: &mut druid::DelegateCtx,
+        window_id: WindowId,
+        event: Event,
+        data: &mut AppState,
+        env: &Env,
+    ) -> Option<Event> {
+        Some(event)
+    }
+
+    fn command(
+        &mut self,
+        ctx: &mut druid::DelegateCtx,
+        target: Target,
+        cmd: &Command,
+        data: &mut AppState,
+        env: &Env,
+    ) -> druid::Handled {
+        if cmd.is(TOGGLE_MAIN_MENU) {
+            data.visible = !data.visible;
+        }
+        druid::Handled::No
+    }
+
+    fn window_added(
+        &mut self,
+        id: WindowId,
+        handle: druid::WindowHandle,
+        data: &mut AppState,
+        env: &Env,
+        ctx: &mut druid::DelegateCtx,
+    ) {
+    }
+
+    fn window_removed(&mut self, id: WindowId, data: &mut AppState, env: &Env, ctx: &mut druid::DelegateCtx) {}
 }
 
 #[allow(unused_must_use)]
@@ -509,14 +566,17 @@ pub fn main() {
         }
     }
 
-    let window = WindowDesc::new(canvas)
+    let window = WindowDesc::<AppState>::new(canvas)
     .title("Vim-Mapper")
-    .set_window_state(WindowState::Maximized);
-    // .menu(VMCanvas::make_menu);
+    .set_window_state(WindowState::Maximized)
+    .menu(VMCanvas::make_menu);
+    // .menu(|a,b,c| Menu::empty());
     #[cfg(debug_assertions)]
     AppLauncher::with_window(window)
     .log_to_console()
-    .launch(())
+    .launch(AppState {
+        visible: false,
+    })
     .expect("launch failed");
     #[cfg(not(debug_assertions))]
     AppLauncher::with_window(window)
