@@ -17,6 +17,7 @@ use druid::menu::MenuDesc;
 use druid::widget::{prelude::*, Label, Flex, Button, MainAxisAlignment, SizedBox, ControllerHost};
 use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Command, Target, WidgetPod, WidgetExt, LocalizedString, MenuItem, FileSpec, FontFamily, WindowId, Menu, AppDelegate};
 use druid::piet::{Text, TextLayout, TextLayoutBuilder};
+use vmdialog::{VMDialogParams, VMDialog};
 use std::path::{PathBuf, Path};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -37,6 +38,8 @@ use vmconfig::*;
 mod vmsave;
 use vmsave::*;
 
+mod vmdialog;
+
 struct VMCanvas {
     inner: Option<WidgetPod<(), VimMapper>>,
     dialog: WidgetPod<(), Flex<()>>,
@@ -51,12 +54,35 @@ impl VMCanvas {
     pub fn new(config: VMConfigVersion4) -> VMCanvas {
         VMCanvas {
             inner: None,
-            dialog: VMCanvas::make_dialog(&config),
+            // dialog: VMCanvas::make_dialog(&config),
+            dialog: VMCanvas::new_dialog(&config, VMCanvas::make_start_dialog_params()),
             dialog_visible: true,
             path: None,
             config,
             input_manager: VMInputManager::new(),
             last_frame_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
+        }
+    }
+
+    fn make_start_dialog_params() -> VMDialogParams {
+        VMDialogParams {
+            prompt: "Do you want create a new sheet or load an existing one?".to_string(),
+            buttons: vec![
+                (
+                    String::from("New"),
+                    vec![ActionPayload {
+                        action: Action::CreateNewSheet,
+                        ..Default::default()
+                    }]
+                ),
+                (
+                    String::from("Open"),
+                    vec![ActionPayload {
+                        action: Action::OpenExistingSheet,
+                        ..Default::default()
+                    }]
+                )
+            ]
         }
     }
 
@@ -67,23 +93,51 @@ impl VMCanvas {
 
     pub fn load_new_mapper(&mut self, mapper: VimMapper) {
         self.inner = Some(WidgetPod::new(mapper));
+        self.hide_dialog();
+    }
+
+    fn hide_dialog(&mut self) {
         self.dialog_visible = false;
     }
 
     pub fn handle_action(&mut self, ctx: &mut EventCtx, data: &mut AppState, payload: &Option<ActionPayload>) -> Result<(), ()> {
         if let Some(payload) = payload {
-            if payload.action == Action::ToggleColorScheme {
-                self.config.toggle_color_scheme();
-                VMConfigSerde::save(&self.config);
-                if let Some(vm) = &mut self.inner {
-                    vm.widget_mut().set_config(self.config.clone());
-                    ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+            match payload.action {
+                Action::ToggleColorScheme => {
+                    self.config.toggle_color_scheme();
+                    VMConfigSerde::save(&self.config);
+                    if let Some(vm) = &mut self.inner {
+                        vm.widget_mut().set_config(self.config.clone());
+                        ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                    }
+                    // self.dialog = VMCanvas::make_dialog(&self.config);
+                    self.dialog = VMCanvas::new_dialog(&self.config, VMCanvas::make_start_dialog_params());
+                    ctx.children_changed();
+                    ctx.request_layout();
+                    ctx.request_paint();
+                    ctx.set_handled();
+                    return Ok(());
                 }
-                self.dialog = VMCanvas::make_dialog(&self.config);
-                ctx.children_changed();
-                ctx.request_layout();
-                ctx.request_paint();
-                ctx.set_handled();
+                Action::OpenExistingSheet => {
+                    println!("Open existing sheet...");
+                    ctx.submit_command(
+                        Command::new(
+                            druid::commands::SHOW_OPEN_PANEL,
+                            FileDialogOptions::new()
+                                        .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])]),
+                            Target::Auto,
+                        )
+                    );
+                    return Ok(());
+                }
+                Action::CreateNewSheet => {
+                    self.load_new_mapper(VimMapper::new(self.config.clone()));
+                    self.path = None;
+                    ctx.children_changed();
+                    ctx.request_layout();
+                    return Ok(());
+                }
+                _ => ()
             }
         }
         if let Some(inner) = &mut self.inner {
@@ -95,7 +149,7 @@ impl VMCanvas {
                     Action::CreateNewNode => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
                             if let Some(_) = inner.widget_mut().add_node(idx, format!("New label"), None) {
-                                ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                                ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             }
                         }
                         return Ok(());
@@ -105,8 +159,8 @@ impl VMCanvas {
                             if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New label"), None) {
                                 self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                                 inner.widget_mut().open_editor(ctx, new_idx);
-                                ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
-                                ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Auto));
+                                ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
+                                ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Widget(inner.id())));
                             }
                         }
                         return Ok(());
@@ -115,8 +169,8 @@ impl VMCanvas {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
                             self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().open_editor(ctx, idx);
-                            ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
-                            ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Auto));
+                            ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
+                            ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Widget(inner.id())));
                         }
                         return Ok(());
                     }
@@ -125,23 +179,23 @@ impl VMCanvas {
                         self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
                         match payload.mode {
                             Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
-                                if let Some(inner) = &mut self.inner {
+                                // if let Some(inner) = &mut self.inner {
                                     inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
-                                }
+                                // }
                             }
                             _ => {
-                                if let Some(inner) = &mut self.inner {
+                                // if let Some(inner) = &mut self.inner {
                                     inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
-                                }
+                                // }
                             }
                         }
-                        ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                        ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                         return Ok(());
                     },
                     Action::ChangeMode => {
                         match payload.mode {
                             Some(KeybindMode::Move) => {
-                                if let Some(inner) = &self.inner {
+                                // if let Some(inner) = &self.inner {
                                     if let Some(active_idx) = inner.widget().get_active_node_idx() {
                                         if active_idx == 0 {
                                             ()
@@ -149,13 +203,13 @@ impl VMCanvas {
                                             self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
                                         }
                                     }
-                                }
+                                // }
                             }
                             Some(KeybindMode::SearchBuild) => {
                                 self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
-                                if let Some(inner) = &mut self.inner {
+                                // if let Some(inner) = &mut self.inner {
                                     inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
-                                }
+                                // }
                             },
                             Some(KeybindMode::SearchedSheet) => {
                                 self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
@@ -171,22 +225,22 @@ impl VMCanvas {
                             }
                             _ => {
                                 self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
-                                if let Some(inner) = &mut self.inner {
+                                // if let Some(inner) = &mut self.inner {
                                     inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
-                                }
+                                // }
                             }
                         }
-                        ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                        ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                         return Ok(());
                     }
                     Action::ToggleMenuVisible => {
-                        data.visible = !data.visible;
+                        data.menu_visible = !data.menu_visible;
                         return Ok(());
                     }
                     _ => {
                         if let Some(inner) = &self.inner {
                             if !inner.widget().is_editor_open() {
-                                ctx.submit_command(EXECUTE_ACTION.with(payload.clone()));
+                                ctx.submit_command(Command::new(EXECUTE_ACTION, payload.clone(), Target::Widget(inner.id())));
                             }
                         }
                         return Ok(());
@@ -201,60 +255,13 @@ impl VMCanvas {
 
     }
 
-    pub fn make_dialog(config: &VMConfigVersion4) -> WidgetPod<(), Flex<()>> {
-        let open_button = Button::new("Open...")
-            .on_click(move |ctx, _, _| {
-            ctx.submit_command(
-                Command::new(
-                    druid::commands::SHOW_OPEN_PANEL,
-            FileDialogOptions::new()
-                    .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])]),
-                    Target::Auto
-                )
-            )
-        });
-        let new_button: ControllerHost<Button<()>, druid::widget::Click<_>> = Button::new("New")
-            .on_click(move |ctx, _, _| {
-            ctx.submit_command(
-                Command::new(
-                    druid::commands::NEW_FILE,
-                    (),
-                    Target::Auto
-                )
-            )
-        });
-        WidgetPod::new(
-            Flex::column()
-                .with_child(
-                    SizedBox::new(
-                        Flex::column()
-                        .with_child(
-                            Label::new(
-                                "Do you want create a new sheet or load an existing one?"
-                            )
-                            .with_text_color(config.get_color(VMColor::LabelTextColor).expect("Couldn't get label text color from config"))
-                            )
-                        .with_child(SizedBox::empty().height(50.))
-                        .with_child(
-                            Flex::row().with_child(
-                                new_button
-                            ).with_default_spacer()
-                            .with_child(
-                                open_button
-                            )   
-                        ).main_axis_alignment(MainAxisAlignment::Center)
-                    )
-                    .padding(5.)
-                    .border(config.get_color(VMColor::NodeBorderColor).expect("Couldn't get node border color from config")
-                        , DEFAULT_BORDER_WIDTH)
-                    .rounded(DEFAULT_BORDER_RADIUS)
-                    .background(config.get_color(VMColor::NodeBackgroundColor).expect("Couldn't get node background color from config"))
-                ).main_axis_alignment(MainAxisAlignment::Center)
-        )
+    fn new_dialog(config: &VMConfigVersion4, params: VMDialogParams) -> WidgetPod<(), Flex<()>> {
+        let dialog = VMDialog::new(config, params);
+        dialog.inner
     }
 
     pub fn make_menu(_id: Option<WindowId>, data: &AppState, _env: &Env) -> Menu<AppState> {
-        if data.visible { 
+        if data.menu_visible { 
             let base = Menu::<AppState>::empty();
             let open_dialog_options = FileDialogOptions::new()
             .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])]);
@@ -283,14 +290,22 @@ impl VMCanvas {
                 .hotkey(druid::SysMods::CmdShift, "s")
             )
             .separator()
+            .entry(
+                MenuItem::new(
+                    String::from("Hide Menu")
+                ).command(EXECUTE_ACTION.with(ActionPayload {
+                    action: Action::ToggleMenuVisible,
+                    ..Default::default()
+                }))
+            )
             .entry(druid::platform_menus::win::file::exit());
             return base.entry(file_menu).rebuild_on(|old_data, data, _env| {
-                old_data.visible != data.visible
+                old_data.menu_visible != data.menu_visible
             });
         } else {
             let base = Menu::<AppState>::empty();
             return base.rebuild_on(|old_data, data, _env| {
-                old_data.visible != data.visible
+                old_data.menu_visible != data.menu_visible
             });
         }
     }
@@ -306,6 +321,9 @@ impl Widget<AppState> for VMCanvas {
             // if ctx.is_hot() {
                 ctx.request_focus();
             // }
+        }
+        if let Event::Command(cmd) = event {
+            println!("{:?}", cmd);
         }
         match event {
             Event::Command(command) if command.is(druid::commands::NEW_FILE) => {
@@ -359,10 +377,35 @@ impl Widget<AppState> for VMCanvas {
             }
             Event::Command(command) if command.is(druid::commands::CLOSE_ALL_WINDOWS) => {
                 println!("CLOSE_ALL_WINDOWS requested");
+                ctx.set_handled();
             }
             Event::Command(command) if command.is(druid::commands::CLOSE_WINDOW) => {
                 let payload = command.get_unchecked(druid::commands::CLOSE_WINDOW);
                 println!("CLOSE_WINDOW requested for {:?}", payload);
+                ctx.set_handled();
+            }
+            Event::Command(command) if command.is(EXECUTE_ACTION) && !ctx.is_handled() => {
+                let payload = command.get_unchecked(EXECUTE_ACTION);
+                println!("{:?}", payload);
+                if let Ok(_) = self.handle_action(ctx, data, &Some(payload.to_owned())) {
+                    ctx.set_handled();
+                } else {
+                    if let Some(inner) = &mut self.inner {
+                        inner.event(ctx, event, &mut(), env);
+                    } else {
+                        self.dialog.event(ctx, event, &mut (), env);
+                    }
+                }
+            }
+            Event::Command(command) if command.is(DIALOG_EXECUTE_ACTIONS) && !ctx.is_handled() => {
+                let payloads = command.get_unchecked(DIALOG_EXECUTE_ACTIONS);
+                for payload in payloads {
+                    println!("{:?}", payload);
+                    self.handle_action(ctx, data, &Some((*payload).clone()));
+                }
+            }
+            Event::Notification(note) if note.is(EXECUTE_ACTION) => {
+
             }
             Event::Notification(note) if note.is(SUBMIT_CHANGES) => {
                 if let Some(inner) = &mut self.inner {
@@ -454,13 +497,7 @@ impl Widget<AppState> for VMCanvas {
                 ctx.window().set_title(format!("Vim-Mapper - {}", path.display()).as_str());
             }
         }
-        if self.dialog_visible {
-            let rect = ctx.size().to_rect();
-            ctx.fill(rect,
-                 &self.config.get_color(VMColor::SheetBackgroundColor).expect("Couldn't get sheet background color from config")
-                );
-            self.dialog.paint(ctx, &(), env);
-        } else if let Some(inner) = &mut self.inner {
+        if let Some(inner) = &mut self.inner {
             inner.paint(ctx, &(), env);
             let layout = ctx.text().new_text_layout(self.input_manager.get_string())
                 .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
@@ -487,12 +524,24 @@ impl Widget<AppState> for VMCanvas {
                 self.last_frame_time = now;
             }
         }
+        if self.dialog_visible {
+            let rect = ctx.size().to_rect();
+            if self.inner.is_none() {
+                ctx.fill(rect,
+                    &self.config.get_color(VMColor::SheetBackgroundColor).expect("Couldn't get sheet background color from config")
+                    );
+            }
+            ctx.fill(rect,
+                 &self.config.get_color(VMColor::DialogBackgroundColor).expect("Couldn't get sheet background color from config")
+                );
+            self.dialog.paint(ctx, &(), env);
+        }
     }
 }
 
 #[derive(Data, Clone)]
 struct AppState {
-    visible: bool,
+    menu_visible: bool,
 }
 
 struct Delegate;
@@ -518,9 +567,11 @@ impl AppDelegate<AppState> for Delegate {
         env: &Env,
     ) -> druid::Handled {
         if cmd.is(TOGGLE_MAIN_MENU) {
-            data.visible = !data.visible;
+            data.menu_visible = !data.menu_visible;
+            druid::Handled::Yes
+        } else {
+            druid::Handled::No
         }
-        druid::Handled::No
     }
 
     fn window_added(
@@ -570,17 +621,18 @@ pub fn main() {
     .title("Vim-Mapper")
     .set_window_state(WindowState::Maximized)
     .menu(VMCanvas::make_menu);
-    // .menu(|a,b,c| Menu::empty());
     #[cfg(debug_assertions)]
     AppLauncher::with_window(window)
     .log_to_console()
     .launch(AppState {
-        visible: false,
+        menu_visible: true,
     })
     .expect("launch failed");
     #[cfg(not(debug_assertions))]
     AppLauncher::with_window(window)
-    .use_simple_logger()
-    .launch(())
+    .log_to_console()
+    .launch(AppState {
+        menu_visible: true,
+    })
     .expect("launch failed");
 }

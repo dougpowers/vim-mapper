@@ -309,15 +309,17 @@ impl Controller<String, TextBox<String>> for VMNodeEditorController {
             Event::Command(command) if command.is(TAKE_FOCUS) => {
                 ctx.request_focus();
                 ctx.set_handled();
-                let selection = Selection::new(0,usize::MAX);
-                child.text_mut().borrow_mut().set_selection(selection);
-                // if let Some(text) = child.editor().layout().text() {
-                //     selection = selection.constrained(text);
-                //     selection.end = selection.max();
-                // }
-                // child.set_selection(selection);
                 child.event(ctx, event, data, env);
-                child.set_text_alignment(druid::TextAlignment::Start);
+                let selection = Selection::new(0, data.len());
+                loop {
+                    if child.text_mut().can_write() {
+                        if let Some(ime) = child.text_mut().borrow_mut().set_selection(selection) {
+                            ctx.invalidate_text_input(ime);
+                        }
+                        child.set_text_alignment(druid::TextAlignment::Start);
+                        break;
+                    }
+                }
             }
             Event::MouseDown(_event) => {
                 ctx.submit_notification(TAKEN_FOCUS);
@@ -337,9 +339,15 @@ impl Controller<String, TextBox<String>> for VMNodeEditorController {
             data: &String,
             env: &Env,
         ) {
+        if let druid::LifeCycle::WidgetAdded = event {
+            // ctx.register_text_input(child.text_mut().input_handler());
+        }
         child.lifecycle(ctx, event, data, env);
     }
     fn update(&mut self, child: &mut TextBox<String>, ctx: &mut druid::UpdateCtx, old_data: &String, data: &String, env: &Env) {
         child.update(ctx, old_data, data, env);
+        if let Some(e) = child.text_mut().borrow_mut().pending_ime_invalidation() {
+            ctx.invalidate_text_input(e);
+        }
     }
 }

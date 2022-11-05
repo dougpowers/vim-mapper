@@ -1092,7 +1092,7 @@ impl VimMapper {
                     Action::TargetNode => todo!(),
                     Action::CenterNode => {
                         let node = self.nodes.get(&payload.index.unwrap()).expect("Tried to center a non-existent node.");
-                        let node_pos = self.get_node_pos(node.index);
+                        let node_pos = self.get_node_pos(node.index) * self.scale.as_tuple().1;
                         self.offset_x = node_pos.x;
                         self.offset_y = node_pos.y;
                         return Ok(());
@@ -1100,7 +1100,7 @@ impl VimMapper {
                     Action::CenterActiveNode => {
                         if let Some(active_idx) = self.get_active_node_idx() {
                             let node = self.nodes.get(&active_idx).expect("Tried to get non-existent active node.");
-                            let node_pos = self.get_node_pos(node.index);
+                            let node_pos = self.get_node_pos(node.index) * self.scale.as_tuple().1;
                             self.offset_x = -1. * node_pos.x;
                             self.offset_y = -1. * node_pos.y;
                         }
@@ -1307,191 +1307,11 @@ impl<'a> Widget<()> for VimMapper {
                 ctx.request_anim_frame();
                 ctx.set_handled();
             }
-            Event::Command(command) if command.is(EXECUTE_ACTION) => {
+            Event::Command(command) if command.is(EXECUTE_ACTION) && !ctx.is_handled() => {
                 let payload = command.get::<ActionPayload>(EXECUTE_ACTION).unwrap();
                 if let Ok(_) = self.handle_action(ctx, payload) {
-
+                    ctx.set_handled();
                 }
-                // if self.is_focused {
-                //     let payload = command.get::<ActionPayload>(EXECUTE_ACTION).unwrap();
-                //     match payload.action {
-                //         Action::NullAction => (),
-                //         Action::CycleNodeForward => {
-                //             if let Some(_) = self.get_active_node_idx() {
-                //                 self.cycle_target_forward();
-                //                 if let Some(idx) = self.get_target_node_idx() {
-                //                     self.scroll_node_into_view(idx)
-                //                 }
-                //             } else {
-                //                 self.set_node_as_active(0);
-                //                 self.scroll_node_into_view(0);
-                //             }
-                //         }
-                //         Action::CycleNodeBackward => {
-                //             if let Some(_) = self.get_active_node_idx() {
-                //                 self.cycle_target_backward();
-                //                 if let Some(idx) = self.get_target_node_idx() {
-                //                     self.scroll_node_into_view(idx)
-                //                 }
-                //             } else {
-                //                 self.set_node_as_active(0);
-                //                 self.scroll_node_into_view(0);
-                //             }
-                //         }
-                //         Action::ActivateTargetedNode => {
-                //             self.set_render_mode(NodeRenderMode::AllEnabled);
-                //             if let Some(idx) = self.target_node_idx {
-                //                 let node_idx = self.target_node_list[idx];
-                //                 // let node_pos = self.get_node_pos(self.get_active_node_idx().unwrap());
-                //                 // let target_node_pos = self.get_node_pos(node_idx);
-                //                 // let offset = target_node_pos-node_pos;
-                //                 // let rect = Affine::from(self.scale).transform_rect_bbox(self.nodes.get(&node_idx).unwrap().node_rect.unwrap()+offset);
-                //                 self.scroll_node_into_view(node_idx);
-                //                 // self.scroll_rect_into_view(rect);
-                //                 self.invalidate_node_layouts();
-                //                 self.set_node_as_active(node_idx);
-                //                 // self.cycle_target_forward();
-                //                 // self.build_target_list_from_neighbors(node_idx);
-                //                 ctx.set_handled();
-                //             }
-                //         }
-                //         Action::EditActiveNodeAppend => todo!(),
-                //         Action::EditActiveNodeInsert => todo!(),
-                //         Action::DeleteActiveNode => {
-                //             if let Some(remove_idx) = self.get_active_node_idx() {
-                //                 if let Ok(idx) = self.delete_node(remove_idx) {
-                //                     self.set_node_as_active(idx);
-                //                     self.scroll_node_into_view(idx);
-                //                 }
-                //             }
-                //         }
-                //         Action::DeleteTargetNode => {
-                //             if let Some(remove_idx) = self.target_node_idx {
-                //                 let target = self.target_node_list[remove_idx];
-                //                 if let Ok(_) = self.delete_node(target) {
-                //                     if let Some(active_idx) = self.get_active_node_idx() {
-                //                         self.build_target_list_from_neighbors(active_idx);
-                //                     }
-                //                 }
-                //             }
-                //         }
-                //         Action::IncreaseActiveNodeMass => {
-                //             if let Some(idx) = self.get_active_node_idx() {
-                //                 self.increase_node_mass(idx);
-                //             }
-                //         }
-                //         Action::DecreaseActiveNodeMass => {
-                //             if let Some(idx) = self.get_active_node_idx() {
-                //                 self.decrease_node_mass(idx);
-                //             }
-                //         }
-                //         Action::ResetActiveNodeMass => {
-                //             if let Some(idx) = self.get_active_node_idx() {
-                //                 self.reset_node_mass(idx);
-                //             }
-                //         }
-                //         Action::ToggleAnchorActiveNode => {
-                //             if let Some(idx) = self.get_active_node_idx() {
-                //                 self.toggle_node_anchor(idx);
-                //             }
-                //         }
-                //         Action::MoveActiveNodeDown => {
-                //             if let Some(idx) = self.get_active_node_idx() {
-                //                 self.move_node(idx, Vec2::new(0., payload.float.expect("Expected a float value for node movement.")))
-                //             }
-                //         }
-                //         Action::MoveActiveNodeUp => {
-                //             if let Some(idx) = self.get_active_node_idx() {
-                //                 self.move_node(idx, Vec2::new(0., -1.*payload.float.expect("Expected a float value for node movement.")))
-                //             }
-                //         }
-                //         Action::MoveActiveNodeLeft => {
-                //             if let Some(idx) = self.get_active_node_idx() {
-                //                 self.move_node(idx, Vec2::new(-1.*payload.float.expect("Expected a float value for node movement."), 0.))
-                //             }
-                //         }
-                //         Action::MoveActiveNodeRight => {
-                //             if let Some(idx) = self.get_active_node_idx() {
-                //                 self.move_node(idx, Vec2::new(payload.float.expect("Expected a float value for node movement."), 0.))
-                //             }
-                //         }
-                //         Action::MarkActiveNode => {
-                //             if let Some(active_idx) = self.get_active_node_idx() {
-                //                 //Check that a node doesn't already have this mark. Clear if that's the case.
-                //                 if let Some(holder) = self.get_node_by_mark(payload.string.clone().unwrap()) {
-                //                     self.nodes.get_mut(&holder).unwrap().set_mark(" ".to_string());
-                //                 }
-                //                 self.nodes.get_mut(&active_idx).unwrap().set_mark(payload.string.clone().unwrap());
-                //             }
-                //         },
-                //         Action::JumpToMarkedNode => {
-                //             if let Some(marked_idx) = self.get_node_by_mark(payload.string.clone().unwrap()) {
-                //                 self.set_node_as_active(marked_idx);
-                //                 self.scroll_node_into_view(marked_idx);
-                //             }
-                //         },
-                //         Action::TargetNode => todo!(),
-                //         Action::CenterNode => {
-                //             let node = self.nodes.get(&payload.index.unwrap()).expect("Tried to center a non-existent node.");
-                //             let node_pos = self.get_node_pos(node.index);
-                //             self.offset_x = node_pos.x;
-                //             self.offset_y = node_pos.y;
-                //         }
-                //         Action::CenterActiveNode => {
-                //             if let Some(active_idx) = self.get_active_node_idx() {
-                //                 let node = self.nodes.get(&active_idx).expect("Tried to get non-existent active node.");
-                //                 let node_pos = self.get_node_pos(node.index);
-                //                 self.offset_x = -1. * node_pos.x;
-                //                 self.offset_y = -1. * node_pos.y;
-                //             }
-                //         }
-                //         Action::SearchNodes => {
-                //             if let Some(string) = payload.string.clone() {
-                //                 self.build_target_list_from_string(string);
-                //                 // self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
-                //             }
-                //         },
-                //         Action::ToggleDebug => {
-                //             self.debug_data = !self.debug_data;
-                //         }
-                //         Action::PanUp => {
-                //             self.offset_y += payload.float.unwrap();
-                //         }
-                //         Action::PanDown => {
-                //             self.offset_y -= payload.float.unwrap();
-                //         }
-                //         Action::PanLeft => {
-                //             self.offset_x += payload.float.unwrap();
-                //         }
-                //         Action::PanRight => {
-                //             self.offset_x -= payload.float.unwrap();
-                //         }
-                //         Action::ZoomOut => {
-                //             self.scale = self.scale.clone()*TranslateScale::scale(payload.float.unwrap());
-                //         }
-                //         Action::ZoomIn => {
-                //             self.scale = self.scale.clone()*TranslateScale::scale(payload.float.unwrap());
-                //         }
-                //         Action::DeleteWordWithWhitespace => todo!(),
-                //         Action::DeleteWord => todo!(),
-                //         Action::DeleteToEndOfWord => todo!(),
-                //         Action::DeleteToNthCharacter => todo!(),
-                //         Action::DeleteWithNthCharacter => todo!(),
-                //         Action::ChangeWordWithWhitespace => todo!(),
-                //         Action::ChangeWord => todo!(),
-                //         Action::ChangeToEndOfWord => todo!(),
-                //         Action::ChangeToNthCharacter => todo!(),
-                //         Action::ChangeWithNthCharacter => todo!(),
-                //         Action::CursorForward => todo!(),
-                //         Action::CursorBackward => todo!(),
-                //         Action::CursorForwardToEndOfWord => todo!(),
-                //         Action::CursorForwardToBeginningOfWord => todo!(),
-                //         Action::CursorBackwardToEndOfWord => todo!(),
-                //         Action::CursorBackwardToBeginningOfWord => todo!(),
-                //         Action::CursorToNthCharacter => todo!(),
-                //         _ => ()
-                //     }
-                // }
                 ctx.request_anim_frame();
             }
             _ => {

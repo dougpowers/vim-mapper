@@ -62,6 +62,8 @@ impl Default for ActionPayload {
 #[derive(Clone, PartialEq, Debug)]
 pub enum Action {
     NullAction,
+    CreateNewSheet,
+    OpenExistingSheet,
     CycleNodeForward,
     CycleNodeBackward,
     CreateNewNode,

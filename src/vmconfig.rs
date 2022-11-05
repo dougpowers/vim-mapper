@@ -105,6 +105,9 @@ impl VMConfigNoVersion {
             SheetBackgroundColor => {
                 String::from("sheet-background-color")
             },
+            DialogBackgroundColor => {
+                String::from("dialog-background-color")
+            },
         }
     }
 
@@ -158,6 +161,7 @@ pub enum VMColor {
     EdgeColor,
     ComposeIndicatorTextColor,
     SheetBackgroundColor,
+    DialogBackgroundColor,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -276,6 +280,7 @@ impl Default for VMConfigVersion4 {
         light_palette.insert(EdgeColor, (192,192,192,255));
         light_palette.insert(ComposeIndicatorTextColor, (255,0,0,255));
         light_palette.insert(SheetBackgroundColor, (255,255,255,255));
+        light_palette.insert(DialogBackgroundColor, (128,128,128,70));
         dark_palette.insert(LabelTextColor, (255,255,255,255));
         dark_palette.insert(DisabledLabelTextColor, (255,255,255,128));
         dark_palette.insert(NodeBorderColor, (215,215,215,255));
@@ -287,6 +292,7 @@ impl Default for VMConfigVersion4 {
         dark_palette.insert(EdgeColor, (132,132,132,255));
         dark_palette.insert(ComposeIndicatorTextColor, (255,0,0,255));
         dark_palette.insert(SheetBackgroundColor, (0,0,0,255));
+        dark_palette.insert(DialogBackgroundColor, (128,128,128,70));
         VMConfigVersion4 {
             file_version: String::from(CURRENT_CONFIG_FILE_VERSION.to_string()),
             color_scheme: ColorScheme::LIGHT,

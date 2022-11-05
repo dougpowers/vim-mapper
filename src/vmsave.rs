@@ -113,6 +113,8 @@ impl VMSaveSerde {
                 // pos: Vec2::new(v.pos.0, v.pos.1), 
                 // container: VMNodeLayoutContainer::new(v.index), 
                 mark: v.mark,
+                anchored: v.anchored,
+                mass: v.mass,
                 ..Default::default()
             });
         }
