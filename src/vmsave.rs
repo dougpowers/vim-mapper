@@ -16,9 +16,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{PathBuf, Path};
 
-use druid::Vec2;
+use druid::{Vec2, Data};
 use druid::kurbo::TranslateScale;
-use force_graph::{ForceGraph, DefaultNodeIdx, NodeData, EdgeData};
+use vm_force_graph::{ForceGraph, DefaultNodeIdx, NodeData, EdgeData};
 use serde::{Serialize, Deserialize};
 
 use crate::constants::*;
@@ -41,6 +41,23 @@ pub struct VMSaveVersion4 {
     scale: f64,
     offset_x: f64,
     offset_y: f64,
+}
+
+#[derive(Data, PartialEq, Clone, Debug)]
+pub enum VMSaveState {
+    NoSheetOpened,
+    NoSave,
+    QuitWithoutSaving,
+    UnsavedChanges,
+    SaveInProgress,
+    SaveInProgressThenQuit,
+    Saved,
+}
+
+pub enum VMSaveAsResult {
+    Ok,
+    Cancel,
+    FileExists,
 }
 
 #[derive(Serialize, Deserialize)]

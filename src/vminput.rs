@@ -17,7 +17,7 @@ use std::collections::{HashMap};
 use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent};
 use regex::Regex;
 use common_macros::hash_map;
-use crate::constants::*;
+use crate::{constants::*, vmsave::VMSaveState, vmdialog::VMDialogParams};
 
 #[allow(dead_code)]
 #[derive(Clone, PartialEq, Debug)]
@@ -44,6 +44,8 @@ pub struct ActionPayload {
     pub index: Option<u16>,
     pub string: Option<String>,
     pub mode: Option<KeybindMode>,
+    pub save_state: Option<VMSaveState>,
+    pub dialog_params: Option<VMDialogParams>,
 }
 
 impl Default for ActionPayload {
@@ -54,6 +56,8 @@ impl Default for ActionPayload {
             index: None,
             string: None,
             mode: None,
+            save_state: None,
+            dialog_params: None,
         }
     }
 }
@@ -64,6 +68,11 @@ pub enum Action {
     NullAction,
     CreateNewSheet,
     OpenExistingSheet,
+    SaveSheet,
+    SaveSheetAs,
+    QuitWithoutSaveGuard,
+    QuitWithSaveGuard,
+    SetSaveState,
     CycleNodeForward,
     CycleNodeBackward,
     CreateNewNode,
@@ -116,6 +125,7 @@ pub enum Action {
     ToggleColorScheme,
     ToggleDebug,
     ToggleMenuVisible,
+    CreateDialog,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -457,6 +467,19 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::F11),
+                    modifiers: Some(Modifiers::ALT),
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::ToggleMenuVisible,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::Start,
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use druid::{widget::{Button, ControllerHost, Flex, SizedBox, Label, MainAxisAlignment}, WidgetExt, Command, FileDialogOptions, Target, WidgetPod, Notification};
+use druid::{widget::{Button, Flex, SizedBox, Label, MainAxisAlignment}, WidgetExt, Command, Target, WidgetPod};
 
 use crate::{vmconfig::{VMConfigVersion4, VMColor}, vminput::ActionPayload};
 
@@ -30,31 +30,10 @@ pub struct VMDialogParams {
 
 impl VMDialog {
     pub fn new(config: &VMConfigVersion4, params: VMDialogParams) -> VMDialog {
-        // let open_button = Button::new("Open...")
-        //     .on_click(move |ctx, _, _| {
-        //     ctx.submit_command(
-        //         Command::new(
-        //             druid::commands::SHOW_OPEN_PANEL,
-        //             FileDialogOptions::new(),
-        //             Target::Auto
-        //         )
-        //     )
-        // });
-        // let new_button: ControllerHost<Button<()>, druid::widget::Click<_>> = Button::new("New")
-        //     .on_click(move |ctx, _, _| {
-        //     ctx.submit_command(
-        //         Command::new(
-        //             druid::commands::NEW_FILE,
-        //             (),
-        //             Target::Auto
-        //         )
-        //     )
-        // });
-
         let mut main_column = Flex::column()
             .with_child(
                 Label::new(
-                    "Do you want create a new sheet or load an existing one?"
+                    params.prompt.clone()
                 )
                 .with_text_color(config.get_color(VMColor::LabelTextColor).expect("Couldn't get label text color from config"))
             ).with_child(SizedBox::empty().height(50.));
@@ -95,21 +74,6 @@ impl VMDialog {
             Flex::column()
                 .with_child(
                     SizedBox::new(
-                        // Flex::column()
-                        // .with_child(
-                        //     Label::new(
-                        //         "Do you want create a new sheet or load an existing one?"
-                        //     )
-                        //     .with_text_color(config.get_color(VMColor::LabelTextColor).expect("Couldn't get label text color from config"))
-                        //     )
-                        // .with_child(SizedBox::empty().height(50.))
-                        // .with_child(
-                        //     Flex::row().with_child(
-                        //         new_button
-                        //     ).with_default_spacer()
-                        //     .with_child(
-                        //         open_button
-                        //     )   
                         main_column.main_axis_alignment(MainAxisAlignment::Center)
                     )
                     .padding(5.)

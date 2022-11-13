@@ -15,7 +15,7 @@
 use druid::kurbo::{Line, TranslateScale};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
-use force_graph::{ForceGraph, NodeData, EdgeData};
+use vm_force_graph::{ForceGraph, NodeData, EdgeData};
 use druid::widget::prelude::*;
 use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
 use regex::Regex;
