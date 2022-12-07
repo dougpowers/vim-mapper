@@ -20,6 +20,7 @@ use vmdialog::{VMDialogParams, VMDialog};
 use std::path::{PathBuf, Path};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+
 mod vmnode;
 
 mod vminput;
@@ -54,112 +55,12 @@ impl VMCanvas {
         VMCanvas {
             inner: None,
             // dialog: VMCanvas::make_dialog(&config),
-            dialog: VMCanvas::new_dialog(&config, VMCanvas::make_start_dialog_params()),
+            dialog: VMCanvas::new_dialog(&config, VMDialog::make_start_dialog_params()),
             dialog_visible: true,
             path: None,
             config,
             input_manager: VMInputManager::new(),
             last_frame_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
-        }
-    }
-
-    fn make_start_dialog_params() -> VMDialogParams {
-        VMDialogParams {
-            prompt: "Do you want create a new sheet or load an existing one?".to_string(),
-            buttons: vec![
-                (
-                    String::from("New"),
-                    vec![ActionPayload {
-                        action: Action::CreateNewSheet,
-                        ..Default::default()
-                    }]
-                ),
-                (
-                    String::from("Open"),
-                    vec![ActionPayload {
-                        action: Action::OpenExistingSheet,
-                        ..Default::default()
-                    }]
-                )
-            ]
-        }
-    }
-
-    fn make_save_and_quit_dialog_params() -> VMDialogParams {
-        VMDialogParams {
-            prompt: String::from("This sheet has unsaved changes, do you want to save before closing this sheet?"),
-            buttons: vec![
-                (
-                    String::from("Save and Quit"),
-                    vec![
-                        ActionPayload {
-                            action: Action::SaveSheet,
-                            ..Default::default()
-                        },
-                        ActionPayload {
-                            action: Action::SetSaveState,
-                            save_state: Some(VMSaveState::Saved),
-                            ..Default::default()
-                        },
-                        ActionPayload {
-                            action: Action::QuitWithoutSaveGuard,
-                            ..Default::default()
-                        }
-                    ]
-                ),
-                (
-                    String::from("Cancel"),
-                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }]
-                ),
-                (
-                    String::from("Discard Changes"),
-                    vec![
-                        ActionPayload {
-                            action: Action::QuitWithoutSaveGuard,
-                            ..Default::default()
-                        }
-                    ]
-                ),
-            ]
-        }
-    }
-
-    fn make_save_and_new_dialog_params() -> VMDialogParams {
-        VMDialogParams {
-            prompt: String::from("This sheet has unsaved changes, do you want to save before closing this sheet?"),
-            buttons: vec![
-                (
-                    String::from("Save"),
-                    vec![
-                        ActionPayload {
-                            action: Action::SaveSheet,
-                            ..Default::default()
-                        },
-                        ActionPayload {
-                            action: Action::SetSaveState,
-                            save_state: Some(VMSaveState::Saved),
-                            ..Default::default()
-                        },
-                        ActionPayload {
-                            action: Action::CreateNewSheet,
-                            ..Default::default()
-                        }
-                    ]
-                ),
-                (
-                    String::from("Cancel"),
-                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }]
-                ),
-                (
-                    String::from("Discard Changes"),
-                    vec![
-                        ActionPayload {
-                            action: Action::QuitWithoutSaveGuard,
-                            ..Default::default()
-                        }
-                    ]
-                ),
-            ]
         }
     }
 
@@ -185,6 +86,7 @@ impl VMCanvas {
             match payload.action {
                 Action::CreateNewNode => data.save_state = VMSaveState::UnsavedChanges,
                 Action::CreateNewNodeAndEdit => data.save_state = VMSaveState::UnsavedChanges,
+                Action::ActivateTargetedNode => data.save_state = VMSaveState::UnsavedChanges,
                 Action::IncreaseActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
                 Action::DecreaseActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
                 Action::ResetActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
@@ -205,11 +107,13 @@ impl VMCanvas {
                 Action::PanRight => data.save_state = VMSaveState::UnsavedChanges,
                 Action::ZoomOut => data.save_state = VMSaveState::UnsavedChanges,
                 Action::ZoomIn => data.save_state = VMSaveState::UnsavedChanges,
-                Action::ToggleColorScheme => data.save_state = VMSaveState::UnsavedChanges,
-                Action::ToggleMenuVisible => data.save_state = VMSaveState::UnsavedChanges,
                 _ => ()
             }
             match payload.action {
+                Action::PrintToLogInfo => {
+                    tracing::debug!("{:?}", payload.string);
+                    ctx.set_handled();
+                }
                 Action::ToggleColorScheme => {
                     self.config.toggle_color_scheme();
                     let result = VMConfigSerde::save(&self.config);
@@ -221,7 +125,7 @@ impl VMCanvas {
                         ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
                     }
                     // self.dialog = VMCanvas::make_dialog(&self.config);
-                    self.dialog = VMCanvas::new_dialog(&self.config, VMCanvas::make_start_dialog_params());
+                    self.dialog = VMCanvas::new_dialog(&self.config, VMDialog::make_start_dialog_params());
                     ctx.children_changed();
                     ctx.request_layout();
                     ctx.request_paint();
@@ -229,7 +133,6 @@ impl VMCanvas {
                     return Ok(());
                 }
                 Action::OpenExistingSheet => {
-                    println!("Open existing sheet...");
                     ctx.submit_command(
                         Command::new(
                             druid::commands::SHOW_OPEN_PANEL,
@@ -251,14 +154,17 @@ impl VMCanvas {
                         ctx.set_handled();
                         return Ok(());
                     } else {
-                        ctx.submit_command(
-                            Command::new(EXECUTE_ACTION,
-                            ActionPayload {
-                                action: Action::SaveSheet,
-                                ..Default::default()
-                            },
-                            Target::Global
-                        ));
+                        // ctx.submit_command(
+                        //     Command::new(EXECUTE_ACTION,
+                        //     ActionPayload {
+                        //         action: Action::SaveSheet,
+                        //         ..Default::default()
+                        //     },
+                        //     Target::Global
+                        // ));
+                        self.dialog = VMCanvas::new_dialog(&self.config, VMDialog::make_save_and_new_dialog_params());
+                        ctx.children_changed();
+                        self.dialog_visible = true;
                         ctx.set_handled();
                         return Ok(());
                     }
@@ -283,12 +189,7 @@ impl VMCanvas {
                                 &VMSaveSerde::to_save(inner.widget()),
                                 path,
                             ) {
-                                if data.save_state == VMSaveState::SaveInProgressThenQuit {
                                     data.save_state = VMSaveState::Saved;
-                                    ctx.submit_command(druid::commands::QUIT_APP);
-                                } else {
-                                    data.save_state = VMSaveState::Saved;
-                                }
                             }
                         } else {
                             ctx.submit_command(
@@ -305,7 +206,40 @@ impl VMCanvas {
                     }
                 }
                 Action::SaveSheetAs => {
+                    match data.save_state {
+                        VMSaveState::NoSheetOpened => (),
+                        VMSaveState::NoSave | VMSaveState::UnsavedChanges => {
+                            data.save_state = VMSaveState::SaveAsInProgress;
+                            ctx.submit_command(Command::new(
+                                druid::commands::SHOW_SAVE_PANEL,
+                                VMCanvas::make_save_dialog_options(),
+                                Target::Global
+                            ));
+                            ctx.set_handled();
+                        },
+                        VMSaveState::SaveAsInProgressFileExists => todo!(),
+                        VMSaveState::SaveAsInProgress => todo!(),
+                        VMSaveState::SaveAsInProgressFileExistsThenQuit => todo!(),
+                        VMSaveState::SaveAsInProgressThenQuit => todo!(),
+                        VMSaveState::SaveAsInProgressFileExistsThenNew => todo!(),
+                        VMSaveState::SaveAsInProgressThenNew => todo!(),
+                        VMSaveState::SaveInProgress => todo!(),
+                        VMSaveState::SaveInProgressThenQuit => todo!(),
+                        VMSaveState::Saved => todo!(),
+                    }
 
+                }
+                Action::SaveSheetAsOverwrite => {
+                    if let Some(inner) = &self.inner {
+                        if let Some(path) = self.path.clone() {
+                            if let Ok(_) = VMSaveSerde::save(
+                                &VMSaveSerde::to_save(inner.widget()),
+                                path,
+                            ) {
+                                    data.save_state = VMSaveState::Saved;
+                            }
+                        }
+                    }
                 }
                 Action::QuitWithoutSaveGuard => {
                     ctx.submit_command(druid::commands::QUIT_APP);
@@ -414,7 +348,7 @@ impl VMCanvas {
                 Err(())
             }
         } else {
-            Ok(())
+            Err(())
         }
 
     }
@@ -424,50 +358,78 @@ impl VMCanvas {
         dialog.inner
     }
 
+    fn make_open_dialog_options() -> FileDialogOptions {
+        let open_dialog_options = FileDialogOptions::new()
+        .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])]);
+        open_dialog_options
+    }
+
+    fn make_save_dialog_options() -> FileDialogOptions {
+        let save_dialog_options = FileDialogOptions::new()
+        .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])])
+        .default_type(FileSpec::new("VimMapper File", &["vmd"]))
+        .default_name(DEFAULT_SAVE_NAME);
+        save_dialog_options
+    }
+
     pub fn make_menu(_id: Option<WindowId>, data: &AppState, _env: &Env) -> Menu<AppState> {
         if data.menu_visible { 
             let base = Menu::<AppState>::empty();
-            let open_dialog_options = FileDialogOptions::new()
-            .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])]);
-            let save_dialog_options = FileDialogOptions::new()
-            .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])])
-            .default_type(FileSpec::new("VimMapper File", &["vmd"]))
-            .default_name(DEFAULT_SAVE_NAME);
 
             let file_menu = Menu::new(LocalizedString::new("file-menu").with_placeholder("File"))
-            .entry(druid::platform_menus::win::file::new())
             .entry(
                 MenuItem::new(
-                    LocalizedString::new("common-menu-file-open"),
-                    // druid::commands::SHOW_OPEN_PANEL.with(open_dialog_options),
+                    String::from("New\tCtrl+N")
                 )
-                .command(druid::commands::SHOW_OPEN_PANEL.with(open_dialog_options))
-                .hotkey(druid::SysMods::Cmd, "o")
+                .command(Command::new(
+                    EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::CreateNewSheet,
+                        ..Default::default()
+                    },
+                    Target::Global
+                ))
             )
-            .entry(druid::platform_menus::win::file::save())
             .entry(
                 MenuItem::new(
-                    LocalizedString::new("common-menu-file-save-as"),
-                    // druid::commands::SHOW_SAVE_PANEL.with(save_dialog_options),
+                    String::from("Open File\tCtrl+O")
                 )
-                .command(druid::commands::SHOW_SAVE_PANEL.with(save_dialog_options))
-                .hotkey(druid::SysMods::CmdShift, "S")
+                .command(druid::commands::SHOW_OPEN_PANEL.with(VMCanvas::make_open_dialog_options()))
+            )
+            .entry(
+                MenuItem::new(
+                    String::from("Save\tCtrl+S")
+                )
+                .command(Command::new(
+                    EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::SaveSheet,
+                        ..Default::default()
+                    },
+                    Target::Global,
+                ))
+            )
+            .entry(
+                MenuItem::new(
+                    String::from("Save As...\tCtrl+Shift+S")
+                )
+                .command(druid::commands::SHOW_SAVE_PANEL.with(VMCanvas::make_save_dialog_options()))
             )
             .separator()
             .entry(
                 MenuItem::new(
-                    String::from("Hide Menu")
+                    String::from("Hide Menu\tAlt+F11")
                 ).command(EXECUTE_ACTION.with(ActionPayload {
                     action: Action::ToggleMenuVisible,
                     ..Default::default()
                 }))
             )
-            // .entry(druid::platform_menus::win::file::exit());
             .separator()
             .entry(
                 MenuItem::new(
-                    String::from("Exit")
-                ).command(druid::commands::CLOSE_ALL_WINDOWS)
+                    String::from("Exit\tAlt+F4")
+                )
+                .command(druid::commands::CLOSE_ALL_WINDOWS)
             );
             return base.entry(file_menu).rebuild_on(|old_data, data, _env| {
                 old_data.menu_visible != data.menu_visible
@@ -487,19 +449,16 @@ impl Widget<AppState> for VMCanvas {
         ctx.request_layout();
         ctx.request_paint();
         if let Some(_) = &self.inner {
-        } else {
+        } else if !self.dialog_visible {
             // if ctx.is_hot() {
                 ctx.request_focus();
             // }
-        }
-        if let Event::Command(cmd) = event {
-            println!("{:?}", cmd);
         }
         match event {
             Event::Command(command) if command.is(druid::commands::NEW_FILE) => {
                 match data.save_state {
                     VMSaveState::NoSave => {
-                        todo!()
+                        // self.dialog = VMCanvas::new_dialog(&self.config, VMCanvas::make)
                     }
                     VMSaveState::NoSheetOpened | VMSaveState::Saved => {
                         ctx.submit_command(Command::new(
@@ -512,7 +471,7 @@ impl Widget<AppState> for VMCanvas {
                         ));
                     }
                     VMSaveState::UnsavedChanges => {
-                        self.dialog = VMCanvas::new_dialog(&self.config, VMCanvas::make_save_and_new_dialog_params());
+                        self.dialog = VMCanvas::new_dialog(&self.config, VMDialog::make_save_and_new_dialog_params());
                         ctx.children_changed();
                         self.dialog_visible = true;
                     }
@@ -527,25 +486,12 @@ impl Widget<AppState> for VMCanvas {
                     self.load_new_mapper(vm);
                     data.save_state = VMSaveState::Saved;
                     ctx.children_changed();
-                    ctx.request_layout();
+                    // ctx.request_layout();
                 }
             }
             Event::Command(command) if command.is(druid::commands::SAVE_FILE) => {
-                if let Some(inner) = &self.inner {
-                    if let Some(path) = &self.path {
-                        // self.save_file();
-                        VMSaveSerde::save(&VMSaveSerde::to_save(&inner.widget()), (*path).clone());
-                    } else {
-                        ctx.submit_command(Command::new(
-                            druid::commands::SHOW_SAVE_PANEL,
-                            FileDialogOptions::new()
-                                .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])])
-                                .default_type(FileSpec::new("VimMapper File", &["vmd"]))
-                                .default_name(DEFAULT_SAVE_NAME),
-                            Target::Auto
-                        ));
-                    }
-                }
+                tracing::error!("druid::commands::SAVE_FILE command sent! This should not happen!");
+                panic!();
             }
             Event::Command(command) if command.is(druid::commands::SAVE_FILE_AS) => {
                 if let Some(_) = self.inner {
@@ -562,7 +508,7 @@ impl Widget<AppState> for VMCanvas {
             Event::Command(command) if command.is(druid::commands::OPEN_PANEL_CANCELLED) => {
                 match data.save_state {
                     VMSaveState::NoSheetOpened => {
-                        self.dialog = VMDialog::new(&self.config, VMCanvas::make_start_dialog_params()).inner;
+                        self.dialog = VMDialog::new(&self.config, VMDialog::make_start_dialog_params()).inner;
                         ctx.children_changed();
                         self.dialog_visible = true;
                     }
@@ -571,14 +517,21 @@ impl Widget<AppState> for VMCanvas {
             }
             Event::Command(command) if command.is(druid::commands::SAVE_PANEL_CANCELLED) => {
                 match data.save_state {
-                    VMSaveState::SaveInProgress => {
+                    VMSaveState::SaveAsInProgress => {
                         if self.path == None {
                             data.save_state = VMSaveState::NoSave;
                         } else {
                             data.save_state = VMSaveState::UnsavedChanges;
                         }
                     }
-                    VMSaveState::SaveInProgressThenQuit => {
+                    VMSaveState::SaveAsInProgressThenQuit => {
+                        if self.path == None {
+                            data.save_state = VMSaveState::NoSave;
+                        } else {
+                            data.save_state = VMSaveState::UnsavedChanges;
+                        }
+                    }
+                    VMSaveState::SaveAsInProgressThenNew => {
                         if self.path == None {
                             data.save_state = VMSaveState::NoSave;
                         } else {
@@ -589,59 +542,26 @@ impl Widget<AppState> for VMCanvas {
                 }
             }
             Event::WindowCloseRequested => {
-                println!("Windows close requested.");
+                tracing::debug!("Window close requested.");
                 ctx.set_handled();
-                // ctx.submit_command(druid::commands::QUIT_APP);
                 match data.save_state {
                     VMSaveState::NoSheetOpened => ctx.submit_command(druid::commands::QUIT_APP),
                     VMSaveState::Saved => ctx.submit_command(druid::commands::QUIT_APP),
-                    VMSaveState::QuitWithoutSaving => ctx.submit_command(druid::commands::QUIT_APP),
                     VMSaveState::NoSave => {
-                        self.dialog = VMDialog::new(&self.config, VMDialogParams {
-                            prompt: String::from("This sheet hasn't been saved. Would you like to save it?"),
-                            buttons: vec![
-                                (
-                                    String::from("Save As..."),
-                                    vec![
-                                        ActionPayload {
-                                            action: Action::SetSaveState,
-                                            save_state: Some(VMSaveState::SaveInProgressThenQuit),
-                                            ..Default::default()
-                                        },
-                                        ActionPayload {
-                                            action: Action::SaveSheetAs,
-                                            ..Default::default()
-                                        },
-                                    ],
-                                ),
-                                (
-                                    String::from("Discard Sheet"),
-                                    vec![ActionPayload {
-                                        action: Action::QuitWithoutSaveGuard,
-                                        ..Default::default()
-                                    }],
-                                )
-                            ]
-                        }).inner;
+                        self.dialog = VMDialog::new(&self.config, VMDialog::make_save_as_and_quit_dialog_params()).inner;
                         ctx.children_changed();
                         self.dialog_visible = true;
                     },
                     VMSaveState::UnsavedChanges => {
-                        self.dialog = VMCanvas::new_dialog(&self.config, VMCanvas::make_save_and_quit_dialog_params());
+                        self.dialog = VMCanvas::new_dialog(&self.config, VMDialog::make_save_and_quit_dialog_params());
                         ctx.children_changed();
                         self.dialog_visible = true;
                     }
-                    VMSaveState::SaveInProgress => {
-
-                    }
-                    VMSaveState::SaveInProgressThenQuit => {
-
-                    }
+                    _ => ()
                 }
             }
             Event::Command(command) if command.is(EXECUTE_ACTION) && !ctx.is_handled() => {
                 let payload = command.get_unchecked(EXECUTE_ACTION);
-                println!("{:?}", payload);
                 if let Ok(_) = self.handle_action(ctx, data, &Some(payload.to_owned())) {
                     ctx.set_handled();
                 } else {
@@ -655,13 +575,10 @@ impl Widget<AppState> for VMCanvas {
             Event::Command(command) if command.is(DIALOG_EXECUTE_ACTIONS) && !ctx.is_handled() => {
                 let payloads = command.get_unchecked(DIALOG_EXECUTE_ACTIONS);
                 for payload in payloads {
-                    println!("{:?}", payload);
+                    // println!("{:?}", payload);
                     self.handle_action(ctx, data, &Some((*payload).clone()));
                 }
                 self.hide_dialog();
-            }
-            Event::Notification(note) if note.is(EXECUTE_ACTION) => {
-
             }
             Event::Notification(note) if note.is(SUBMIT_CHANGES) => {
                 if let Some(inner) = &mut self.inner {
@@ -684,14 +601,32 @@ impl Widget<AppState> for VMCanvas {
                 }
             }
             Event::KeyDown(key_event) => {
+                // #[cfg(debug_assertions)]
+                // {
+                //     println!("Sending key {:?}", key_event);
+                // }
                 let payloads = self.input_manager.accept_key(key_event.clone(), ctx);
+                // tracing::debug!("{:?}", payloads);
                 for payload in &payloads {
                     if let Ok(_) = self.handle_action(ctx, data, payload) {
                     } else {
-                        if let Some(inner) = &mut self.inner {
-                            inner.event(ctx, event, &mut(), env);
-                        } else {
+                        // if let Some(inner) = &mut self.inner {
+                        //     inner.event(ctx, event, &mut(), env);
+                        // } else {
+                        //     self.dialog.event(ctx, event, &mut (), env);
+                        // }
+                        if self.dialog_visible {
+                            if key_event.key == druid::keyboard_types::Key::Tab {
+                                #[cfg(debug_assertions)]
+                                {
+                                    tracing::debug!("Tab! Next focus!");
+                                }
+                                ctx.focus_next();
+                                ctx.set_handled();
+                            }
                             self.dialog.event(ctx, event, &mut (), env);
+                        } else if let Some(inner) = &mut self.inner {
+                            inner.event(ctx, event, &mut (), env);
                         }
                     }
                 }
@@ -701,12 +636,10 @@ impl Widget<AppState> for VMCanvas {
                     self.input_manager.timeout();
                 } 
             }
+            Event::WindowConnected => {
+                ctx.request_focus();
+            }
             _ => {
-                // if let Some(inner) = &mut self.inner {
-                //     inner.event(ctx, event, &mut (), env);
-                // } else if self.dialog_visible {
-                //     self.dialog.event(ctx, event, &mut (), env);
-                // }
                 if self.dialog_visible {
                     self.dialog.event(ctx, event, &mut (), env);
                 } else if let Some(inner) = &mut self.inner {
@@ -718,8 +651,6 @@ impl Widget<AppState> for VMCanvas {
     }
 
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, _data: &AppState, env: &Env) {
-        if let LifeCycle::WidgetAdded = event {
-        }
         if self.dialog_visible {
             self.dialog.lifecycle(ctx, event, &(), env);
         }
@@ -838,6 +769,15 @@ impl AppDelegate<AppState> for Delegate {
         _data: &mut AppState,
         _env: &Env,
     ) -> Option<Event> {
+        _ctx.submit_command(Command::new(
+            EXECUTE_ACTION,
+            ActionPayload {
+                action: Action::PrintToLogInfo,
+                string: Some(format!("{:?}", event)),
+                ..Default::default()
+            },
+            Target::Global
+        ));
         Some(event)
     }
 
@@ -904,7 +844,8 @@ pub fn main() {
 
     let window = WindowDesc::<AppState>::new(canvas)
     .title("Vim-Mapper")
-    .set_window_state(WindowState::Maximized)
+    // .set_window_state(WindowState::Maximized)
+    .set_window_state(WindowState::Restored)
     .menu(VMCanvas::make_menu);
     #[cfg(debug_assertions)]
     AppLauncher::with_window(window)
@@ -919,8 +860,18 @@ pub fn main() {
     })
     .expect("launch failed");
     #[cfg(not(debug_assertions))]
+    {
+        {
+            use tracing_subscriber::prelude::*;
+            let filter_layer = tracing_subscriber::filter::LevelFilter::ERROR;
+            let fmt_layer = tracing_subscriber::fmt::layer().with_target(true);
+
+            tracing_subscriber::registry()
+                .with(filter_layer)
+                .with(fmt_layer)
+                .init();
+        }
     AppLauncher::with_window(window)
-    .log_to_console()
     .launch(AppState {
         menu_visible: true,
         save_state: if launch_with_file {
@@ -930,4 +881,5 @@ pub fn main() {
         }
     })
     .expect("launch failed");
+    }
 }

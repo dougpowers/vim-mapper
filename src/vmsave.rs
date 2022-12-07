@@ -47,17 +47,16 @@ pub struct VMSaveVersion4 {
 pub enum VMSaveState {
     NoSheetOpened,
     NoSave,
-    QuitWithoutSaving,
     UnsavedChanges,
+    SaveAsInProgressFileExists,
+    SaveAsInProgress,
+    SaveAsInProgressFileExistsThenQuit,
+    SaveAsInProgressThenQuit,
+    SaveAsInProgressFileExistsThenNew,
+    SaveAsInProgressThenNew,
     SaveInProgress,
     SaveInProgressThenQuit,
     Saved,
-}
-
-pub enum VMSaveAsResult {
-    Ok,
-    Cancel,
-    FileExists,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -242,6 +241,10 @@ impl VMSaveSerde {
     }
 
     pub(crate) fn save(save: &VMSaveVersion4, path: PathBuf) -> Result<String, String> {
+        #[cfg(debug_assertions)]
+        {
+            println!("Saving file to {}", path.display());
+        }
         if let Ok(string) = serde_json::to_string::<VMSaveVersion4>(save) {
             if let Ok(_) = fs::write(path, string) {
                 Ok("File saved".to_string())

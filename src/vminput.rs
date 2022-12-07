@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::{HashMap};
+use std::{collections::{HashMap}, path::PathBuf};
 
-use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent};
+use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, RawMods};
 use regex::Regex;
 use common_macros::hash_map;
 use crate::{constants::*, vmsave::VMSaveState, vmdialog::VMDialogParams};
@@ -33,6 +33,7 @@ pub enum KeybindMode {
     SearchedSheet,
     SearchBuild,
     KeybindBuild,
+    Global,
 }
 
 
@@ -46,6 +47,7 @@ pub struct ActionPayload {
     pub mode: Option<KeybindMode>,
     pub save_state: Option<VMSaveState>,
     pub dialog_params: Option<VMDialogParams>,
+    pub path: Option<PathBuf>,
 }
 
 impl Default for ActionPayload {
@@ -58,6 +60,7 @@ impl Default for ActionPayload {
             mode: None,
             save_state: None,
             dialog_params: None,
+            path: None,
         }
     }
 }
@@ -70,6 +73,7 @@ pub enum Action {
     OpenExistingSheet,
     SaveSheet,
     SaveSheetAs,
+    SaveSheetAsOverwrite,
     QuitWithoutSaveGuard,
     QuitWithSaveGuard,
     SetSaveState,
@@ -126,6 +130,7 @@ pub enum Action {
     ToggleDebug,
     ToggleMenuVisible,
     CreateDialog,
+    PrintToLogInfo,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -159,6 +164,58 @@ impl Default for VMInputManager {
         VMInputManager {
             mode: KeybindMode::Start,
             keybinds: vec![
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("n"))),
+                    modifiers: Some(Modifiers::CONTROL), 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::CreateNewSheet,
+                            ..Default::default()
+                        })],
+                    mode: KeybindMode::Global,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("o"))),
+                    modifiers: Some(Modifiers::CONTROL), 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::OpenExistingSheet,
+                            ..Default::default()
+                        })],
+                    mode: KeybindMode::Global,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("s"))),
+                    modifiers: Some(Modifiers::CONTROL), 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::SaveSheet,
+                            ..Default::default()
+                        })],
+                    mode: KeybindMode::Global,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("S"))),
+                    modifiers: Some(Modifiers::CONTROL), 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::SaveSheetAs,
+                            ..Default::default()
+                        })],
+                    mode: KeybindMode::Global,
+                },
                 Keybind { 
                     kb_type: KeybindType::Key, 
                     regex: None, 
@@ -804,7 +861,7 @@ impl VMInputManager {
     }
 
     pub fn accept_key(&mut self, event: KeyEvent, ctx: &mut EventCtx) -> Vec<Option<ActionPayload>> {
-        //Discard modifier key presses
+        //Discard solo modifier key presses
         if event.key == Key::Shift || 
             event.key == Key::Control ||
             event.key == Key::Alt ||
@@ -818,15 +875,19 @@ impl VMInputManager {
             KeybindMode::Start => {
                 let keybinds = self.keybinds.clone();
                 for keybind in keybinds {
-                    if Some(event.key.clone()) == keybind.key && keybind.mode == self.mode {
-                        if event.mods.alt() || event.mods.ctrl() {
-                            if let Some(mods) = keybind.modifiers {
-                                if event.mods.contains(mods) {
-                                    self.clear_timeout();
-                                    return keybind.action_payloads.clone();
-                                }
+                    if Some(event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                        if let Some(mods) = keybind.modifiers {
+                            if event.mods == mods {
+                                return keybind.action_payloads.clone();
                             }
-                        } else {
+                        // if event.mods.alt() || event.mods.ctrl() {
+                        //     if let Some(mods) = keybind.modifiers {
+                        //         if event.mods.contains(mods) {
+                        //             self.clear_timeout();
+                        //             return keybind.action_payloads.clone();
+                        //         }
+                        //     }
+                        } else if event.mods == RawMods::None {
                             self.clear_timeout();
                             return keybind.action_payloads.clone();
                         }
@@ -841,15 +902,21 @@ impl VMInputManager {
                 self.set_new_timeout(ctx);
                 let keybinds = self.keybinds.clone();
                 for keybind in keybinds {
-                    if Some(event.key.clone()) == keybind.key && keybind.mode == self.mode {
-                        if event.mods.alt() || event.mods.ctrl() {
-                            if let Some(mods) = keybind.modifiers {
-                                if event.mods.contains(mods) {
-                                    self.clear_timeout();
-                                    return keybind.action_payloads.clone();
-                                }
+                    if Some(event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                        if let Some(mods) = keybind.modifiers {
+                            if event.mods == mods {
+                                self.clear_timeout();
+                                return keybind.action_payloads.clone();
                             }
-                        } else {
+                        // }
+                        // if event.mods.alt() || event.mods.ctrl() {
+                        //     if let Some(mods) = keybind.modifiers {
+                        //         if event.mods.contains(mods) {
+                        //             self.clear_timeout();
+                        //             return keybind.action_payloads.clone();
+                        //         }
+                        //     }
+                        } else if event.mods == RawMods::None || event.mods == RawMods::Shift {
                             self.clear_timeout();
                             return keybind.action_payloads.clone();
                         }
@@ -884,14 +951,18 @@ impl VMInputManager {
             KeybindMode::Move => {
                 let keybinds = self.keybinds.clone();
                 for keybind in keybinds {
-                    if Some(event.key.clone()) == keybind.key && keybind.mode == self.mode {
-                        if event.mods.alt() || event.mods.ctrl() {
-                            if let Some(mods) = keybind.modifiers {
-                                if event.mods.contains(mods) {
-                                    return keybind.action_payloads.clone();
-                                }
+                    if Some(event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                        if let Some(mods) = keybind.modifiers {
+                            if event.mods == mods {
+                                return keybind.action_payloads.clone();
                             }
-                        } else {
+                        // if event.mods.alt() || event.mods.ctrl() {
+                        //     if let Some(mods) = keybind.modifiers {
+                        //         if event.mods.contains(mods) {
+                        //             return keybind.action_payloads.clone();
+                        //         }
+                        //     }
+                        } else if event.mods == RawMods::None {
                             return keybind.action_payloads.clone();
                         }
                         self.clear_timeout();
@@ -946,7 +1017,7 @@ impl VMInputManager {
             },
             KeybindMode::Mark => {
                 if let Key::Character(character) = event.key {
-                    if event.mods.alt() || event.mods.ctrl() {
+                    if !(event.mods == RawMods::None || event.mods == RawMods::Shift) {
                         self.set_new_timeout(ctx);
                         return vec![None];
                     }
@@ -986,30 +1057,31 @@ impl VMInputManager {
             },
             KeybindMode::KeybindBuild => {
                 if let Key::Character(character) = event.key {
-                    if event.mods.alt() || event.mods.ctrl() {
-                        self.set_new_timeout(ctx);
-                        return vec![None];
-                    }
-                    if character == String::from(" ") {
-                        self.clear_build();
-                        self.clear_timeout();
-                        self.revert_mode();
-                        return vec![None];
-                    } else {
-                        self.set_new_timeout(ctx);
-                        self.string += &character;
-                        let keybinds = self.keybinds.clone();
-                        for keybind in keybinds {
-                            if let Some(regex) = &keybind.regex {
-                                if regex.is_match(&self.string) {
-                                    let matched = self.string.clone();
-                                    self.clear_build();
-                                    self.clear_timeout();
-                                    self.revert_mode();
-                                    return VMInputManager::process_regex_keybind(keybind.clone(), matched);
+                    if event.mods == RawMods::None || event.mods == RawMods::Shift {
+                        if character == String::from(" ") {
+                            self.clear_build();
+                            self.clear_timeout();
+                            self.revert_mode();
+                            return vec![None];
+                        } else {
+                            self.set_new_timeout(ctx);
+                            self.string += &character;
+                            let keybinds = self.keybinds.clone();
+                            for keybind in keybinds {
+                                if let Some(regex) = &keybind.regex {
+                                    if regex.is_match(&self.string) {
+                                        let matched = self.string.clone();
+                                        self.clear_build();
+                                        self.clear_timeout();
+                                        self.revert_mode();
+                                        return VMInputManager::process_regex_keybind(keybind.clone(), matched);
+                                    }
                                 }
                             }
+                            return vec![None];
                         }
+                    } else {
+                        self.set_new_timeout(ctx);
                         return vec![None];
                     }
                 } else {
@@ -1028,14 +1100,18 @@ impl VMInputManager {
             KeybindMode::SearchedSheet => {
                 self.clear_timeout();
                 for keybind in &self.keybinds {
-                    if Some(event.key.clone()) == keybind.key && keybind.mode == self.mode {
-                        if event.mods.alt() || event.mods.ctrl() {
-                            if let Some(mods) = keybind.modifiers {
-                                if event.mods.contains(mods) {
-                                    return keybind.action_payloads.clone();
-                                }
+                    if Some(event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                        if let Some(mods) = keybind.modifiers {
+                            if event.mods == mods {
+                                return keybind.action_payloads.clone();
                             }
-                        } else {
+                        // if event.mods.alt() || event.mods.ctrl() {
+                        //     if let Some(mods) = keybind.modifiers {
+                        //         if event.mods.contains(mods) {
+                        //             return keybind.action_payloads.clone();
+                        //         }
+                        //     }
+                        } else if event.mods == RawMods::None {
                             return keybind.action_payloads.clone();
                         }
                     }
@@ -1068,16 +1144,17 @@ impl VMInputManager {
             },
             KeybindMode::SearchBuild => {
                 if let Key::Character(character) = event.key {
-                    if event.mods.alt() || event.mods.ctrl() {
+                    if event.mods == RawMods::None || event.mods == RawMods::Shift {
+                        self.string += &character;
+                        return vec![Some(ActionPayload {
+                                action: Action::SearchNodes,
+                                string: Some(self.string[1..].to_string()),
+                                ..Default::default()
+                            })]
+                    } else {
                         self.set_new_timeout(ctx);
                         return vec![None];
                     }
-                    self.string += &character;
-                    return vec![Some(ActionPayload {
-                            action: Action::SearchNodes,
-                            string: Some(self.string[1..].to_string()),
-                            ..Default::default()
-                        })]
                 } else if let Key::Backspace = event.key {
                     if self.string == "/".to_string() {
                         self.clear_build();
@@ -1114,6 +1191,10 @@ impl VMInputManager {
                         })];
                 }
             },
+            KeybindMode::Global => {
+                tracing::error!("KeybindMode::Global should never be set!");
+                panic!();
+            }
         }
     }
 
@@ -1206,6 +1287,10 @@ impl VMInputManager {
             }
             KeybindMode::SearchBuild => {
                 self.string = String::from("/");
+            }
+            KeybindMode::Global => {
+                tracing::error!("KeybindMode::Global should never be set!");
+                panic!()
             }
         }
         self.mode = mode;

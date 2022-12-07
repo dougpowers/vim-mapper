@@ -3,6 +3,12 @@
 
 Vim-Mapper is an experimental graph editor with vim-like keybindings. It uses a force-directed graph algorithm to dynamically position nodes. Its goal is to allow a user to rapidly create a node-tree without moving their hands from the home row of the keyboard.
 
+## Compiling
+
+Install rustup
+
+For WSL2 cross-compilation, install librust-gtk-dev
+
 ## How to use Vim-Mapper
 
 Vim-Mapper presents a simple interface. All new sheets will start with a single, fixed node called "Root". All subsequent nodes will connect back to this root node. 

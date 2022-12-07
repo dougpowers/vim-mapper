@@ -9,6 +9,8 @@ edition = "2021"
 druid = { git = "https://github.com/linebender/druid.git" }
 indexmap =  { version = "1.0.2", features = ["std"]}
 vm_force_graph = { path = "vm-force-graph-rs", version = "0.4.0" }
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.2", features = ["fmt", "ansi"], default-features = false }
 rand = "0.8.5"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_json = "1.0.85"
