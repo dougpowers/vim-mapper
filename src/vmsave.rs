@@ -58,6 +58,7 @@ pub enum VMSaveState {
     // SaveInProgress,
     // SaveInProgressThenQuit,
     Saved,
+    DiscardChanges,
 }
 
 #[derive(Serialize, Deserialize)]

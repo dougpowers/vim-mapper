@@ -14,7 +14,7 @@
 
 use std::borrow::Borrow;
 
-use druid::{widget::{Button, Flex, SizedBox, Label, MainAxisAlignment, Controller}, WidgetExt, Command, Target, WidgetPod, Widget};
+use druid::{widget::{Flex, SizedBox, Label, MainAxisAlignment, Controller}, WidgetExt, Command, Target, WidgetPod, Widget, keyboard_types::Key};
 
 use crate::{vmconfig::{VMConfigVersion4, VMColor}, vminput::{Action, ActionPayload}, vmsave::VMSaveState};
 
@@ -29,17 +29,27 @@ pub struct VMDialog {
 #[derive(Debug, Clone)]
 pub struct VMDialogParams {
     pub buttons: Vec<(String, Vec<ActionPayload>)>,
-    pub prompt: String,
+    pub prompts: Vec<(String, Option<VMColor>)>
 }
 
 struct VMDialogController;
 
 impl<T, W: Widget<T>> Controller<T, W> for VMDialogController {
     fn event(&mut self, child: &mut W, ctx: &mut druid::EventCtx, event: &druid::Event, data: &mut T, env: &druid::Env) {
-        // if let druid::Event::KeyDown(key_event) = event {
         if ctx.has_focus() {
         }
-        // }
+        if let druid::Event::KeyDown(key_event) = event {
+            if key_event.key == druid::keyboard_types::Key::Escape {
+                ctx.submit_command(Command::new(
+                    DIALOG_EXECUTE_ACTIONS,
+                    vec![ActionPayload {
+                        action: Action::NullAction,
+                        ..Default::default()
+                    }],
+                    Target::Global
+                ))
+            }
+        }
         child.event(ctx, event, data, env);
     }
     fn lifecycle(
@@ -54,35 +64,35 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogController {
             druid::LifeCycle::BuildFocusChain => {
                 ctx.register_for_focus();
             }
-            druid::LifeCycle::FocusChanged(is_focused) => {
-                #[cfg(debug_assertions)]
-                if *is_focused {
-                    tracing::debug!("{:?} is now focused", ctx.widget_id());
-                    self.lifecycle(child, ctx, 
-                    &druid::LifeCycle::HotChanged {
-                        0: true,
-                    }, 
-                    data, env);
-                    ctx.request_paint();
-                } else {
-                    tracing::debug!("{:?} is now NOT focused", ctx.widget_id());
-                    self.lifecycle(child, ctx, 
-                    &druid::LifeCycle::HotChanged {
-                        0: false,
-                    }, 
-                    data, env);
-                    ctx.request_paint();
-                }
-            }
-            druid::LifeCycle::HotChanged(is_hot) => {
-                #[cfg(debug_assertions)]
-                if *is_hot {
-                    tracing::debug!("{:?} is now hot", ctx.widget_id());
-                } else {
-                    tracing::debug!("{:?} is now NOT hot", ctx.widget_id());
-                }
-                ctx.request_paint();
-            }
+            // druid::LifeCycle::FocusChanged(is_focused) => {
+            //     #[cfg(debug_assertions)]
+            //     if *is_focused {
+            //         tracing::debug!("{:?} is now focused", ctx.widget_id());
+            //         self.lifecycle(child, ctx, 
+            //         &druid::LifeCycle::HotChanged {
+            //             0: true,
+            //         }, 
+            //         data, env);
+            //         ctx.request_paint();
+            //     } else {
+            //         tracing::debug!("{:?} is now NOT focused", ctx.widget_id());
+            //         self.lifecycle(child, ctx, 
+            //         &druid::LifeCycle::HotChanged {
+            //             0: false,
+            //         }, 
+            //         data, env);
+            //         ctx.request_paint();
+            //     }
+            // }
+            // druid::LifeCycle::HotChanged(is_hot) => {
+            //     #[cfg(debug_assertions)]
+            //     if *is_hot {
+            //         tracing::debug!("{:?} is now hot", ctx.widget_id());
+            //     } else {
+            //         tracing::debug!("{:?} is now NOT hot", ctx.widget_id());
+            //     }
+            //     ctx.request_paint();
+            // }
             _ => ()
         }
         child.lifecycle(ctx, event, data, env);
@@ -92,48 +102,31 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogController {
 
 impl VMDialog {
     pub fn new(config: &VMConfigVersion4, params: VMDialogParams) -> VMDialog {
-        let mut main_column = Flex::column()
-            .with_child(
+        let mut main_column = Flex::column();
+        main_column.add_default_spacer();
+        for (label, color) in &params.prompts {
+            main_column.add_child(
                 Label::new(
-                    params.prompt.clone()
+                    label.clone()
                 )
-                .with_text_color(config.get_color(VMColor::LabelTextColor).expect("Couldn't get label text color from config"))
-            ).with_child(SizedBox::empty().height(50.));
-            let mut button_row = Flex::<()>::row();
-            for i in 0..params.buttons.len()-1 {
-                let params = params.clone();
-                let (label, payloads) = params.buttons[i].clone();
-                // button_row.add_child(VMButton::new(label.clone())
-                //     .controller(VMDialogController)
-                //     .on_click(move |ctx, _, _| {
-                //         ctx.submit_command(
-                //             Command::new(
-                //                 DIALOG_EXECUTE_ACTIONS,
-                //                 payloads.clone(),
-                //                 Target::Auto
-                //             )
-                //         )
-                //     })
-                // );
-                button_row.add_child(
-                    VMButton::new(
-                        label.clone(),
-                    move |ctx| {
-                        ctx.submit_command(
-                            Command::new(
-                                DIALOG_EXECUTE_ACTIONS,
-                                payloads.clone(),
-                                Target::Auto
-                            )
-                        )
-                    }).controller(VMDialogController)
-                );
-                button_row.add_default_spacer();
-            }
-            let idx = params.buttons.len()-1;
-            let (label, payloads) = params.buttons[idx].clone();
+                .with_text_color(
+                    if let Some(color) = color {
+                        config.get_color((*color).clone()).expect("Couldn't get custom label color from config")
+                    } else {
+                        config.get_color(VMColor::LabelTextColor).expect("Couldn't get label text color from config")
+                    }
+                )
+            );
+            main_column.add_default_spacer();
+        }
+        main_column.add_spacer(DIALOG_LABEL_BUTTON_SPACER);
+        let mut button_row = Flex::<()>::row();
+        for i in 0..&params.buttons.len()-1 {
+            let params = params.clone();
+            let (label, payloads) = params.buttons[i].clone();
             button_row.add_child(
-                VMButton::new(label.clone(),
+                VMButton::new(
+                    label.clone(),
                 move |ctx| {
                     ctx.submit_command(
                         Command::new(
@@ -144,8 +137,25 @@ impl VMDialog {
                     )
                 }).controller(VMDialogController)
             );
+            button_row.add_default_spacer();
+        }
+        let idx = params.buttons.len()-1;
+        let (label, payloads) = params.buttons[idx].clone();
+        button_row.add_child(
+            VMButton::new(label.clone(),
+            move |ctx| {
+                ctx.submit_command(
+                    Command::new(
+                        DIALOG_EXECUTE_ACTIONS,
+                        payloads.clone(),
+                        Target::Auto
+                    )
+                )
+            }).controller(VMDialogController)
+        );
 
-            main_column.add_child(button_row);
+        main_column.add_child(button_row);
+        main_column.add_default_spacer();
 
         let pod = WidgetPod::new(
             Flex::column()
@@ -166,7 +176,9 @@ impl VMDialog {
 
     pub fn make_start_dialog_params() -> VMDialogParams {
         VMDialogParams {
-            prompt: "Do you want create a new sheet or load an existing one?".to_string(),
+            prompts: vec![
+                ("Do you want create a new sheet or load an existing one?".to_string(), None)
+            ],
             buttons: vec![
                 (
                     String::from("New"),
@@ -188,7 +200,9 @@ impl VMDialog {
 
     pub fn make_save_and_quit_dialog_params() -> VMDialogParams {
         VMDialogParams {
-            prompt: String::from("This sheet has unsaved changes, do you want to save before closing this sheet?"),
+            prompts: vec![
+                (String::from("This sheet has unsaved changes, do you want to save before closing this sheet?"), None)
+            ],
             buttons: vec![
                 (
                     String::from("Save and Quit"),
@@ -227,7 +241,9 @@ impl VMDialog {
 
     pub fn make_save_and_new_dialog_params() -> VMDialogParams {
         VMDialogParams {
-            prompt: String::from("This sheet has unsaved changes, do you want to save before closing this sheet?"),
+            prompts: vec![
+                (String::from("This sheet has unsaved changes, do you want to save before closing this sheet?"), None)
+            ],
             buttons: vec![
                 (
                     String::from("Save"),
@@ -256,7 +272,7 @@ impl VMDialog {
                     vec![
                         ActionPayload {
                             action: Action::SetSaveState,
-                            save_state: Some(VMSaveState::Saved),
+                            save_state: Some(VMSaveState::DiscardChanges),
                             ..Default::default()
                         },
                         ActionPayload {
@@ -271,7 +287,9 @@ impl VMDialog {
 
     pub fn make_save_and_open_dialog_params() -> VMDialogParams {
         VMDialogParams {
-            prompt: String::from("This sheet has unsaved changes, do you want to save before closing this sheet?"),
+            prompts: vec![
+                (String::from("This sheet has unsaved changes, do you want to save before closing this sheet?"), None)
+            ],
             buttons: vec![
                 (
                     String::from("Save"),
@@ -300,7 +318,8 @@ impl VMDialog {
                     vec![
                         ActionPayload {
                             action: Action::SetSaveState,
-                            save_state: Some(VMSaveState::Saved),
+                            // save_state: Some(VMSaveState::Saved),
+                            save_state: Some(VMSaveState::DiscardChanges),
                             ..Default::default()
                         },
                         ActionPayload {
@@ -315,7 +334,10 @@ impl VMDialog {
 
     pub fn make_save_as_and_new_dialog_params() -> VMDialogParams {
         VMDialogParams {
-            prompt: String::from("This sheet is unsaved, do you want to save before closing this sheet?"),
+            prompts: vec![
+                (String::from("This sheet is unsaved, do you want to save before closing this sheet?"), None),
+                (String::from("Existing files will be overwritten!"), Some(VMColor::AlertColor))
+            ],
             buttons: vec![
                 (
                     String::from("Save As..."),
@@ -340,7 +362,7 @@ impl VMDialog {
                     vec![
                         ActionPayload {
                             action: Action::SetSaveState,
-                            save_state: Some(VMSaveState::Saved),
+                            save_state: Some(VMSaveState::DiscardChanges),
                             ..Default::default()
                         },
                         ActionPayload {
@@ -355,7 +377,10 @@ impl VMDialog {
 
     pub fn make_save_as_and_open_dialog_params() -> VMDialogParams {
         VMDialogParams {
-            prompt: String::from("This sheet is unsaved, do you want to save before closing this sheet?"),
+            prompts: vec![
+                (String::from("This sheet is unsaved, do you want to save before closing this sheet?"), None),
+                (String::from("Existing files will be overwritten!"), Some(VMColor::AlertColor))
+            ],
             buttons: vec![
                 (
                     String::from("Save As..."),
@@ -380,7 +405,7 @@ impl VMDialog {
                     vec![
                         ActionPayload {
                             action: Action::SetSaveState,
-                            save_state: Some(VMSaveState::Saved),
+                            save_state: Some(VMSaveState::DiscardChanges),
                             ..Default::default()
                         },
                         ActionPayload {
@@ -393,9 +418,12 @@ impl VMDialog {
         }
     }
 
-    pub fn make_save_as_and_quit_dialog_params() -> VMDialogParams {
+   pub fn make_save_as_and_quit_dialog_params() -> VMDialogParams {
         VMDialogParams {
-            prompt: String::from("This sheet is unsaved, do you want to save before closing this sheet?"),
+            prompts: vec![
+                (String::from("This sheet is unsaved, do you want to save before closing this sheet?"), None),
+                (String::from("Existing files will be overwritten!"), Some(VMColor::AlertColor))
+            ],
             buttons: vec![
                 (
                     String::from("Save As..."),
@@ -420,7 +448,7 @@ impl VMDialog {
                     vec![
                         ActionPayload {
                             action: Action::SetSaveState,
-                            save_state: Some(VMSaveState::Saved),
+                            save_state: Some(VMSaveState::DiscardChanges),
                             ..Default::default()
                         },
                         ActionPayload {
@@ -433,9 +461,12 @@ impl VMDialog {
         }
     }
 
+    #[allow(dead_code)]
     pub fn make_overwrite_prompt_dialog_params() -> VMDialogParams {
         VMDialogParams {
-            prompt: String::from("This file already exists. Do you want to overwrite?"),
+            prompts: vec![
+                (String::from("This file already exists. Do you want to overwrite?"), None)
+            ],
             buttons: vec![
                 (
                     String::from("Overwrite"),
