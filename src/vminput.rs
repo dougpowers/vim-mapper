@@ -81,6 +81,7 @@ pub enum Action {
     CycleNodeBackward,
     CreateNewNode,
     CreateNewNodeAndEdit,
+    CreateNewExternalNode,
     IncreaseActiveNodeMass,
     DecreaseActiveNodeMass,
     ResetActiveNodeMass,
@@ -208,7 +209,7 @@ impl Default for VMInputManager {
                     regex: None, 
                     group_actions: None,
                     key: Some(Key::Character(String::from("S"))),
-                    modifiers: Some(Modifiers::CONTROL), 
+                    modifiers: Some(Modifiers::CONTROL | Modifiers::SHIFT), 
                     action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::SaveSheetAs,
@@ -277,6 +278,19 @@ impl Default for VMInputManager {
                     action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::CreateNewNodeAndEdit,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("O"))),
+                    modifiers: Some(Modifiers::CONTROL | Modifiers::SHIFT), 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::CreateNewExternalNode,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
@@ -880,13 +894,6 @@ impl VMInputManager {
                             if event.mods == mods {
                                 return keybind.action_payloads.clone();
                             }
-                        // if event.mods.alt() || event.mods.ctrl() {
-                        //     if let Some(mods) = keybind.modifiers {
-                        //         if event.mods.contains(mods) {
-                        //             self.clear_timeout();
-                        //             return keybind.action_payloads.clone();
-                        //         }
-                        //     }
                         } else if event.mods == RawMods::None {
                             self.clear_timeout();
                             return keybind.action_payloads.clone();
@@ -908,14 +915,6 @@ impl VMInputManager {
                                 self.clear_timeout();
                                 return keybind.action_payloads.clone();
                             }
-                        // }
-                        // if event.mods.alt() || event.mods.ctrl() {
-                        //     if let Some(mods) = keybind.modifiers {
-                        //         if event.mods.contains(mods) {
-                        //             self.clear_timeout();
-                        //             return keybind.action_payloads.clone();
-                        //         }
-                        //     }
                         } else if event.mods == RawMods::None || event.mods == RawMods::Shift {
                             self.clear_timeout();
                             return keybind.action_payloads.clone();
@@ -956,20 +955,13 @@ impl VMInputManager {
                             if event.mods == mods {
                                 return keybind.action_payloads.clone();
                             }
-                        // if event.mods.alt() || event.mods.ctrl() {
-                        //     if let Some(mods) = keybind.modifiers {
-                        //         if event.mods.contains(mods) {
-                        //             return keybind.action_payloads.clone();
-                        //         }
-                        //     }
-                        } else if event.mods == RawMods::None {
+                        } else if event.mods == RawMods::None || event.mods == RawMods::Shift {
                             return keybind.action_payloads.clone();
                         }
                         self.clear_timeout();
                     }
                 }
                 if event.key == Key::Escape || event.key == Key::Enter {
-                    // self.set_keybind_mode(KeybindMode::Sheet);
                     return vec![Some(
                         ActionPayload {
                             action: Action::ChangeMode,
@@ -987,7 +979,6 @@ impl VMInputManager {
                         return vec![None];
                     }
                     self.clear_build();
-                    // self.set_keybind_mode(KeybindMode::Sheet);
                     self.clear_timeout();
                     return vec![
                         Some(ActionPayload {
@@ -1003,7 +994,6 @@ impl VMInputManager {
                 } else {
                     self.clear_build();
                     self.clear_timeout();
-                    // self.set_keybind_mode(KeybindMode::Sheet);
                     return vec![
                         Some(
                             ActionPayload {
@@ -1022,7 +1012,6 @@ impl VMInputManager {
                         return vec![None];
                     }
                     self.clear_build();
-                    // self.set_keybind_mode(KeybindMode::Sheet);
                     self.clear_timeout();
                     return vec![
                         Some(
@@ -1043,7 +1032,6 @@ impl VMInputManager {
                 } else {
                     self.clear_build();
                     self.clear_timeout();
-                    // self.set_keybind_mode(KeybindMode::Sheet);
                     return vec![
                         Some(
                             ActionPayload {
@@ -1105,13 +1093,7 @@ impl VMInputManager {
                             if event.mods == mods {
                                 return keybind.action_payloads.clone();
                             }
-                        // if event.mods.alt() || event.mods.ctrl() {
-                        //     if let Some(mods) = keybind.modifiers {
-                        //         if event.mods.contains(mods) {
-                        //             return keybind.action_payloads.clone();
-                        //         }
-                        //     }
-                        } else if event.mods == RawMods::None {
+                        } else if event.mods == RawMods::None || event.mods == RawMods::Shift {
                             return keybind.action_payloads.clone();
                         }
                     }

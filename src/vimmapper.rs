@@ -119,61 +119,6 @@ pub(crate) struct VimMapper {
     pub(crate) last_traverse_angle: f64,
 }
 
-//A boiled-down struct to hold the essential data to serialize and deserialize a graph sheet. Used to
-// enable the app state to be saved to disk as a .vmd file.
-// #[derive(Serialize, Deserialize)]
-// pub struct VMSave {
-//     nodes: HashMap<u16, BareNode>,
-//     edges: HashMap<u16, BareEdge>,
-//     node_idx_count: u16,
-//     edge_idx_count: u16,
-//     translate: (f64, f64),
-//     scale: f64,
-//     offset_x: f64,
-//     offset_y: f64,
-// }
-
-// //A boiled-down struct to hold the essential data to serialize and deserialize a node. Used to
-// // enable the app state to be saved to disk as a .vmd file.
-// #[derive(Serialize, Deserialize)]
-// pub struct BareNode {
-//     label: String,
-//     edges: Vec<u16>,
-//     index: u16,
-//     pos: (f64, f64),
-//     is_active: bool,
-//     mark: Option<String>,
-//     targeted_internal_edge_idx: Option<usize>,
-//     mass: f64,
-//     anchored: bool,
-// }
-
-// impl Default for BareNode {
-//     fn default() -> Self {
-//         BareNode { 
-//             label: DEFAULT_NEW_NODE_LABEL.to_string(),
-//             edges: vec![0], 
-//             index: 0, 
-//             pos: (0.,0.), 
-//             is_active: false, 
-//             mark: None, 
-//             targeted_internal_edge_idx: None, 
-//             mass: DEFAULT_NODE_MASS, 
-//             anchored: false 
-//         }
-//     }
-// }
-
-// //A boiled-down struct to hold the essential data to serialize and deserialize an edge. Used to
-// // enable the app state to be saved to disk as a .vmd file.
-// #[derive(Serialize, Deserialize)]
-// pub struct BareEdge {
-//     label: Option<String>,
-//     from: u16,
-//     to: u16,
-//     index: u16,
-// }
-
 #[derive(Clone, PartialEq, Debug)]
 pub enum NodeRenderMode {
     OnlyTargetsEnabled,
@@ -253,6 +198,7 @@ impl VimMapper {
             label: DEFAULT_ROOT_LABEL.to_string(),
             edges: Vec::with_capacity(10),
             index: 0,
+            anchored: true,
             // pos: Vec2::new(0.0, 0.0),
             // container: VMNodeLayoutContainer::new(0),
             is_active: true,
@@ -370,8 +316,6 @@ impl VimMapper {
         return self.edge_idx_count;
     }
 
-
-
     pub fn build_target_list_from_neighbors(&mut self, idx: u16) {
         self.target_node_list.clear();
         self.target_node_idx = None;
@@ -421,7 +365,7 @@ impl VimMapper {
         }
     }
 
-    pub fn build_target_list_from_string(&mut self, search_string: String) {
+    pub fn build_target_list_from_string(&mut self, search_string: String) -> Result<(), ()> {
         self.target_node_idx = None;
         self.target_node_list.clear();
         let regex_string = format!("(?i){}", search_string);
@@ -435,6 +379,9 @@ impl VimMapper {
         }
         if self.target_node_list.len() > 0 {
             self.target_node_idx = Some(0);
+            return Ok(());
+        } else {
+            return Err(());
         }
     }
 
@@ -484,6 +431,28 @@ impl VimMapper {
         } else {
             return None;
         }
+    }
+
+    pub fn add_external_node(&mut self, node_label: String) -> Option<u16> {
+        self.animating = true;
+        let new_node_idx = self.increment_node_idx();
+        let mut new_node = VMNode {
+            label: node_label.clone(),
+            edges: Vec::with_capacity(10),
+            index: new_node_idx,
+            anchored: true,
+            ..Default::default()
+        };
+        new_node.fg_index = Some(self.graph.add_node(NodeData {
+            x: 0.0,
+            y: 0.0,
+            user_data: new_node.index,
+            mass: DEFAULT_NODE_MASS,
+            is_anchor: true,
+            ..Default::default()
+        }));
+        self.nodes.insert(new_node.index, new_node);
+        Some(new_node_idx)
     }
 
     pub fn add_node(&mut self, from_idx: u16, node_label: String, edge_label: Option<String>) -> Option<u16> {
@@ -572,7 +541,7 @@ impl VimMapper {
         if let Some(node) = self.nodes.get(&idx) {
             if node.edges.len() > 1 {
                 return Err("Node is not a leaf".to_string());
-            } else {
+            } else if node.edges.len() > 0 {
                 let edge = self.edges.get(&node.edges[0]).unwrap();
                 let remainder: u16;
                 if idx == edge.from {
@@ -592,6 +561,10 @@ impl VimMapper {
                     }
                 }
                 return Ok(remainder);
+            } else {
+                self.graph.remove_node(node.fg_index.unwrap());
+                self.nodes.remove(&idx);
+                return Ok(0);
             }
         } else {
             return Err("Node does not exist!".to_string());
@@ -752,15 +725,21 @@ impl VimMapper {
     pub fn toggle_node_anchor(&mut self, idx: u16) {
         //Only allow non-root nodes to unanchor themselves
         if idx != 0 {
+            let root_fg_idx = self.nodes.get(&0).unwrap().fg_index.unwrap();
             if let Some(node) = self.nodes.get_mut(&idx) {
                 if let Some(fg_idx) = node.fg_index {
-                    self.graph.visit_nodes_mut(|fg_node| {
-                        if fg_node.index() == fg_idx {
-                            fg_node.toggle_anchor();
-                            node.anchored = fg_node.data.is_anchor;
-                            self.animating = true;
-                        }
-                    });
+                    //Only nodes connected to the root are allowed to unanchor themselves
+                    if self.graph.is_connected_to(&fg_idx, &root_fg_idx) {
+                        // self.graph.visit_nodes_mut(|fg_node| {
+                        //     if fg_node.index() == fg_idx {
+                        //         fg_node.toggle_anchor();
+                        //         node.anchored = fg_node.data.is_anchor;
+                        //         self.animating = true;
+                        //     }
+                        // });
+                        self.graph.get_graph_mut()[fg_idx].toggle_anchor();
+                        node.anchored = self.graph.get_graph()[fg_idx].data.is_anchor;
+                    }
                 }
             }
         }
@@ -1019,6 +998,7 @@ impl VimMapper {
                             if let Ok(_) = self.delete_node(target) {
                                 if let Some(active_idx) = self.get_active_node_idx() {
                                     self.build_target_list_from_neighbors(active_idx);
+                                    self.cycle_target_forward();
                                 }
                             }
                         }
@@ -1108,7 +1088,9 @@ impl VimMapper {
                     }
                     Action::SearchNodes => {
                         if let Some(string) = payload.string.clone() {
-                            self.build_target_list_from_string(string);
+                            if let Ok(_) = self.build_target_list_from_string(string) {
+
+                            }
                             // self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                         }
                         return Ok(());

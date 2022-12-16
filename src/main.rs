@@ -17,6 +17,7 @@ use druid::widget::{prelude::*, Flex};
 use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Command, Target, WidgetPod, LocalizedString, MenuItem, FileSpec, FontFamily, WindowId, Menu, AppDelegate};
 use druid::piet::{Text, TextLayout, TextLayoutBuilder};
 use vmdialog::{VMDialogParams, VMDialog};
+use std::fs;
 use std::path::{PathBuf, Path};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -39,6 +40,8 @@ mod vmsave;
 use vmsave::*;
 
 mod vmdialog;
+
+mod vmbutton;
 
 struct VMCanvas {
     inner: Option<WidgetPod<(), VimMapper>>,
@@ -65,11 +68,18 @@ impl VMCanvas {
     }
 
     pub fn set_path(&mut self, path: PathBuf) -> Result<PathBuf, String> {
-        self.path = Some(path.clone());
-        if !path.is_file() {
-            return Err(String::from("Path is a directory."));
+        if path.is_file() {
+            self.path = Some(path.clone());
+            return Ok(path.clone());
+        } else {
+            self.path = Some(path.clone());
+            if let Ok(_) = fs::write(&path, "test") {
+                self.path = Some(path.clone());
+                return Ok(path.clone());
+            } else {
+                return Err(String::from("Path is not accessible!"));
+            }
         }
-        Ok(path.clone())
     }
 
     pub fn load_new_mapper(&mut self, mapper: VimMapper) {
@@ -83,32 +93,35 @@ impl VMCanvas {
 
     pub fn handle_action(&mut self, ctx: &mut EventCtx, data: &mut AppState, payload: &Option<ActionPayload>) -> Result<(), ()> {
         if let Some(payload) = payload {
-            match payload.action {
-                Action::CreateNewNode => data.save_state = VMSaveState::UnsavedChanges,
-                Action::CreateNewNodeAndEdit => data.save_state = VMSaveState::UnsavedChanges,
-                Action::ActivateTargetedNode => data.save_state = VMSaveState::UnsavedChanges,
-                Action::IncreaseActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
-                Action::DecreaseActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
-                Action::ResetActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
-                Action::ToggleAnchorActiveNode => data.save_state = VMSaveState::UnsavedChanges,
-                Action::EditActiveNodeSelectAll => data.save_state = VMSaveState::UnsavedChanges,
-                Action::EditActiveNodeAppend => data.save_state = VMSaveState::UnsavedChanges,
-                Action::EditActiveNodeInsert => data.save_state = VMSaveState::UnsavedChanges,
-                Action::DeleteActiveNode => data.save_state = VMSaveState::UnsavedChanges,
-                Action::DeleteTargetNode => data.save_state = VMSaveState::UnsavedChanges,
-                Action::MarkActiveNode => data.save_state = VMSaveState::UnsavedChanges,
-                Action::MoveActiveNodeDown => data.save_state = VMSaveState::UnsavedChanges,
-                Action::MoveActiveNodeUp => data.save_state = VMSaveState::UnsavedChanges,
-                Action::MoveActiveNodeLeft => data.save_state = VMSaveState::UnsavedChanges,
-                Action::MoveActiveNodeRight => data.save_state = VMSaveState::UnsavedChanges,
-                Action::PanUp => data.save_state = VMSaveState::UnsavedChanges,
-                Action::PanDown => data.save_state = VMSaveState::UnsavedChanges,
-                Action::PanLeft => data.save_state = VMSaveState::UnsavedChanges,
-                Action::PanRight => data.save_state = VMSaveState::UnsavedChanges,
-                Action::ZoomOut => data.save_state = VMSaveState::UnsavedChanges,
-                Action::ZoomIn => data.save_state = VMSaveState::UnsavedChanges,
-                _ => ()
+            if let Some(_) = self.path {
+                match payload.action {
+                    Action::CreateNewNode => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::CreateNewNodeAndEdit => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::ActivateTargetedNode => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::IncreaseActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::DecreaseActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::ResetActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::ToggleAnchorActiveNode => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::EditActiveNodeSelectAll => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::EditActiveNodeAppend => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::EditActiveNodeInsert => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::DeleteActiveNode => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::DeleteTargetNode => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::MarkActiveNode => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::MoveActiveNodeDown => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::MoveActiveNodeUp => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::MoveActiveNodeLeft => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::MoveActiveNodeRight => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::PanUp => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::PanDown => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::PanLeft => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::PanRight => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::ZoomOut => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::ZoomIn => data.save_state = VMSaveState::UnsavedChanges,
+                    _ => ()
+                }
             }
+
             match payload.action {
                 Action::PrintToLogInfo => {
                     tracing::debug!("{:?}", payload.string);
@@ -133,16 +146,29 @@ impl VMCanvas {
                     return Ok(());
                 }
                 Action::OpenExistingSheet => {
-                    ctx.submit_command(
-                        Command::new(
-                            druid::commands::SHOW_OPEN_PANEL,
-                            FileDialogOptions::new()
-                                        .allowed_types(vec![FileSpec::new("VimMapper File", &["vmd"])]),
-                            Target::Auto,
-                        )
-                    );
-                    ctx.set_handled();
-                    return Ok(());
+                    if data.save_state == VMSaveState::Saved || data.save_state == VMSaveState::NoSheetOpened {
+                        ctx.submit_command(
+                            Command::new(
+                                druid::commands::SHOW_OPEN_PANEL,
+                                VMCanvas::make_open_dialog_options(),
+                                Target::Auto,
+                            )
+                        );
+                        ctx.set_handled();
+                        return Ok(());
+                    } else if data.save_state == VMSaveState::NoSave {
+                        self.dialog = VMCanvas::new_dialog(&self.config, VMDialog::make_save_as_and_open_dialog_params());
+                        ctx.children_changed();
+                        self.dialog_visible = true;
+                        ctx.set_handled();
+                        return Ok(());
+                    } else {
+                        self.dialog = VMCanvas::new_dialog(&self.config, VMDialog::make_save_and_open_dialog_params());
+                        ctx.children_changed();
+                        self.dialog_visible = true;
+                        ctx.set_handled();
+                        return Ok(());
+                    }
                 }
                 Action::CreateNewSheet => {
                     if data.save_state == VMSaveState::Saved || data.save_state == VMSaveState::NoSheetOpened {
@@ -153,15 +179,13 @@ impl VMCanvas {
                         ctx.request_layout();
                         ctx.set_handled();
                         return Ok(());
+                    } else if data.save_state == VMSaveState::NoSave {
+                        self.dialog = VMCanvas::new_dialog(&self.config, VMDialog::make_save_as_and_new_dialog_params());
+                        ctx.children_changed();
+                        self.dialog_visible = true;
+                        ctx.set_handled();
+                        return Ok(());
                     } else {
-                        // ctx.submit_command(
-                        //     Command::new(EXECUTE_ACTION,
-                        //     ActionPayload {
-                        //         action: Action::SaveSheet,
-                        //         ..Default::default()
-                        //     },
-                        //     Target::Global
-                        // ));
                         self.dialog = VMCanvas::new_dialog(&self.config, VMDialog::make_save_and_new_dialog_params());
                         ctx.children_changed();
                         self.dialog_visible = true;
@@ -210,24 +234,14 @@ impl VMCanvas {
                         VMSaveState::NoSheetOpened => (),
                         VMSaveState::NoSave | VMSaveState::UnsavedChanges => {
                             data.save_state = VMSaveState::SaveAsInProgress;
-                            ctx.submit_command(Command::new(
-                                druid::commands::SHOW_SAVE_PANEL,
-                                VMCanvas::make_save_dialog_options(),
-                                Target::Global
-                            ));
+                            ctx.submit_command(druid::commands::SHOW_SAVE_PANEL.with(VMCanvas::make_save_dialog_options()));
                             ctx.set_handled();
                         },
-                        VMSaveState::SaveAsInProgressFileExists => todo!(),
-                        VMSaveState::SaveAsInProgress => todo!(),
-                        VMSaveState::SaveAsInProgressFileExistsThenQuit => todo!(),
-                        VMSaveState::SaveAsInProgressThenQuit => todo!(),
-                        VMSaveState::SaveAsInProgressFileExistsThenNew => todo!(),
-                        VMSaveState::SaveAsInProgressThenNew => todo!(),
-                        VMSaveState::SaveInProgress => todo!(),
-                        VMSaveState::SaveInProgressThenQuit => todo!(),
-                        VMSaveState::Saved => todo!(),
+                        _ => {
+                            ctx.submit_command(druid::commands::SHOW_SAVE_PANEL.with(VMCanvas::make_save_dialog_options()));
+                            ctx.set_handled();
+                        },
                     }
-
                 }
                 Action::SaveSheetAsOverwrite => {
                     if let Some(inner) = &self.inner {
@@ -258,7 +272,7 @@ impl VMCanvas {
                 match payload.action {
                     Action::CreateNewNode => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            if let Some(_) = inner.widget_mut().add_node(idx, format!("New label"), None) {
+                            if let Some(_) = inner.widget_mut().add_node(idx, format!("New Node"), None) {
                                 ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             }
                         }
@@ -266,11 +280,29 @@ impl VMCanvas {
                     },
                     Action::CreateNewNodeAndEdit => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New label"), None) {
+                            if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New Node"), None) {
                                 self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                                 inner.widget_mut().open_editor(ctx, new_idx);
                                 ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                                 ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Widget(inner.id())));
+                            }
+                        }
+                        return Ok(());
+                    },
+                    Action::CreateNewExternalNode => {
+                        if let Some(_) = inner.widget().get_active_node_idx() {
+                            if let Some(new_idx) = inner.widget_mut().add_external_node(format!("New External Node")) {
+                                ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
+                                inner.widget_mut().set_node_as_active(new_idx);
+                                ctx.submit_command(Command::new(
+                                    EXECUTE_ACTION,
+                                    ActionPayload {
+                                        action: Action::ChangeMode,
+                                        mode: Some(KeybindMode::Move),
+                                        ..Default::default()
+                                    },
+                                    Target::Global
+                                ));
                             }
                         }
                         return Ok(());
@@ -323,6 +355,16 @@ impl VMCanvas {
                                         }
                                     ));
                                     self.input_manager.set_keybind_mode(KeybindMode::Sheet);
+                                } else if inner.widget().get_target_list_length() == 0 {
+                                    let idx = if let Some(idx) = inner.widget().get_active_node_idx() {
+                                            idx
+                                        } else {
+                                            0
+                                        };
+                                    self.input_manager.set_keybind_mode(KeybindMode::Sheet);
+                                    inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
+                                    inner.widget_mut().build_target_list_from_neighbors(idx);
+                                    inner.widget_mut().cycle_target_forward();
                                 }
                             }
                             _ => {
@@ -394,7 +436,15 @@ impl VMCanvas {
                 MenuItem::new(
                     String::from("Open File\tCtrl+O")
                 )
-                .command(druid::commands::SHOW_OPEN_PANEL.with(VMCanvas::make_open_dialog_options()))
+                // .command(druid::commands::SHOW_OPEN_PANEL.with(VMCanvas::make_open_dialog_options()))
+                .command(Command::new(
+                    EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::OpenExistingSheet,
+                        ..Default::default()
+                    },
+                    Target::Global,
+                ))
             )
             .entry(
                 MenuItem::new(
@@ -456,27 +506,8 @@ impl Widget<AppState> for VMCanvas {
         }
         match event {
             Event::Command(command) if command.is(druid::commands::NEW_FILE) => {
-                match data.save_state {
-                    VMSaveState::NoSave => {
-                        // self.dialog = VMCanvas::new_dialog(&self.config, VMCanvas::make)
-                    }
-                    VMSaveState::NoSheetOpened | VMSaveState::Saved => {
-                        ctx.submit_command(Command::new(
-                            EXECUTE_ACTION,
-                            ActionPayload {
-                                action: Action::CreateNewSheet,
-                                ..Default::default()
-                            },
-                            Target::Global
-                        ));
-                    }
-                    VMSaveState::UnsavedChanges => {
-                        self.dialog = VMCanvas::new_dialog(&self.config, VMDialog::make_save_and_new_dialog_params());
-                        ctx.children_changed();
-                        self.dialog_visible = true;
-                    }
-                    _ => ()
-                }
+                tracing::error!("druid NEW_FILE called. this is an invalid command.");
+                panic!();
             }
             Event::Command(command) if command.is(druid::commands::OPEN_FILE) => {
                 let payload = command.get_unchecked(druid::commands::OPEN_FILE);
@@ -486,7 +517,6 @@ impl Widget<AppState> for VMCanvas {
                     self.load_new_mapper(vm);
                     data.save_state = VMSaveState::Saved;
                     ctx.children_changed();
-                    // ctx.request_layout();
                 }
             }
             Event::Command(command) if command.is(druid::commands::SAVE_FILE) => {
@@ -498,8 +528,60 @@ impl Widget<AppState> for VMCanvas {
                     let payload = command.get_unchecked(druid::commands::SAVE_FILE_AS);
                     let res = self.set_path(payload.path().to_path_buf());
                     if let Ok(path) = res {
-                        data.save_state = VMSaveState::Saved;
-                        VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                        match data.save_state {
+                            VMSaveState::UnsavedChanges => {
+                                data.save_state = VMSaveState::Saved;
+                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                            },
+                            VMSaveState::SaveAsInProgress => {
+                                data.save_state = VMSaveState::Saved;
+                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                            },
+                            VMSaveState::SaveAsInProgressThenQuit => {
+                                data.save_state = VMSaveState::Saved;
+                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                                ctx.submit_command(Command::new(
+                                    EXECUTE_ACTION,
+                                    ActionPayload {
+                                        action: Action::QuitWithoutSaveGuard,
+                                        ..Default::default()
+                                    },
+                                    Target::Global
+                                ))
+                            },
+                            VMSaveState::SaveAsInProgressThenNew => {
+                                data.save_state = VMSaveState::Saved;
+                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                                ctx.submit_command(Command::new(
+                                    EXECUTE_ACTION,
+                                    ActionPayload {
+                                        action: Action::CreateNewSheet,
+                                        ..Default::default()
+                                    },
+                                    Target::Global
+                                ));
+                            },
+                            VMSaveState::SaveAsInProgressThenOpen => {
+                                data.save_state = VMSaveState::Saved;
+                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                                ctx.submit_command(Command::new(
+                                    EXECUTE_ACTION,
+                                    ActionPayload {
+                                        action: Action::OpenExistingSheet,
+                                        ..Default::default()
+                                    },
+                                    Target::Global
+                                ));
+                            },
+                            VMSaveState::Saved => {
+                                data.save_state = VMSaveState::Saved;
+                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                            },
+                            _ => {
+                                tracing::error!("Tried to resolve SaveAs with an invalid save_state!");
+                                panic!();
+                            }
+                        }
                     } else if let Err(err) = res {
                         panic!("{}", err);
                     }
@@ -584,8 +666,6 @@ impl Widget<AppState> for VMCanvas {
                 if let Some(inner) = &mut self.inner {
                     inner.widget_mut().close_editor(ctx, true);
                     self.input_manager.set_keybind_mode(KeybindMode::Sheet);
-                    //Node has new label; invalidate layout
-                    // self.nodes.get_mut(&self.get_active_node_idx().unwrap()).unwrap().container.layout = None;
                     inner.widget_mut().invalidate_node_layouts();
                     ctx.set_handled();
                     ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
@@ -601,20 +681,10 @@ impl Widget<AppState> for VMCanvas {
                 }
             }
             Event::KeyDown(key_event) => {
-                // #[cfg(debug_assertions)]
-                // {
-                //     println!("Sending key {:?}", key_event);
-                // }
                 let payloads = self.input_manager.accept_key(key_event.clone(), ctx);
-                // tracing::debug!("{:?}", payloads);
                 for payload in &payloads {
                     if let Ok(_) = self.handle_action(ctx, data, payload) {
                     } else {
-                        // if let Some(inner) = &mut self.inner {
-                        //     inner.event(ctx, event, &mut(), env);
-                        // } else {
-                        //     self.dialog.event(ctx, event, &mut (), env);
-                        // }
                         if self.dialog_visible {
                             if key_event.key == druid::keyboard_types::Key::Tab {
                                 #[cfg(debug_assertions)]

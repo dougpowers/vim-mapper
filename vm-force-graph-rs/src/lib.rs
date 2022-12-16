@@ -69,6 +69,7 @@
 use petgraph::{
     stable_graph::{NodeIndex, StableUnGraph},
     visit::{EdgeRef, IntoEdgeReferences},
+    algo::has_path_connecting,
 };
 
 use std::collections::BTreeSet;
@@ -174,9 +175,17 @@ impl<UserNodeData, UserEdgeData> ForceGraph<UserNodeData, UserEdgeData> {
         }
     }
 
+    pub fn is_connected_to(&self, idx: &DefaultNodeIdx, root_idx: &DefaultNodeIdx) -> bool {
+        has_path_connecting(&self.graph, *idx, *root_idx, None)
+    }
+
     /// Provides access to the raw graph structure if required.
     pub fn get_graph(&self) -> &StableUnGraph<Node<UserNodeData>, EdgeData<UserEdgeData>> {
         &self.graph
+    }
+
+    pub fn get_graph_mut(&mut self) -> &mut StableUnGraph<Node<UserNodeData>, EdgeData<UserEdgeData>> {
+        &mut self.graph
     }
 
     /// Adds a new node and returns an index that can be used to reference the node.

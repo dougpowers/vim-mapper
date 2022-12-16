@@ -45,7 +45,7 @@ pub const DEFAULT_SIMULATION_PARAMTERS: SimulationParameters = SimulationParamet
 };
 
 pub const DEFAULT_MASS_INCREASE_AMOUNT: f64 = 2.;
-pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 0.06;
+pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 0.1;
 
 pub const DEFAULT_PAN_AMOUNT_SMALL: f64 = 30.;
 pub const DEFAULT_PAN_AMOUNT_LARGE: f64 = 150.;

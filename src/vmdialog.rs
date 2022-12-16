@@ -20,6 +20,8 @@ use crate::{vmconfig::{VMConfigVersion4, VMColor}, vminput::{Action, ActionPaylo
 
 use crate::constants::*;
 
+use crate::vmbutton::VMButton;
+
 pub struct VMDialog {
     pub(crate) inner: WidgetPod<(), Flex<()>>
 }
@@ -36,7 +38,6 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogController {
     fn event(&mut self, child: &mut W, ctx: &mut druid::EventCtx, event: &druid::Event, data: &mut T, env: &druid::Env) {
         // if let druid::Event::KeyDown(key_event) = event {
         if ctx.has_focus() {
-            // tracing::debug!("{:?} - {:?}", ctx.widget_id(), event);
         }
         // }
         child.event(ctx, event, data, env);
@@ -102,9 +103,22 @@ impl VMDialog {
             for i in 0..params.buttons.len()-1 {
                 let params = params.clone();
                 let (label, payloads) = params.buttons[i].clone();
-                button_row.add_child(Button::new(label.clone())
-                    .controller(VMDialogController)
-                    .on_click(move |ctx, _, _| {
+                // button_row.add_child(VMButton::new(label.clone())
+                //     .controller(VMDialogController)
+                //     .on_click(move |ctx, _, _| {
+                //         ctx.submit_command(
+                //             Command::new(
+                //                 DIALOG_EXECUTE_ACTIONS,
+                //                 payloads.clone(),
+                //                 Target::Auto
+                //             )
+                //         )
+                //     })
+                // );
+                button_row.add_child(
+                    VMButton::new(
+                        label.clone(),
+                    move |ctx| {
                         ctx.submit_command(
                             Command::new(
                                 DIALOG_EXECUTE_ACTIONS,
@@ -112,15 +126,15 @@ impl VMDialog {
                                 Target::Auto
                             )
                         )
-                    })
+                    }).controller(VMDialogController)
                 );
                 button_row.add_default_spacer();
             }
             let idx = params.buttons.len()-1;
             let (label, payloads) = params.buttons[idx].clone();
-            button_row.add_child(Button::new(label.clone())
-                .controller(VMDialogController)
-                .on_click(move |ctx, _, _| {
+            button_row.add_child(
+                VMButton::new(label.clone(),
+                move |ctx| {
                     ctx.submit_command(
                         Command::new(
                             DIALOG_EXECUTE_ACTIONS,
@@ -128,7 +142,7 @@ impl VMDialog {
                             Target::Auto
                         )
                     )
-                })
+                }).controller(VMDialogController)
             );
 
             main_column.add_child(button_row);
@@ -255,6 +269,50 @@ impl VMDialog {
         }
     }
 
+    pub fn make_save_and_open_dialog_params() -> VMDialogParams {
+        VMDialogParams {
+            prompt: String::from("This sheet has unsaved changes, do you want to save before closing this sheet?"),
+            buttons: vec![
+                (
+                    String::from("Save"),
+                    vec![
+                        ActionPayload {
+                            action: Action::SaveSheet,
+                            ..Default::default()
+                        },
+                        ActionPayload {
+                            action: Action::SetSaveState,
+                            save_state: Some(VMSaveState::Saved),
+                            ..Default::default()
+                        },
+                        ActionPayload {
+                            action: Action::OpenExistingSheet,
+                            ..Default::default()
+                        }
+                    ]
+                ),
+                (
+                    String::from("Cancel"),
+                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }]
+                ),
+                (
+                    String::from("Discard Changes"),
+                    vec![
+                        ActionPayload {
+                            action: Action::SetSaveState,
+                            save_state: Some(VMSaveState::Saved),
+                            ..Default::default()
+                        },
+                        ActionPayload {
+                            action: Action::OpenExistingSheet,
+                            ..Default::default()
+                        }
+                    ]
+                ),
+            ]
+        }
+    }
+
     pub fn make_save_as_and_new_dialog_params() -> VMDialogParams {
         VMDialogParams {
             prompt: String::from("This sheet is unsaved, do you want to save before closing this sheet?"),
@@ -287,6 +345,46 @@ impl VMDialog {
                         },
                         ActionPayload {
                             action: Action::CreateNewSheet,
+                            ..Default::default()
+                        }
+                    ]
+                ),
+            ]
+        }
+    }
+
+    pub fn make_save_as_and_open_dialog_params() -> VMDialogParams {
+        VMDialogParams {
+            prompt: String::from("This sheet is unsaved, do you want to save before closing this sheet?"),
+            buttons: vec![
+                (
+                    String::from("Save As..."),
+                    vec![
+                        ActionPayload {
+                            action: Action::SetSaveState,
+                            save_state: Some(VMSaveState::SaveAsInProgressThenOpen),
+                            ..Default::default()
+                        },
+                        ActionPayload {
+                            action: Action::SaveSheetAs,
+                            ..Default::default()
+                        },
+                    ]
+                ),
+                (
+                    String::from("Cancel"),
+                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }]
+                ),
+                (
+                    String::from("Discard Changes"),
+                    vec![
+                        ActionPayload {
+                            action: Action::SetSaveState,
+                            save_state: Some(VMSaveState::Saved),
+                            ..Default::default()
+                        },
+                        ActionPayload {
+                            action: Action::OpenExistingSheet,
                             ..Default::default()
                         }
                     ]
