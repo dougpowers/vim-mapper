@@ -14,7 +14,7 @@
 
 use std::borrow::Borrow;
 
-use druid::{widget::{Flex, SizedBox, Label, MainAxisAlignment, Controller}, WidgetExt, Command, Target, WidgetPod, Widget, keyboard_types::Key};
+use druid::{widget::{Flex, SizedBox, Label, MainAxisAlignment, Controller}, WidgetExt, Command, Target, WidgetPod, Widget, RawMods};
 
 use crate::{vmconfig::{VMConfigVersion4, VMColor}, vminput::{Action, ActionPayload}, vmsave::VMSaveState};
 
@@ -28,7 +28,7 @@ pub struct VMDialog {
 
 #[derive(Debug, Clone)]
 pub struct VMDialogParams {
-    pub buttons: Vec<(String, Vec<ActionPayload>)>,
+    pub buttons: Vec<(String, Vec<ActionPayload>, bool)>,
     pub prompts: Vec<(String, Option<VMColor>)>
 }
 
@@ -38,8 +38,8 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogController {
     fn event(&mut self, child: &mut W, ctx: &mut druid::EventCtx, event: &druid::Event, data: &mut T, env: &druid::Env) {
         if ctx.has_focus() {
         }
-        if let druid::Event::KeyDown(key_event) = event {
-            if key_event.key == druid::keyboard_types::Key::Escape {
+        if let druid::Event::KeyUp(key_event) = event {
+            if key_event.key == druid::keyboard_types::Key::Escape && key_event.mods == RawMods::None {
                 ctx.submit_command(Command::new(
                     DIALOG_EXECUTE_ACTIONS,
                     vec![ActionPayload {
@@ -61,9 +61,9 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogController {
             env: &druid::Env,
         ) {
         match event.borrow() {
-            druid::LifeCycle::BuildFocusChain => {
-                ctx.register_for_focus();
-            }
+            // druid::LifeCycle::BuildFocusChain => {
+            //     ctx.register_for_focus();
+            // }
             // druid::LifeCycle::FocusChanged(is_focused) => {
             //     #[cfg(debug_assertions)]
             //     if *is_focused {
@@ -97,7 +97,6 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogController {
         }
         child.lifecycle(ctx, event, data, env);
     }
-
 }
 
 impl VMDialog {
@@ -123,9 +122,10 @@ impl VMDialog {
         let mut button_row = Flex::<()>::row();
         for i in 0..&params.buttons.len()-1 {
             let params = params.clone();
-            let (label, payloads) = params.buttons[i].clone();
+            let (label, payloads, is_alert) = params.buttons[i].clone();
             button_row.add_child(
                 VMButton::new(
+                    config,
                     label.clone(),
                 move |ctx| {
                     ctx.submit_command(
@@ -135,14 +135,16 @@ impl VMDialog {
                             Target::Auto
                         )
                     )
-                }).controller(VMDialogController)
+                }, is_alert).controller(VMDialogController)
             );
             button_row.add_default_spacer();
         }
         let idx = params.buttons.len()-1;
-        let (label, payloads) = params.buttons[idx].clone();
+        let (label, payloads, is_alert) = params.buttons[idx].clone();
         button_row.add_child(
-            VMButton::new(label.clone(),
+            VMButton::new(
+                config,
+                label.clone(),
             move |ctx| {
                 ctx.submit_command(
                     Command::new(
@@ -151,7 +153,7 @@ impl VMDialog {
                         Target::Auto
                     )
                 )
-            }).controller(VMDialogController)
+            }, is_alert).controller(VMDialogController)
         );
 
         main_column.add_child(button_row);
@@ -185,14 +187,16 @@ impl VMDialog {
                     vec![ActionPayload {
                         action: Action::CreateNewSheet,
                         ..Default::default()
-                    }]
+                    }],
+                    false
                 ),
                 (
                     String::from("Open"),
                     vec![ActionPayload {
                         action: Action::OpenExistingSheet,
                         ..Default::default()
-                    }]
+                    }],
+                    false
                 )
             ]
         }
@@ -220,11 +224,13 @@ impl VMDialog {
                             action: Action::QuitWithoutSaveGuard,
                             ..Default::default()
                         }
-                    ]
+                    ],
+                    false
                 ),
                 (
                     String::from("Cancel"),
-                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }]
+                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }],
+                    false
                 ),
                 (
                     String::from("Discard Changes"),
@@ -233,7 +239,8 @@ impl VMDialog {
                             action: Action::QuitWithoutSaveGuard,
                             ..Default::default()
                         }
-                    ]
+                    ],
+                    true
                 ),
             ]
         }
@@ -261,11 +268,12 @@ impl VMDialog {
                             action: Action::CreateNewSheet,
                             ..Default::default()
                         }
-                    ]
+                    ], false
                 ),
                 (
                     String::from("Cancel"),
-                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }]
+                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }],
+                    false
                 ),
                 (
                     String::from("Discard Changes"),
@@ -279,7 +287,8 @@ impl VMDialog {
                             action: Action::CreateNewSheet,
                             ..Default::default()
                         }
-                    ]
+                    ],
+                    true
                 ),
             ]
         }
@@ -307,11 +316,13 @@ impl VMDialog {
                             action: Action::OpenExistingSheet,
                             ..Default::default()
                         }
-                    ]
+                    ],
+                    false
                 ),
                 (
                     String::from("Cancel"),
-                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }]
+                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }],
+                    false
                 ),
                 (
                     String::from("Discard Changes"),
@@ -326,7 +337,8 @@ impl VMDialog {
                             action: Action::OpenExistingSheet,
                             ..Default::default()
                         }
-                    ]
+                    ],
+                    true
                 ),
             ]
         }
@@ -351,11 +363,13 @@ impl VMDialog {
                             action: Action::SaveSheetAs,
                             ..Default::default()
                         },
-                    ]
+                    ],
+                    false
                 ),
                 (
                     String::from("Cancel"),
-                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }]
+                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }],
+                    false
                 ),
                 (
                     String::from("Discard Changes"),
@@ -369,7 +383,8 @@ impl VMDialog {
                             action: Action::CreateNewSheet,
                             ..Default::default()
                         }
-                    ]
+                    ],
+                    true
                 ),
             ]
         }
@@ -394,11 +409,13 @@ impl VMDialog {
                             action: Action::SaveSheetAs,
                             ..Default::default()
                         },
-                    ]
+                    ],
+                    false
                 ),
                 (
                     String::from("Cancel"),
-                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }]
+                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }],
+                    false
                 ),
                 (
                     String::from("Discard Changes"),
@@ -412,7 +429,8 @@ impl VMDialog {
                             action: Action::OpenExistingSheet,
                             ..Default::default()
                         }
-                    ]
+                    ],
+                    true
                 ),
             ]
         }
@@ -437,11 +455,13 @@ impl VMDialog {
                             action: Action::SaveSheetAs,
                             ..Default::default()
                         },
-                    ]
+                    ],
+                    false
                 ),
                 (
                     String::from("Cancel"),
-                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }]
+                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }],
+                    false
                 ),
                 (
                     String::from("Discard Changes"),
@@ -455,7 +475,8 @@ impl VMDialog {
                             action: Action::QuitWithoutSaveGuard,
                             ..Default::default()
                         }
-                    ]
+                    ],
+                    true
                 ),
             ]
         }
@@ -475,11 +496,13 @@ impl VMDialog {
                             action: Action::SaveSheetAsOverwrite,
                             ..Default::default()
                         },
-                    ]
+                    ],
+                    true
                 ),
                 (
                     String::from("Cancel"),
-                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }]
+                    vec![ActionPayload { action: Action::NullAction, ..Default::default() }],
+                    false
                 ),
             ]
         }

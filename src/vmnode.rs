@@ -263,6 +263,7 @@ pub struct VMNodeEditor {
     pub title_text: String,
     //Cached rect of the editor, transformed to screen coordinates. Used to scroll editor into view.
     pub editor_rect: Option<Rect>,
+    pub is_focused: bool,
 }
 
 impl VMNodeEditor {
@@ -280,6 +281,7 @@ impl VMNodeEditor {
             is_visible: false,
             title_text: "".to_string(),
             editor_rect: None,
+            is_focused: false,
         };
         nodeeditor
     }
@@ -342,6 +344,7 @@ impl Controller<String, TextBox<String>> for VMNodeEditorController {
         if let druid::LifeCycle::WidgetAdded = event {
             // ctx.register_text_input(child.text_mut().input_handler());
         }
+
         child.lifecycle(ctx, event, data, env);
     }
     fn update(&mut self, child: &mut TextBox<String>, ctx: &mut druid::UpdateCtx, old_data: &String, data: &String, env: &Env) {

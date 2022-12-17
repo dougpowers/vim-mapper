@@ -16,34 +16,47 @@ use druid::debug_state::DebugState;
 use druid::keyboard_types::Key;
 use druid::widget::prelude::*;
 use druid::widget::{Label, LabelText};
-use druid::{theme, Affine, Data, Insets, LinearGradient, UnitPoint, RawMods, MouseButton};
+use druid::{theme, Affine, Data, Insets, LinearGradient, UnitPoint, RawMods, MouseButton, Color};
 use tracing::{instrument, trace};
+use crate::vmconfig::{VMConfigVersion4, VMColor};
 
-// the minimum padding added to a button.
-// NOTE: these values are chosen to match the existing look of TextBox; these
-// should be reevaluated at some point.
 const LABEL_INSETS: Insets = Insets::uniform_xy(8., 2.);
 
-/// A button with a text label.
 pub struct VMButton<T> {
     label: Label<T>,
     label_size: Size,
     action: Box<dyn Fn(&mut EventCtx)>,
+    light_color: Color,
+    dark_color: Color,
+    disabled_light_color: Color,
+    disabled_dark_color: Color,
 }
 
 impl<T: Data> VMButton<T> {
     // pub fn new(text: impl Into<LabelText<T>>) -> VMButton<T> {
-    pub fn new(text: impl Into<LabelText<T>>, action: impl Fn(&mut EventCtx) + 'static) -> VMButton<T> {
+    pub fn new(config: &VMConfigVersion4, text: impl Into<LabelText<T>>, action: impl Fn(&mut EventCtx) + 'static, is_alert: bool) -> VMButton<T> {
         // VMButton::from_label(Label::new(text))
-        VMButton::from_label(Label::new(text), action)
+        VMButton::from_label(config, Label::new(text), action, is_alert)
     }
 
     // pub fn from_label(label: Label<T>) -> VMButton<T> {
-    pub fn from_label(label: Label<T>, action: impl Fn(&mut EventCtx) + 'static) -> VMButton<T> {
+    pub fn from_label(config: &VMConfigVersion4, label: Label<T>, action: impl Fn(&mut EventCtx) + 'static, is_alert: bool) -> VMButton<T> {
         VMButton {
             label,
             label_size: Size::ZERO,
             action: Box::new(action),
+            light_color: if is_alert {
+                config.get_color(VMColor::AlertButtonLight).expect("Couldn't find light alert button color")
+            } else {
+                config.get_color(VMColor::ButtonLight).expect("Couldn't find light button color")
+            },
+            dark_color: if is_alert {
+                config.get_color(VMColor::AlertButtonDark).expect("Couldn't find dark alert button color")
+            } else {
+                config.get_color(VMColor::ButtonDark).expect("Couldn't find dark button color")
+            },
+            disabled_light_color: config.get_color(VMColor::DisabledButtonLight).expect("Couldn't find light disabled button color"),
+            disabled_dark_color: config.get_color(VMColor::DisabledButtonDark).expect("Couldn't find dark disabled button color"),
         }
     }
 }
@@ -70,7 +83,6 @@ impl<T: Data> Widget<T> for VMButton<T> {
                 }
             }
             Event::KeyDown(key_event) => {
-                tracing::debug!("{:?}", key_event);
                 match &key_event.key {
                     Key::Character(char) if char == " " && key_event.mods == RawMods::None => {
                         (self.action)(ctx);
@@ -89,6 +101,9 @@ impl<T: Data> Widget<T> for VMButton<T> {
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &T, env: &Env) {
         if let LifeCycle::HotChanged(_) | LifeCycle::DisabledChanged(_) = event {
             ctx.request_paint();
+        }
+        if let druid::LifeCycle::BuildFocusChain = event {
+            ctx.register_for_focus();
         }
         self.label.lifecycle(ctx, event, data, env)
     }
@@ -136,21 +151,31 @@ impl<T: Data> Widget<T> for VMButton<T> {
                 UnitPoint::TOP,
                 UnitPoint::BOTTOM,
                 (
-                    env.get(theme::DISABLED_BUTTON_LIGHT),
-                    env.get(theme::DISABLED_BUTTON_DARK),
+                    // env.get(theme::DISABLED_BUTTON_LIGHT),
+                    // env.get(theme::DISABLED_BUTTON_DARK),
+                    self.disabled_light_color.clone(),
+                    self.disabled_dark_color.clone(),
                 ),
             )
         } else if is_active {
             LinearGradient::new(
                 UnitPoint::TOP,
                 UnitPoint::BOTTOM,
-                (env.get(theme::BUTTON_DARK), env.get(theme::BUTTON_LIGHT)),
+                // (env.get(theme::BUTTON_DARK), env.get(theme::BUTTON_LIGHT)),
+                (
+                    self.dark_color.clone(),
+                    self.light_color.clone(),
+                ),
             )
         } else {
             LinearGradient::new(
                 UnitPoint::TOP,
                 UnitPoint::BOTTOM,
-                (env.get(theme::BUTTON_LIGHT), env.get(theme::BUTTON_DARK)),
+                // (env.get(theme::BUTTON_LIGHT), env.get(theme::BUTTON_DARK)),
+                (
+                    self.light_color.clone(),
+                    self.dark_color.clone(),
+                )
             )
         };
 

@@ -111,6 +111,24 @@ impl VMConfigNoVersion {
             AlertColor => {
                 String::from("alert-color")
             }
+            ButtonLight => {
+                String::from("button-light")
+            }
+            ButtonDark => {
+                String::from("button-dark")
+            }
+            DisabledButtonLight => {
+                String::from("disabled-button-light")
+            }
+            DisabledButtonDark => {
+                String::from("disabled-button-dark")
+            }
+            AlertButtonLight => {
+                String::from("alert-button-light")
+            },
+            AlertButtonDark => {
+                String::from("alert-button-dark")
+            },
         }
     }
 
@@ -166,6 +184,12 @@ pub enum VMColor {
     SheetBackgroundColor,
     DialogBackgroundColor,
     AlertColor,
+    ButtonLight,
+    ButtonDark,
+    AlertButtonLight,
+    AlertButtonDark,
+    DisabledButtonLight,
+    DisabledButtonDark,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -286,6 +310,12 @@ impl Default for VMConfigVersion4 {
         light_palette.insert(SheetBackgroundColor, (255,255,255,255));
         light_palette.insert(DialogBackgroundColor, (128,128,128,70));
         light_palette.insert(AlertColor, (255,0,0,255));
+        light_palette.insert(ButtonLight, (33,33,33,255));
+        light_palette.insert(ButtonDark, (0,0,0,255));
+        light_palette.insert(AlertButtonLight, (128,11,11,255));
+        light_palette.insert(AlertButtonDark, (40,0,0,255));
+        light_palette.insert(DisabledButtonLight, (56,56,56,255));
+        light_palette.insert(DisabledButtonDark, (40,40,40,255));
         dark_palette.insert(LabelTextColor, (255,255,255,255));
         dark_palette.insert(DisabledLabelTextColor, (255,255,255,128));
         dark_palette.insert(NodeBorderColor, (215,215,215,255));
@@ -299,6 +329,12 @@ impl Default for VMConfigVersion4 {
         dark_palette.insert(SheetBackgroundColor, (0,0,0,255));
         dark_palette.insert(DialogBackgroundColor, (128,128,128,70));
         dark_palette.insert(AlertColor, (255,0,0,255));
+        dark_palette.insert(ButtonLight, (33,33,33,255));
+        dark_palette.insert(ButtonDark, (0,0,0,255));
+        dark_palette.insert(AlertButtonLight, (128,11,11,255));
+        dark_palette.insert(AlertButtonDark, (40,0,0,255));
+        dark_palette.insert(DisabledButtonLight, (56,56,56,255));
+        dark_palette.insert(DisabledButtonDark, (40,40,40,255));
         VMConfigVersion4 {
             file_version: String::from(CURRENT_CONFIG_FILE_VERSION.to_string()),
             color_scheme: ColorScheme::LIGHT,

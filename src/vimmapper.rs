@@ -824,7 +824,15 @@ impl VimMapper {
             self.scroll_rect_into_view(rect);
         }
         ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Auto));
-
+        ctx.submit_command(Command::new(
+            EXECUTE_ACTION,
+            ActionPayload {
+                action: Action::ChangeMode,
+                mode: Some(KeybindMode::Edit),
+                ..Default::default()
+            },
+            Target::Global
+        ));
     }
 
     //Closes the editor. Allows the value to be applied or discarded.
@@ -833,15 +841,21 @@ impl VimMapper {
             //Submit changes
             let idx = self.get_active_node_idx();
             self.nodes.get_mut(&idx.unwrap()).unwrap().label = self.node_editor.title_text.clone();
-            self.node_editor.is_visible = false;
-            self.is_focused = true;
-            ctx.request_layout();
         } else {
             //Cancel changes
-            self.node_editor.is_visible = false;
-            self.is_focused = true;
-            ctx.request_layout();
         }
+        ctx.submit_command(Command::new(
+            EXECUTE_ACTION,
+            ActionPayload {
+                action: Action::ChangeMode,
+                mode: Some(KeybindMode::Sheet),
+                ..Default::default()
+            },
+            Target::Global
+        ));
+        self.node_editor.is_visible = false;
+        self.is_focused = true;
+        ctx.request_layout();
     }
 
     pub fn is_editor_open(&self) -> bool {
@@ -1191,7 +1205,8 @@ impl<'a> Widget<()> for VimMapper {
                     self.set_dragging(true, Some(event.pos));
                     if !ctx.is_handled() {
                         self.is_focused = true;
-                        self.node_editor.is_visible = false;
+                        // self.node_editor.is_visible = false;
+                        self.close_editor(ctx, false);
                     }
                 }
                 ctx.request_anim_frame();
@@ -1306,10 +1321,13 @@ impl<'a> Widget<()> for VimMapper {
             LifeCycle::WidgetAdded => {
                 //Register children with druid
                 ctx.children_changed();
-                // self.nodes.get_mut(&0).unwrap().editor.rebuild_if_needed(ctx.text(), _env);
                 //Kick off animation and calculation
                 ctx.request_layout();
                 ctx.request_anim_frame();
+                tracing::debug!("light: {:?}", _env.get(druid::theme::BUTTON_LIGHT));
+                tracing::debug!("dark: {:?}", _env.get(druid::theme::BUTTON_DARK));
+                tracing::debug!("disabled light: {:?}", _env.get(druid::theme::DISABLED_BUTTON_LIGHT));
+                tracing::debug!("disabled dark: {:?}", _env.get(druid::theme::DISABLED_BUTTON_DARK));
             }
             LifeCycle::HotChanged(is_hot) => {
                 //Cache is_hot values
