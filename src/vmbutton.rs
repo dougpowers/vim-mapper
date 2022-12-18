@@ -16,7 +16,7 @@ use druid::debug_state::DebugState;
 use druid::keyboard_types::Key;
 use druid::widget::prelude::*;
 use druid::widget::{Label, LabelText};
-use druid::{theme, Affine, Data, Insets, LinearGradient, UnitPoint, RawMods, MouseButton, Color};
+use druid::{theme, Modifiers, Affine, Data, Insets, LinearGradient, UnitPoint, RawMods, MouseButton, Color};
 use tracing::{instrument, trace};
 use crate::vmconfig::{VMConfigVersion4, VMColor};
 
@@ -83,8 +83,12 @@ impl<T: Data> Widget<T> for VMButton<T> {
                 }
             }
             Event::KeyDown(key_event) => {
+                let mut key_event = key_event.clone();
+                key_event.mods.set(Modifiers::NUM_LOCK, false);
+                key_event.mods.set(Modifiers::SCROLL_LOCK, false);
+                key_event.mods.set(Modifiers::CAPS_LOCK, false);
                 match &key_event.key {
-                    Key::Character(char) if char == " " && key_event.mods == RawMods::None => {
+                    Key::Character(char) if char == " " && key_event.mods == RawMods::None  => {
                         (self.action)(ctx);
                     },
                     Key::Enter if key_event.mods == RawMods::None => {
