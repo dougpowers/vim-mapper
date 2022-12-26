@@ -15,7 +15,7 @@
 use druid::kurbo::{Line, TranslateScale};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
-use vm_force_graph::{ForceGraph, NodeData, EdgeData};
+use vm_force_graph::{ForceGraph, NodeData, EdgeData, Node};
 use druid::widget::prelude::*;
 use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
 use regex::Regex;
@@ -1392,9 +1392,10 @@ impl<'a> Widget<()> for VimMapper {
             let size = node.enabled_layout.as_ref().unwrap().size().clone();
             let node_pos = self.get_node_pos(node.index);
             let bottom_left = Point::new(node_pos.x-(size.width/2.), node_pos.y+(size.height/2.)+DEFAULT_BORDER_WIDTH);
-            self.node_editor.container.set_origin(ctx, &self.node_editor.title_text, _env, self.translate*self.scale*bottom_left);
+            // self.node_editor.container.set_origin(ctx, &self.node_editor.title_text, _env, self.translate*self.scale*bottom_left);
+            self.node_editor.container.set_origin(ctx, self.translate*self.scale*bottom_left);
         } else {
-            self.node_editor.container.set_origin(ctx, &self.node_editor.title_text, _env, Point::new(0., 0.));
+            self.node_editor.container.set_origin(ctx, Point::new(0., 0.));
         }
         self.node_editor.editor_rect = Some(self.node_editor.container.layout_rect());
 
@@ -1471,21 +1472,6 @@ impl<'a> Widget<()> for VimMapper {
                 },
                 _ => ()
             }
-            // node.paint_node(
-            //     ctx, 
-            //     {
-            //         match node.index {
-            //             i if Some(i) == active_node => 1,
-            //             i if Some(i) == target_node => 2,
-            //             _ => 0,
-            //         }
-            //     },
-            //     enabled,
-            //     &self.config, 
-            //     target_node, 
-            //     &self.translate, 
-            //     &self.scale, 
-            //     self.debug_data); 
         });
 
         if let Some(active_idx) = active_node {
@@ -1575,14 +1561,16 @@ impl<'a> Widget<()> for VimMapper {
                     }
                 });
                 let text = format!(
-                        "Is Animating: {:?}\nLarget Node Movement: {:?}\nActive Node:{:?}", 
+                        "Is Animating: {:?}\nLarget Node Movement: {:?}\nActive Node: {:?}\nGraph: {:?}", 
                         self.animating,
                         self.largest_node_movement,
-                        self.get_active_node_idx(),
+                        self.nodes.get(&self.get_active_node_idx().unwrap()),
+                        self.graph.get_graph().node_weights().collect::<Vec<&Node<u16>>>(),
                 );
                 let layout = ctx.text().new_text_layout(text)
-                    .font(FontFamily::SANS_SERIF, 16.)
+                    .font(FontFamily::SANS_SERIF, 12.)
                     .text_color(Color::RED)
+                    .max_width(ctx.size().width/1.3)
                     .build();
 
                 if let Ok(text) = layout {

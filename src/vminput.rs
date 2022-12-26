@@ -890,10 +890,7 @@ impl VMInputManager {
         {
             return vec![None];
         } 
-        #[cfg(debug_assertions)]
-        {
-            tracing::debug!("{:?}", key_event);
-        }
+
         match self.mode {
             KeybindMode::Start => {
                 let keybinds = self.keybinds.clone();

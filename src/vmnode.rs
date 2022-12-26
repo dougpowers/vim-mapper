@@ -55,8 +55,6 @@ impl Default for VMNode {
             edges: Vec::with_capacity(10),
             index: 0,
             fg_index: None,
-            // pos: Vec2::new(0.0, 0.0),
-            // container: VMNodeLayoutContainer::new(0),
             enabled_layout: None,
             disabled_layout: None,
             is_active: false,
@@ -78,7 +76,6 @@ impl VMNode {
         }
     }
 
-    // pub fn paint_node(&mut self, ctx: &mut PaintCtx, vm: &VimMapper) {
     pub fn paint_node(
         &mut self, 
         ctx: &mut PaintCtx, 
@@ -92,8 +89,6 @@ impl VMNode {
         debug_data: bool,
     ) {
         ctx.with_save(|ctx| {
-            // let node = vm.nodes.get_mut(&node.data.user_data)
-            // .expect("Attempted to retrieve a non-existent node.");
             let label_size = self.enabled_layout.as_mut()
             .expect("Node layout container was empty.").size();
             ctx.transform(Affine::from(*translate));

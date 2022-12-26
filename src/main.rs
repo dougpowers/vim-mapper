@@ -753,11 +753,11 @@ impl Widget<AppState> for VMCanvas {
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &AppState, env: &Env) -> Size {
         if self.dialog_visible {
             self.dialog.layout(ctx, bc, &(), env);
-            self.dialog.set_origin(ctx, &(), env, Point::new(0., 0.));
+            self.dialog.set_origin(ctx, Point::new(0., 0.));
         } 
         if let Some(inner) = &mut self.inner {
             inner.layout(ctx, bc, &(), env);
-            inner.set_origin(ctx, &(), env, Point::new(0., 0.));
+            inner.set_origin(ctx, Point::new(0., 0.));
         }
         bc.max()
     }

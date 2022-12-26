@@ -101,6 +101,7 @@ impl Default for SimulationParameters {
 }
 
 /// Stores data associated with a node that can be modified by the user.
+#[derive(Debug)]
 pub struct NodeData<UserNodeData = ()> {
     /// The horizontal position of the node.
     pub x: f64,
@@ -134,6 +135,7 @@ where
 }
 
 /// Stores data associated with an edge that can be modified by the user.
+#[derive(Debug)]
 pub struct EdgeData<UserEdgeData = ()> {
     /// Arbitrary user data.
     ///
@@ -153,6 +155,7 @@ where
 }
 
 /// The main force graph structure.
+#[derive(Debug)]
 pub struct ForceGraph<UserNodeData = (), UserEdgeData = ()> {
     pub parameters: SimulationParameters,
     graph: StableUnGraph<Node<UserNodeData>, EdgeData<UserEdgeData>>,
@@ -297,6 +300,7 @@ impl<UserNodeData, UserEdgeData> ForceGraph<UserNodeData, UserEdgeData> {
 }
 
 /// References a node in the [ForceGraph]. Can not be constructed by the user.
+#[derive(Debug)]
 pub struct Node<UserNodeData = ()> {
     /// The node data provided by the user.
     pub data: NodeData<UserNodeData>,
