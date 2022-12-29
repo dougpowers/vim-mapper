@@ -33,7 +33,7 @@ pub enum BadgePosition {
 #[derive(Debug)]
 pub struct VMNode {
     pub label: String,
-    pub edges: Vec<u16>,
+    // pub edges: Vec<u16>,
     pub index: u16,
     pub fg_index: Option<DefaultNodeIdx>,
     // pub pos: Vec2,
@@ -52,7 +52,7 @@ impl Default for VMNode {
         let label = DEFAULT_ROOT_LABEL.to_string();
         let node = VMNode {
             label,
-            edges: Vec::with_capacity(10),
+            // edges: Vec::with_capacity(10),
             index: 0,
             fg_index: None,
             enabled_layout: None,

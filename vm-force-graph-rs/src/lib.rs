@@ -135,7 +135,7 @@ where
 }
 
 /// Stores data associated with an edge that can be modified by the user.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EdgeData<UserEdgeData = ()> {
     /// Arbitrary user data.
     ///

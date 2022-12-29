@@ -134,7 +134,7 @@ impl Default for VimMapper {
         //The default node. Is always at index 0 and position (0.0, 0.0).
         let mut root_node = VMNode {
             label: DEFAULT_ROOT_LABEL.to_string(),
-            edges: Vec::with_capacity(10),
+            // edges: Vec::with_capacity(10),
             index: 0,
             is_active: true,
             ..Default::default()
@@ -196,7 +196,7 @@ impl VimMapper {
         //The default node. Is always at index 0 and position (0.0, 0.0).
         let mut root_node = VMNode {
             label: DEFAULT_ROOT_LABEL.to_string(),
-            edges: Vec::with_capacity(10),
+            // edges: Vec::with_capacity(10),
             index: 0,
             anchored: true,
             // pos: Vec2::new(0.0, 0.0),
@@ -438,7 +438,7 @@ impl VimMapper {
         let new_node_idx = self.increment_node_idx();
         let mut new_node = VMNode {
             label: node_label.clone(),
-            edges: Vec::with_capacity(10),
+            // edges: Vec::with_capacity(10),
             index: new_node_idx,
             anchored: true,
             ..Default::default()
@@ -474,7 +474,7 @@ impl VimMapper {
             Some(from_node) => {
                 let mut new_node = VMNode {
                     label: node_label.clone(),
-                    edges: Vec::with_capacity(10),
+                    // edges: Vec::with_capacity(10),
                     index: new_node_idx,
                     // pos: Vec2::new(from_node.pos.x + offset_vec.x, from_node.pos.y + offset_vec.y),
                     // container: VMNodeLayoutContainer::new(new_node_idx),
@@ -507,8 +507,8 @@ impl VimMapper {
                     ..Default::default()
                 }));
                 self.graph.add_edge(from_node.fg_index.unwrap(), new_node.fg_index.unwrap(), EdgeData { user_data: new_edge.index }); 
-                new_node.edges.push(new_edge.index);
-                from_node.edges.push(new_edge.index);
+                // new_node.edges.push(new_edge.index);
+                // from_node.edges.push(new_edge.index);
                 self.nodes.insert(new_node.index, new_node);
                 self.edges.insert(new_edge.index, new_edge);
             }
@@ -539,27 +539,15 @@ impl VimMapper {
             return Err("Cannot delete root node!".to_string());
         }
         if let Some(node) = self.nodes.get(&idx) {
-            if node.edges.len() > 1 {
+            let edge_count = self.graph.get_graph().edges(node.fg_index.unwrap()).count();
+            if edge_count > 1 {
                 return Err("Node is not a leaf".to_string());
-            } else if node.edges.len() > 0 {
-                let edge = self.edges.get(&node.edges[0]).unwrap();
-                let remainder: u16;
-                if idx == edge.from {
-                    remainder = edge.to;
-                } else {
-                    remainder = edge.from;
-                }
+            } else if edge_count > 0 {
+                let edge = self.graph.get_graph().edges(node.fg_index.unwrap()).clone().next().unwrap().weight().user_data;
+                let remainder = self.graph.get_graph()[self.graph.get_graph().neighbors(node.fg_index.unwrap()).next().unwrap()].data.user_data;
                 self.graph.remove_node(node.fg_index.unwrap());
-                let removed_edge = node.edges[0].clone();
-                self.edges.remove(&removed_edge);
+                self.edges.remove(&edge);
                 self.nodes.remove(&idx);
-                let r_node = self.nodes.get_mut(&remainder).unwrap();
-                for i in 0..r_node.edges.len().clone() {
-                    if r_node.edges[i] == removed_edge {
-                        r_node.edges.remove(i);
-                        break;
-                    }
-                }
                 return Ok(remainder);
             } else {
                 self.graph.remove_node(node.fg_index.unwrap());

@@ -125,7 +125,7 @@ impl VMSaveSerde {
             }
             nodes.insert(v.index, VMNode {
                 label: v.label.clone(), 
-                edges: v.edges, 
+                // edges: v.edges, 
                 index: v.index, 
                 fg_index: fg_index, 
                 // pos: Vec2::new(v.pos.0, v.pos.1), 
@@ -191,7 +191,7 @@ impl VMSaveSerde {
             let pos = vm.get_node_pos(*index);
             nodes.insert(*index, BareNodeVersion4 {
                 label: node.label.clone(),
-                edges: node.edges.clone(),
+                // edges: node.edges.clone(),
                 index: node.index,
                 // pos: (node.pos.x, node.pos.y),
                 pos: (pos.x, pos.y),
@@ -264,7 +264,7 @@ impl VMSaveSerde {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct BareNodeVersion4 {
     label: String,
-    edges: Vec<u16>,
+    // edges: Vec<u16>,
     index: u16,
     pos: (f64, f64),
     is_active: bool,
@@ -278,7 +278,7 @@ impl Default for BareNodeVersion4 {
     fn default() -> Self {
         BareNodeVersion4 { 
             label: DEFAULT_NEW_NODE_LABEL.to_string(),
-            edges: vec![0], 
+            // edges: vec![0], 
             index: 0, 
             pos: (0.,0.), 
             is_active: false, 
