@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::{Selection}, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
-use vm_force_graph::DefaultNodeIdx;
+use serde::{Serialize, Deserialize};
+use vm_force_graph::{DefaultNodeIdx, ForceGraph};
 
 use crate::{constants::*, vmconfig::*};
 
@@ -30,19 +31,27 @@ pub enum BadgePosition {
     CenterLeft,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "Rect")]
+struct RectDef {
+    x0: f64,
+    x1: f64,
+    y0: f64,
+    y1: f64
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct VMNode {
     pub label: String,
-    // pub edges: Vec<u16>,
     pub index: u16,
     pub fg_index: Option<DefaultNodeIdx>,
-    // pub pos: Vec2,
-    pub enabled_layout: Option<PietTextLayout>,
-    pub disabled_layout: Option<PietTextLayout>,
+    // pub enabled_layout: Option<PietTextLayout>,
+    // pub disabled_layout: Option<PietTextLayout>,
     pub is_active: bool,
     pub mark: Option<String>,
     //Cached rect of the node, transformed to screen coords. Used to scroll node into view.
-    pub node_rect: Option<Rect>,
+    #[serde(with = "RectDef")]
+    pub node_rect: Rect,
     pub anchored: bool,
     pub mass: f64,
 }
@@ -52,14 +61,13 @@ impl Default for VMNode {
         let label = DEFAULT_ROOT_LABEL.to_string();
         let node = VMNode {
             label,
-            // edges: Vec::with_capacity(10),
             index: 0,
             fg_index: None,
-            enabled_layout: None,
-            disabled_layout: None,
+            // enabled_layout: None,
+            // disabled_layout: None,
             is_active: false,
             mark: None,
-            node_rect: None,
+            node_rect: Rect::new(0.,0.,0.,0.),
             anchored: false,
             mass: DEFAULT_NODE_MASS,
         };
@@ -80,7 +88,9 @@ impl VMNode {
         &mut self, 
         ctx: &mut PaintCtx, 
         z_index: u32,
+        graph: &ForceGraph<u16, u16>,
         enabled: bool,
+        layout: &PietTextLayout,
         config: &VMConfigVersion4, 
         target: Option<u16>,
         pos: Vec2,
@@ -89,8 +99,9 @@ impl VMNode {
         debug_data: bool,
     ) {
         ctx.with_save(|ctx| {
-            let label_size = self.enabled_layout.as_mut()
-            .expect("Node layout container was empty.").size();
+            // let label_size = self.enabled_layout.as_mut()
+            // .expect("Node layout container was empty.").size();
+            let label_size = layout.size();
             ctx.transform(Affine::from(*translate));
             ctx.transform(Affine::from(*scale));
             ctx.transform(Affine::from(TranslateScale::new(-1.0*(label_size.to_vec2())/2.0, 1.0)));
@@ -98,7 +109,7 @@ impl VMNode {
             let rect = label_size.to_rect().inflate(DEFAULT_BORDER_WIDTH, DEFAULT_BORDER_WIDTH);
             let border = druid::piet::kurbo::RoundedRect::from_rect(rect, DEFAULT_BORDER_RADIUS);
             //Cache this node's screen space-transformed rect
-            self.node_rect = Some(ctx.current_transform().transform_rect_bbox(rect).clone());
+            self.node_rect = ctx.current_transform().transform_rect_bbox(rect).clone();
             let mut border_color = config.get_color(VMColor::NodeBorderColor).ok().expect("node border color not found in config");
             let mut border_width = DEFAULT_BORDER_WIDTH;
             if self.is_active {
@@ -112,12 +123,12 @@ impl VMNode {
             }
 
             let border_background;
-            let mut container;
+            // let mut container;
             if !enabled {
-                container = self.disabled_layout.clone();
+                // container = self.disabled_layout.clone();
                 border_background = config.get_color(VMColor::DisabledNodeBackgroundColor).ok().expect("DIsabled node background color not found in config");
             } else {
-                container = self.enabled_layout.clone();
+                // container = self.enabled_layout.clone();
                 border_background = config.get_color(VMColor::NodeBackgroundColor).ok().expect("Node background color not found in config");
             }
 
@@ -126,21 +137,21 @@ impl VMNode {
             // ctx.paint_with_z_index(z_index, move |ctx| {
                 ctx.stroke(border, &border_color, border_width);
                 ctx.fill(border, &border_background);
-                ctx.draw_text(container.as_mut().unwrap(), Point::new(0.0, 0.0));
+                ctx.draw_text(layout, Point::new(0.0, 0.0));
             // });
 
             if let Some(char) = self.mark.clone() {
-                self.paint_node_badge(ctx, z_index, enabled, config, &char, BadgePosition::TopRight, &rect, &badge_border_color);
+                self.paint_node_badge(ctx, z_index, graph, enabled, config, &char, BadgePosition::TopRight, &rect, &badge_border_color);
             }
 
             if self.mass.clone() > DEFAULT_NODE_MASS {
-                self.paint_node_badge(ctx, z_index, enabled, config, &"+".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
+                self.paint_node_badge(ctx, z_index, graph, enabled, config, &"+".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
             } else if self.mass.clone() < DEFAULT_NODE_MASS {
-                self.paint_node_badge(ctx, z_index, enabled, config, &"-".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
+                self.paint_node_badge(ctx, z_index, graph, enabled, config, &"-".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
             }
 
             if self.anchored {
-                self.paint_node_badge(ctx, z_index, enabled, config, &"@".to_string(), BadgePosition::BottomLeft, &rect, &badge_border_color)
+                self.paint_node_badge(ctx, z_index, graph, enabled, config, &"@".to_string(), BadgePosition::BottomLeft, &rect, &badge_border_color)
             }
 
             //Paint debug decals (node index)
@@ -165,6 +176,7 @@ impl VMNode {
     pub fn paint_node_badge(&mut self,
          ctx: &mut PaintCtx,
          _z_index: u32,
+         graph: &ForceGraph<u16, u16>,
          enabled: bool,
          config: &VMConfigVersion4, 
          character: &String,

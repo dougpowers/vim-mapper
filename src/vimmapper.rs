@@ -15,7 +15,7 @@
 use druid::kurbo::{Line, TranslateScale};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
-use vm_force_graph::{ForceGraph, NodeData, EdgeData, Node};
+use vm_force_graph::{ForceGraph, NodeData, EdgeData, Node, DefaultNodeIdx};
 use druid::widget::prelude::*;
 use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
 use regex::Regex;
@@ -117,6 +117,9 @@ pub(crate) struct VimMapper {
     pub(crate) animation_timer_token: Option<TimerToken>,
 
     pub(crate) last_traverse_angle: f64,
+
+    pub(crate) enabled_layouts: HashMap<DefaultNodeIdx, PietTextLayout>,
+    pub(crate) disabled_layouts: HashMap<DefaultNodeIdx, PietTextLayout>
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -181,6 +184,8 @@ impl Default for VimMapper {
             node_render_mode: NodeRenderMode::AllEnabled,
             animation_timer_token: None,
             last_traverse_angle: TAU-FRAC_PI_2,
+            enabled_layouts: HashMap::new(),
+            disabled_layouts: HashMap::new()
         };
         mapper.nodes.insert(0, root_node);
         mapper
@@ -650,9 +655,11 @@ impl VimMapper {
 
     pub fn invalidate_node_layouts(&mut self) {
         self.nodes.iter_mut().for_each(|(_, node)| {
-            node.enabled_layout = None;
-            node.disabled_layout = None;
-            node.node_rect = None;
+            self.enabled_layouts.remove(&node.fg_index.unwrap());
+            self.disabled_layouts.remove(&node.fg_index.unwrap());
+            // node.enabled_layout = None;
+            // node.disabled_layout = None;
+            node.node_rect = Rect::new(0.,0.,0.,0.);
         });
     }
 
@@ -766,7 +773,8 @@ impl VimMapper {
             let node = item.1;
             let node_pos = &self.get_node_pos(node.index).clone();
             // let size = node.container.layout.as_ref().unwrap().size();
-            let size = node.enabled_layout.as_ref().unwrap().size();
+            // let size = node.enabled_layout.as_ref().unwrap().size();
+            let size = self.enabled_layouts[&node.fg_index.unwrap()].size();
             let mut rect = size.to_rect();
             let border = DEFAULT_BORDER_WIDTH*self.scale.as_tuple().1;
             rect = rect.inflate(border*2.0,border*2.0);
@@ -925,9 +933,11 @@ impl VimMapper {
 
     pub fn scroll_node_into_view(&mut self, idx: u16) {
         if let Some(node) = self.nodes.get(&idx) {
-            if let Some(rect) = node.node_rect {
-                self.scroll_rect_into_view(rect);
+            // if let Some(rect) = node.node_rect {
+            if !node.node_rect.is_empty() {
+                self.scroll_rect_into_view(node.node_rect);
             }
+            // }
         }
     }
 
@@ -1338,38 +1348,62 @@ impl<'a> Widget<()> for VimMapper {
 
         self.graph.visit_nodes(|fg_node| {
             let node = self.nodes.get_mut(&fg_node.data.user_data).unwrap();
-            match node.enabled_layout {
-                Some(_) => (),
-                None => {
-                    if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
-                        ctx.text(), node.label.clone(), BoxConstraints::new(
-                            Size::new(0., 0.),
-                            Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
-                        ),
-                        &self.config.get_color(VMColor::LabelTextColor).ok().expect("Couldn't find label text color in config."),
-                    ) {
-                        node.enabled_layout = Some(layout.clone());
-                    } else {
-                        panic!("Could not build an appropriate sized enabled label for node {:?}", node);
-                    }
-                }
+            if let None = self.enabled_layouts.get(&fg_node.index()) {
+                if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
+                    ctx.text(), node.label.clone(), BoxConstraints::new(
+                        Size::new(0., 0.),
+                        Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
+                    ),
+                    &self.config.get_color(VMColor::LabelTextColor).ok().expect("Couldn't find label text color in config."),
+                ) {
+                    // node.enabled_layout = Some(layout.clone());
+                    self.enabled_layouts.insert(fg_node.index(), layout.clone());
+                } 
             }
-            match node.disabled_layout {
-                Some(_) => (),
-                None => {
-                    if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
-                        ctx.text(), node.label.clone(), BoxConstraints::new(
-                            Size::new(0., 0.),
-                            Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
-                        ),
+            if let None = self.disabled_layouts.get(&fg_node.index()) {
+                if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
+                    ctx.text(), node.label.clone(), BoxConstraints::new(
+                        Size::new(0., 0.),
+                        Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
+                    ),
                         &self.config.get_color(VMColor::DisabledLabelTextColor).ok().expect("Couldn't find disabled label text color in config."),
-                    ) {
-                        node.disabled_layout = Some(layout.clone());
-                    } else {
-                        panic!("Could not build an appropriate sized disabled label for node {:?}", node);
-                    }
-                }
+                ) {
+                    // node.enabled_layout = Some(layout.clone());
+                    self.disabled_layouts.insert(fg_node.index(), layout.clone());
+                } 
             }
+            // match node.enabled_layout {
+            //     Some(_) => (),
+            //     None => {
+            //         if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
+            //             ctx.text(), node.label.clone(), BoxConstraints::new(
+            //                 Size::new(0., 0.),
+            //                 Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
+            //             ),
+            //             &self.config.get_color(VMColor::LabelTextColor).ok().expect("Couldn't find label text color in config."),
+            //         ) {
+            //             node.enabled_layout = Some(layout.clone());
+            //         } else {
+            //             panic!("Could not build an appropriate sized enabled label for node {:?}", node);
+            //         }
+            //     }
+            // }
+            // match node.disabled_layout {
+            //     Some(_) => (),
+            //     None => {
+            //         if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
+            //             ctx.text(), node.label.clone(), BoxConstraints::new(
+            //                 Size::new(0., 0.),
+            //                 Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
+            //             ),
+            //             &self.config.get_color(VMColor::DisabledLabelTextColor).ok().expect("Couldn't find disabled label text color in config."),
+            //         ) {
+            //             node.disabled_layout = Some(layout.clone());
+            //         } else {
+            //             panic!("Could not build an appropriate sized disabled label for node {:?}", node);
+            //         }
+            //     }
+            // }
         });
 
         //Layout editor
@@ -1377,7 +1411,8 @@ impl<'a> Widget<()> for VimMapper {
         self.node_editor.container.layout(ctx, &ne_bc, &self.node_editor.title_text, _env);
         if let Some(idx) = self.get_active_node_idx() {
             let node = self.nodes.get(&idx).unwrap();
-            let size = node.enabled_layout.as_ref().unwrap().size().clone();
+            // let size = node.enabled_layout.as_ref().unwrap().size().clone();
+            let size = self.enabled_layouts[&node.fg_index.unwrap()].size();
             let node_pos = self.get_node_pos(node.index);
             let bottom_left = Point::new(node_pos.x-(size.width/2.), node_pos.y+(size.height/2.)+DEFAULT_BORDER_WIDTH);
             // self.node_editor.container.set_origin(ctx, &self.node_editor.title_text, _env, self.translate*self.scale*bottom_left);
@@ -1450,7 +1485,9 @@ impl<'a> Widget<()> for VimMapper {
                     node.paint_node(
                         ctx, 
                         0,
+                        &self.graph,
                         enabled,
+                        if enabled {&self.enabled_layouts[&node.fg_index.unwrap()]} else {&self.disabled_layouts[&node.fg_index.unwrap()]},
                         &self.config, 
                         target_node, 
                         node_pos,
@@ -1479,10 +1516,13 @@ impl<'a> Widget<()> for VimMapper {
                 }
             };
             let active_node_pos = self.get_node_pos(active_idx);
-            self.nodes.get_mut(&active_idx).unwrap().paint_node(
+            let node =self.nodes.get_mut(&active_idx).unwrap();
+            node.paint_node(
                         ctx, 
                         0,
+                        &self.graph,
                         enabled,
+                        if enabled {&self.enabled_layouts[&node.fg_index.unwrap()]} else {&self.disabled_layouts[&node.fg_index.unwrap()]},
                         &self.config, 
                         target_node, 
                         active_node_pos,
@@ -1508,10 +1548,13 @@ impl<'a> Widget<()> for VimMapper {
                 }
             };
             let target_node_pos = self.get_node_pos(target_idx);
-            self.nodes.get_mut(&target_idx).unwrap().paint_node(
+            let node = self.nodes.get_mut(&target_idx).unwrap();
+            node.paint_node(
                         ctx, 
                         0,
+                        &self.graph,
                         enabled,
+                        if enabled {&self.enabled_layouts[&node.fg_index.unwrap()]} else {&self.disabled_layouts[&node.fg_index.unwrap()]},
                         &self.config, 
                         target_node, 
                         target_node_pos,
