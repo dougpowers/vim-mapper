@@ -195,6 +195,7 @@ pub enum VMColor {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct VMConfigVersion4 {
     pub file_version: String,
+    pub menu_shown: Option<bool>,
     pub color_scheme: ColorScheme,
     dark_palette: HashMap<VMColor, (u8,u8,u8,u8)>,
     light_palette: HashMap<VMColor, (u8,u8,u8,u8)>,
@@ -337,6 +338,7 @@ impl Default for VMConfigVersion4 {
         dark_palette.insert(DisabledButtonDark, (40,40,40,255));
         VMConfigVersion4 {
             file_version: String::from(CURRENT_CONFIG_FILE_VERSION.to_string()),
+            menu_shown: Some(true),
             color_scheme: ColorScheme::LIGHT,
             light_palette,
             dark_palette,

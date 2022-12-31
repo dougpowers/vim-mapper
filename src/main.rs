@@ -209,6 +209,11 @@ impl VMCanvas {
                 }
                 Action::ToggleMenuVisible => {
                     data.menu_visible = !data.menu_visible;
+                    self.config.menu_shown = Some(data.menu_visible);
+                    #[allow(unused_must_use)]
+                    {
+                        VMConfigSerde::save(&self.config);
+                    }
                     ctx.set_handled();
                     return Ok(());
                 }
@@ -721,6 +726,9 @@ impl Widget<AppState> for VMCanvas {
             }
             Event::WindowConnected => {
                 ctx.request_focus();
+                if let Some(menu_visible) = self.config.menu_shown {
+                    data.menu_visible = self.config.menu_shown.unwrap();
+                }
             }
             _ => {
                 if self.dialog_visible {

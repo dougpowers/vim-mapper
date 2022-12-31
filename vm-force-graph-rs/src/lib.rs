@@ -66,14 +66,14 @@
 //!
 //! ```
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 
 use petgraph::{
     stable_graph::{NodeIndex, StableUnGraph},
     visit::{EdgeRef, IntoEdgeReferences},
     algo::has_path_connecting,
 };
-use rayon::prelude::*;
+// use rayon::prelude::*;
 use serde::{Serialize, Deserialize};
 
 // use rayon::prelude::*;
@@ -387,6 +387,7 @@ fn attract_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameter
     (dx * strength, dy * strength)
 }
 
+#[allow(unused)]
 fn repel_nodes_coulomb<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters) -> (f64, f64) {
     let mut dx = n2.data.x - n1.data.x;
     let mut dy = n2.data.y - n1.data.y;
