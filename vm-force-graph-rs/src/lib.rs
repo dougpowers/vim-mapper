@@ -66,18 +66,24 @@
 //!
 //! ```
 
+use std::collections::{BTreeSet, HashSet};
+
 use petgraph::{
     stable_graph::{NodeIndex, StableUnGraph},
     visit::{EdgeRef, IntoEdgeReferences},
     algo::has_path_connecting,
 };
+use rayon::prelude::*;
+use serde::{Serialize, Deserialize};
 
-use std::collections::BTreeSet;
+// use rayon::prelude::*;
+
+// use std::collections::BTreeSet;
 
 pub type DefaultNodeIdx = NodeIndex<petgraph::stable_graph::DefaultIx>;
 
 /// Parameters to control the simulation of the force graph.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SimulationParameters {
     pub force_charge: f64,
     pub force_spring: f64,
@@ -101,7 +107,7 @@ impl Default for SimulationParameters {
 }
 
 /// Stores data associated with a node that can be modified by the user.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeData<UserNodeData = ()> {
     /// The horizontal position of the node.
     pub x: f64,
@@ -135,7 +141,7 @@ where
 }
 
 /// Stores data associated with an edge that can be modified by the user.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EdgeData<UserEdgeData = ()> {
     /// Arbitrary user data.
     ///
@@ -155,14 +161,14 @@ where
 }
 
 /// The main force graph structure.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ForceGraph<UserNodeData = (), UserEdgeData = ()> {
     pub parameters: SimulationParameters,
     graph: StableUnGraph<Node<UserNodeData>, EdgeData<UserEdgeData>>,
-    node_indices: BTreeSet<DefaultNodeIdx>,
+    node_indices: HashSet<DefaultNodeIdx>,
 }
 
-impl<UserNodeData, UserEdgeData> ForceGraph<UserNodeData, UserEdgeData> {
+impl<UserNodeData: std::marker::Sync + std::marker::Send, UserEdgeData: std::marker::Sync + std::marker::Send> ForceGraph<UserNodeData, UserEdgeData> {
     /// Constructs a new force graph.
     ///
     /// Use the following syntax to create a graph with default parameters:
@@ -174,7 +180,8 @@ impl<UserNodeData, UserEdgeData> ForceGraph<UserNodeData, UserEdgeData> {
         ForceGraph {
             parameters,
             graph: StableUnGraph::default(),
-            node_indices: Default::default(),
+            // node_indices: Default::default(),
+            node_indices: HashSet::new(),
         }
     }
 
@@ -233,11 +240,13 @@ impl<UserNodeData, UserEdgeData> ForceGraph<UserNodeData, UserEdgeData> {
     /// The number of seconds that have elapsed since the previous update must be calculated and
     /// provided by the user as `dt`. Returns the largest movement (x or y) that a node has undergone.
     pub fn update(&mut self, dt: f64) -> f64 {
+
         if self.graph.node_count() == 0 {
             return 0.;
         }
 
         let mut largest_movement = 0.;
+
         for (n1_idx_i, n1_idx) in self.node_indices.iter().enumerate() {
             let mut edges = self.graph.neighbors(*n1_idx).detach();
             let mut movement = 0.;
@@ -258,10 +267,12 @@ impl<UserNodeData, UserEdgeData> ForceGraph<UserNodeData, UserEdgeData> {
                 }
             }
 
+
             let n1 = &mut self.graph[*n1_idx];
             if !n1.data.is_anchor {
                 movement = n1.update(dt, &self.parameters);
             }
+
             if movement > largest_movement {
                 largest_movement = movement;
             }
@@ -300,7 +311,7 @@ impl<UserNodeData, UserEdgeData> ForceGraph<UserNodeData, UserEdgeData> {
 }
 
 /// References a node in the [ForceGraph]. Can not be constructed by the user.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node<UserNodeData = ()> {
     /// The node data provided by the user.
     pub data: NodeData<UserNodeData>,
@@ -376,7 +387,7 @@ fn attract_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameter
     (dx * strength, dy * strength)
 }
 
-fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters) -> (f64, f64) {
+fn repel_nodes_coulomb<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters) -> (f64, f64) {
     let mut dx = n2.data.x - n1.data.x;
     let mut dy = n2.data.y - n1.data.y;
 
@@ -393,6 +404,27 @@ fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters)
 
     let distance_sqrd = distance * distance;
     let strength = -parameters.force_charge * ((n1.data.mass * n2.data.mass) / distance_sqrd);
+    (dx * strength, dy * strength)
+}
+
+//Repel using a logistic function: c/(1+e^(10(x-k/2)/k)) where c=force, k=distance
+fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters) -> (f64, f64) {
+    let mut dx = n2.data.x - n1.data.x;
+    let mut dy = n2.data.y - n1.data.y;
+
+    let k = 250.;
+
+    let distance = if dx == 0.0 && dy == 0.0 {
+        1.0
+    } else {
+        (dx * dx + dy * dy).sqrt()
+    };
+
+    dx /= distance;
+    dy /= distance;
+
+    // distance -= parameters.min_attract_distance / 2.;
+    let strength = -parameters.force_charge / (1.+f64::exp((10.*(distance-(k/2.)))/k));
     (dx * strength, dy * strength)
 }
 

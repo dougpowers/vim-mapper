@@ -256,7 +256,7 @@ impl VMNode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct VMEdge {
     pub label: Option<String>,
     pub from: u16,

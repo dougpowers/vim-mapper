@@ -33,6 +33,7 @@ use crate::{vmconfig::VMConfigVersion4, vimmapper::VimMapper};
 #[derive(Serialize, Deserialize)]
 pub struct VMSaveVersion4 {
     file_version: String, 
+    graph: ForceGraph<u16, u16>,
     nodes: HashMap<u16, BareNodeVersion4>,
     edges: HashMap<u16, BareEdgeVersion4>,
     node_idx_count: u16,
@@ -73,10 +74,65 @@ pub struct VMSaveNoVersion {
     offset_y: f64,
 }
 
-impl VMSaveNoVersion {
-    fn convert_to_current(&mut self) -> VMSaveVersion4 {
+impl Into<VMSaveVersion4> for VMSaveNoVersion {
+    fn into(self) -> VMSaveVersion4 {
+        let mut graph: ForceGraph<u16, u16> = ForceGraph::new(DEFAULT_SIMULATION_PARAMTERS);
+        let mut nodes: HashMap<u16, VMNode> = HashMap::with_capacity(50);
+        let mut edges: HashMap<u16, VMEdge> = HashMap::with_capacity(100);
+        for (_k ,v) in &self.nodes {
+            let fg_index: Option<DefaultNodeIdx>;
+            if v.index == 0 {
+                fg_index = Some(graph.add_node(NodeData {
+                    is_anchor: true,
+                    x: v.pos.0,
+                    y: v.pos.1,
+                    mass: v.mass,
+                    user_data: {
+                        0
+                    },
+                    ..Default::default()
+                }));
+            } else {
+                fg_index = Some(graph.add_node(NodeData {
+                    is_anchor: v.anchored,
+                    x: v.pos.0,
+                    y: v.pos.1,
+                    mass: v.mass,
+                    user_data: {
+                        v.index
+                    },
+                    ..Default::default()
+                }));
+            }
+            nodes.insert(v.index, VMNode {
+                label: v.label.clone(), 
+                // edges: v.edges, 
+                index: v.index, 
+                fg_index: fg_index, 
+                // pos: Vec2::new(v.pos.0, v.pos.1), 
+                // container: VMNodeLayoutContainer::new(v.index), 
+                mark: v.mark.clone(),
+                anchored: v.anchored,
+                mass: v.mass,
+                ..Default::default()
+            });
+        }
+        for (_k,v) in &self.edges {
+            graph.add_edge(
+                nodes.get(&v.from).unwrap().fg_index.unwrap(), 
+                nodes.get(&v.to).unwrap().fg_index.unwrap(), 
+                EdgeData { user_data: v.index });
+            edges.insert(v.index, VMEdge { 
+                label: None, 
+                from: v.from, 
+                to: v.to, 
+                index: v.index, 
+                });
+        }
+        tracing::debug!("coercing VMSaveNoVerion to VMSaveVersion4: {:?}", graph);
         VMSaveVersion4 {
             file_version: CURRENT_SAVE_FILE_VERSION.to_string(),
+            graph,
             nodes: self.nodes.clone(),
             edges: self.edges.clone(),
             node_idx_count: self.node_idx_count,
@@ -212,6 +268,7 @@ impl VMSaveSerde {
         });
         let save = VMSaveVersion4 {
             file_version: CURRENT_SAVE_FILE_VERSION.to_string(),
+            graph: vm.graph.clone(),
             nodes: nodes,
             edges: edges,
             node_idx_count: vm.get_node_idx_count(),
@@ -229,8 +286,8 @@ impl VMSaveSerde {
             if let Ok(path) = Path::new(&path.clone()).canonicalize() {
                 if let Ok(save) = serde_json::from_str::<VMSaveVersion4>(string.as_str()) {
                     return Ok((save, path));
-                } else if let Ok(mut save) = serde_json::from_str::<VMSaveNoVersion>(string.as_str()) {
-                    return Ok((save.convert_to_current(), path));
+                } else if let Ok(save) = serde_json::from_str::<VMSaveNoVersion>(string.as_str()) {
+                    return Ok((save.into(), path));
                 } else {
                     return Err(String::from("Could not serialize from save."));
                 }

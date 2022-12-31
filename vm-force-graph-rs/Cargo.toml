@@ -8,4 +8,6 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
+serde = "1.0"
+rayon = "^1.6"
 petgraph = { version = "0.6.2", features = ["serde-1"] }
