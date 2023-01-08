@@ -46,7 +46,7 @@ pub(crate) struct VimMapper {
     pub(crate) nodes: HashMap<u32, VMNode>,
     //The global map of edges. All references to edges use this u32 key to avoid holding references
     // in structs.
-    pub(crate) edges: HashMap<u32, VMEdge>,
+    // pub(crate) edges: HashMap<u32, VMEdge>,
     //The global index count that provides new nodes with a unique u32 key.
     pub(crate) node_idx_count: u32,
     //The global index count that provides new edges with a unique u32 key.
@@ -156,7 +156,7 @@ impl Default for VimMapper {
             graph: graph, 
             animating: true,
             nodes: HashMap::with_capacity(50),
-            edges: HashMap::with_capacity(100),
+            // edges: HashMap::with_capacity(100),
             //Account for the already-added root node
             node_idx_count: 1,
             edge_idx_count: 0,
@@ -223,7 +223,7 @@ impl VimMapper {
             graph: graph, 
             animating: true,
             nodes: HashMap::with_capacity(50),
-            edges: HashMap::with_capacity(100),
+            // edges: HashMap::with_capacity(100),
             //Account for the already-added root node
             node_idx_count: 1,
             edge_idx_count: 0,
@@ -513,7 +513,7 @@ impl VimMapper {
                 }));
                 self.graph.add_edge(from_node.fg_index.unwrap(), new_node.fg_index.unwrap(), EdgeData { user_data: new_edge.index }); 
                 self.nodes.insert(new_node.index, new_node);
-                self.edges.insert(new_edge.index, new_edge);
+                // self.edges.insert(new_edge.index, new_edge);
             }
             _ => {
                 panic!("Tried to add to a non-existent node")
@@ -557,7 +557,7 @@ impl VimMapper {
                     let edge = self.graph.get_graph().edges(node.fg_index.unwrap()).clone().next().unwrap().weight().user_data;
                     let remainder = self.graph.get_graph()[self.graph.get_graph().neighbors(node.fg_index.unwrap()).next().unwrap()].data.user_data;
                     self.graph.remove_node(node.fg_index.unwrap());
-                    self.edges.remove(&edge);
+                    // self.edges.remove(&edge);
                     self.nodes.remove(&idx);
                     self.animating = true;
                     return Ok(remainder);
