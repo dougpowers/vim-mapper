@@ -266,13 +266,13 @@ impl VimMapper {
         return &mut self.nodes;
     }
 
-    pub fn get_edges(&self) -> &HashMap<u32, VMEdge> {
-        return &self.edges;
-    }
+    // pub fn get_edges(&self) -> &HashMap<u32, VMEdge> {
+    //     return &self.edges;
+    // }
 
-    pub fn get_edges_mut(&mut self) -> &HashMap<u32, VMEdge> {
-        return &mut self.edges;
-    }
+    // pub fn get_edges_mut(&mut self) -> &HashMap<u32, VMEdge> {
+    //     return &mut self.edges;
+    // }
 
     pub fn get_offset_x(&self) -> f64 {
         return self.offset_x;
@@ -541,9 +541,17 @@ impl VimMapper {
             return Err("Cannot delete root node!".to_string());
         }
         if let Some(node) = self.nodes.get(&idx) {
+            let removal_list = self.graph.get_node_removal_tree(node.fg_index.unwrap(), self.nodes.get(&0).unwrap().fg_index.unwrap());
             let edge_count = self.graph.get_graph().edges(node.fg_index.unwrap()).count();
             if edge_count > 1 {
-                return Err("Node is not a leaf".to_string());
+                for idx in removal_list {
+                    // self.nodes.remove(&0);
+                    self.nodes.remove(&self.graph.get_graph()[idx].data.user_data);
+                    self.graph.remove_node(idx);
+                    self.animating = true;
+                }
+                // return Err("Node is not a leaf".to_string());
+                return Ok(0)
             } else if edge_count == 1 {
                 if !self.graph.is_sole_anchor_in_component(node.fg_index.unwrap()) {
                     let edge = self.graph.get_graph().edges(node.fg_index.unwrap()).clone().next().unwrap().weight().user_data;
@@ -568,18 +576,17 @@ impl VimMapper {
     }
 
     //Given any two node indices, return the edge that connects the two
-    #[allow(dead_code)]
-    pub fn get_edge(&self, idx_1: u32, idx_2: u32) -> Option<u32> {
-        let mut return_edge: Option<u32> = None;
-        self.edges.iter().for_each(|(idx, edge)| {
-            if edge.from == idx_1 && edge.to == idx_2 {
-                return_edge = Some(*idx); 
-            } else if edge.from == idx_2 && edge.to == idx_1 {
-                return_edge = Some(*idx);
-            }
-        });
-        return return_edge;
-    }
+    // pub fn get_edge(&self, idx_1: u32, idx_2: u32) -> Option<u32> {
+    //     let mut return_edge: Option<u32> = None;
+    //     self.edges.iter().for_each(|(idx, edge)| {
+    //         if edge.from == idx_1 && edge.to == idx_2 {
+    //             return_edge = Some(*idx); 
+    //         } else if edge.from == idx_2 && edge.to == idx_1 {
+    //             return_edge = Some(*idx);
+    //         }
+    //     });
+    //     return return_edge;
+    // }
 
     //Iterate through the node HashMap to find the active node. Only one node can be marked as active
     // at any time. Multiple active nodes is an illegal state. No active nodes is a possible (but unlikely)
@@ -608,10 +615,11 @@ impl VimMapper {
             let angle = Vec2::new(target_node_pos.x-node_pos.x, target_node_pos.y-node_pos.y).atan2();
             self.last_traverse_angle = angle;
         }
-        // if self.last_traverse_angle < 0. {self.last_traverse_angle += TAU;}
+        let fg_root = self.nodes.get(&0).unwrap().fg_index.unwrap();
         self.nodes.iter_mut().for_each(|item| {
             if item.1.index == idx {
                 item.1.is_active = true;
+                self.graph.get_node_removal_tree(item.1.fg_index.unwrap(), fg_root);
             } else {
                 item.1.is_active = false;
             }
@@ -730,10 +738,12 @@ impl VimMapper {
                 if !self.graph.is_sole_anchor_in_component(node.fg_index.unwrap()) {
                     self.graph.get_graph_mut()[node.fg_index.unwrap()].toggle_anchor();
                     node.anchored = self.graph.get_graph()[node.fg_index.unwrap()].data.is_anchor;
+                    self.animating = true;
                 }
             } else {
                 self.graph.get_graph_mut()[node.fg_index.unwrap()].toggle_anchor();
                 node.anchored = self.graph.get_graph()[node.fg_index.unwrap()].data.is_anchor;
+                self.animating = true;
             }
         }
     }
@@ -857,18 +867,17 @@ impl VimMapper {
     }
 
     //Given an edge index, determine which, if any, of the connected nodes is not the active one.
-    #[allow(dead_code)]
-    pub fn get_non_active_node_from_edge(&self, edge_idx: u32) -> Option<u32> {
-        let from = self.edges.get(&edge_idx).unwrap().from;
-        let to = self.edges.get(&edge_idx).unwrap().to;
-        if from == self.get_active_node_idx().unwrap() {
-            return Some(self.edges.get(&edge_idx).unwrap().to);
-        } else if to == self.get_active_node_idx().unwrap() {
-            return Some(self.edges.get(&edge_idx).unwrap().from);
-        } else {
-            None
-        }
-    }
+    // pub fn get_non_active_node_from_edge(&self, edge_idx: u32) -> Option<u32> {
+    //     let from = self.edges.get(&edge_idx).unwrap().from;
+    //     let to = self.edges.get(&edge_idx).unwrap().to;
+    //     if from == self.get_active_node_idx().unwrap() {
+    //         return Some(self.edges.get(&edge_idx).unwrap().to);
+    //     } else if to == self.get_active_node_idx().unwrap() {
+    //         return Some(self.edges.get(&edge_idx).unwrap().from);
+    //     } else {
+    //         None
+    //     }
+    // }
 
     //Loop over node label generation until it fits within a set of BoxConstraints. Wraps the contents
     // once and then, if it still doesn't fit, reduce the font until it does.
@@ -1588,7 +1597,8 @@ impl<'a> Widget<()> for VimMapper {
                         self.animating,
                         self.largest_node_movement,
                         self.nodes.get(&self.get_active_node_idx().unwrap()),
-                        self.graph.get_graph().node_weights().collect::<Vec<&Node<u32>>>(),
+                        // self.graph.get_graph().node_weights().collect::<Vec<&Node<u32>>>(),
+                        0
                 );
                 let layout = ctx.text().new_text_layout(text)
                     .font(FontFamily::SANS_SERIF, 12.)

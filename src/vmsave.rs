@@ -258,7 +258,8 @@ impl VMSaveSerde {
                 anchored: node.anchored,
             });
         });
-        vm.get_edges().iter().for_each(|(index, edge)| {
+        // vm.get_edges().iter().for_each(|(index, edge)| {
+        vm.edges.iter().for_each(|(index, edge)| {
             edges.insert(*index, BareEdgeVersion4 {
                 label: None,
                 from: edge.from,

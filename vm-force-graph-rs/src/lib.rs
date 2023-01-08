@@ -66,12 +66,12 @@
 //!
 //! ```
 
-use std::collections::HashSet;
+use std::collections::{HashSet};
 
 use petgraph::{
     stable_graph::{NodeIndex, StableUnGraph},
     visit::{EdgeRef, IntoEdgeReferences},
-    algo::has_path_connecting,
+    algo::{all_simple_paths},
 };
 // use rayon::prelude::*;
 use serde::{Serialize, Deserialize};
@@ -188,10 +188,6 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
         }
     }
 
-    pub fn is_connected_to(&self, idx: &DefaultNodeIdx, root_idx: &DefaultNodeIdx) -> bool {
-        has_path_connecting(&self.graph, *idx, *root_idx, None)
-    }
-
     /// Provides access to the raw graph structure if required.
     pub fn get_graph(&self) -> &StableUnGraph<Node<UserNodeData>, EdgeData<UserEdgeData>> {
         &self.graph
@@ -201,11 +197,47 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
         &mut self.graph
     }
 
+    /// Returns a Vec containing Vec<NodeIndex>s for each connected component in the graph.
     pub fn get_components(&self) -> Vec<Vec<NodeIndex>> {
         let tarjan = petgraph::algo::tarjan_scc(&self.graph);
         tarjan
     }
 
+    pub fn get_node_removal_tree(&self, from: NodeIndex, root: NodeIndex) -> HashSet<NodeIndex> {
+        println!("----------------");
+        let mut bfs = petgraph::visit::Bfs::new(&self.graph, from);
+        let mut removal_set: HashSet<NodeIndex> = HashSet::new();
+        if let Some(node) = bfs.next(&self.graph) {
+            removal_set.insert(node);
+        }
+        let mut root_index: Option<usize> = None;
+        for (i, k) in bfs.stack.iter().enumerate() {
+            if *k == root {
+                root_index = Some(i);
+            }
+        }
+        if let Some(idx) = root_index {
+            bfs.stack.remove(idx);
+        } else {
+            let mut index_and_length: (Option<usize>, usize) = (None, std::usize::MAX);
+            for (i, k) in bfs.stack.iter().enumerate() {
+                let path = all_simple_paths::<Vec<_>, _>(&self.graph, *k, root, 0, None).collect::<Vec<_>>();
+                if path[0].len() < index_and_length.1 {
+                    index_and_length = (Some(i), path[0].len());
+                }
+            }
+            if let Some(idx) = index_and_length.0 {
+                bfs.stack.remove(idx);
+            }
+        }
+        while let Some(idx) = bfs.next(&self.graph) {
+            removal_set.insert(idx);
+        }
+        println!("{:?}", removal_set);
+        removal_set
+    }
+
+    /// Returns whether or not the provided node index is the only anchored node in the component
     pub fn is_sole_anchor_in_component(&self, idx: DefaultNodeIdx) -> bool {
         let scc = self.get_components();
         if self.graph[idx].data.is_anchor {
@@ -446,7 +478,7 @@ fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters)
     let mut dy = n2.data.y - n1.data.y;
 
     // let k = 230.;
-    let k = n1.data.distance+n2.data.distance;
+    let k = (n1.data.distance+n2.data.distance)/10.*n1.data.mass;
 
     let distance = if dx == 0.0 && dy == 0.0 {
         1.0

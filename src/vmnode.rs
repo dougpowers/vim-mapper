@@ -158,7 +158,10 @@ impl VMNode {
             if debug_data {
                 ctx.transform(Affine::from(TranslateScale::new(Vec2::new(-10., -10.), 1.)));
                 let index_debug_decal = ctx.text()
-                .new_text_layout(self.index.to_string())
+                .new_text_layout(
+                    // self.index.to_string()
+                    format!("{} ({})", self.index, self.fg_index.unwrap().index())
+                )
                 .font(FontFamily::SANS_SERIF, 12.)
                 .default_attribute(
                     FontWeight::BOLD
