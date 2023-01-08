@@ -22,6 +22,7 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::f64::consts::*;
 
+use crate::vmdialog::VMDialogParams;
 use crate::vminput::*;
 use crate::vmnode::{VMEdge, VMNode, VMNodeEditor};
 
@@ -531,6 +532,13 @@ impl VimMapper {
         Some(new_node_idx)
     }
 
+    pub fn get_node_deletion_count(&self, idx: u32) -> usize {
+        self.graph.get_node_removal_tree(
+            self.nodes.get(&idx).unwrap().fg_index.unwrap(), 
+            self.nodes.get(&0).unwrap().fg_index.unwrap()
+        ).len()
+    }
+
     //Deletes a leaf node. Returns the global index of the node it was attached to. Currently only
     // nodes with a single edge (leaf nodes) can be deleted.
     // TODO: implement graph traversal to allow any node (save the root) to be deleted along with
@@ -554,10 +562,8 @@ impl VimMapper {
                 return Ok(0)
             } else if edge_count == 1 {
                 if !self.graph.is_sole_anchor_in_component(node.fg_index.unwrap()) {
-                    let edge = self.graph.get_graph().edges(node.fg_index.unwrap()).clone().next().unwrap().weight().user_data;
                     let remainder = self.graph.get_graph()[self.graph.get_graph().neighbors(node.fg_index.unwrap()).next().unwrap()].data.user_data;
                     self.graph.remove_node(node.fg_index.unwrap());
-                    // self.edges.remove(&edge);
                     self.nodes.remove(&idx);
                     self.animating = true;
                     return Ok(remainder);
@@ -995,25 +1001,79 @@ impl VimMapper {
                     }
                     Action::EditActiveNodeAppend => todo!(),
                     Action::EditActiveNodeInsert => todo!(),
+                    Action::DeleteNodeTree => {
+                        let idx = payload.index.unwrap();
+                        if let Ok(idx) = self.delete_node(idx) {
+                            self.set_node_as_active(idx);
+                            self.scroll_node_into_view(idx);
+                        }
+                        return Ok(());
+                    }
                     Action::DeleteActiveNode => {
                         if let Some(remove_idx) = self.get_active_node_idx() {
-                            if let Ok(idx) = self.delete_node(remove_idx) {
-                                self.set_node_as_active(idx);
-                                self.scroll_node_into_view(idx);
+                            let count = self.get_node_deletion_count(remove_idx);
+                            tracing::debug!("Attempting to delete {} nodes", count);
+                            if count <= 1 {
+                                if let Ok(idx) = self.delete_node(remove_idx) {
+                                    self.set_node_as_active(idx);
+                                    self.scroll_node_into_view(idx);
+                                }
+                            } else if remove_idx == 0 {
+                                
+                            } else {
+                                ctx.submit_command(Command::new(
+                                    EXECUTE_ACTION,
+                                    ActionPayload {
+                                        action: Action::CreateDialog,
+                                        dialog_params: Some(VMDialogParams {
+                                            buttons: vec![
+                                                (
+                                                    String::from("Cancel"),
+                                                    vec![
+                                                        ActionPayload {
+                                                            action: Action::NullAction,
+                                                            ..Default::default()
+                                                        }
+                                                    ],
+                                                    false
+                                                ),
+                                                (
+                                                    format!("Delete {} nodes", count),
+                                                    vec![
+                                                        ActionPayload {
+                                                            action: Action::DeleteNodeTree,
+                                                            index: Some(remove_idx),
+                                                            ..Default::default()
+                                                        }
+                                                    ],
+                                                    true
+                                                )
+                                            ],
+                                            prompts: vec![
+                                                (
+                                                    format!("Do you want to delete this node and {} descendants?", count-1),
+                                                    Some(VMColor::AlertColor)
+                                                )
+                                            ],
+                                        }),
+                                        ..Default::default()
+                                    },
+                                    Target::Global
+                                ));
                             }
                         }
                         return Ok(());
                     }
                     Action::DeleteTargetNode => {
-                        if let Some(remove_idx) = self.target_node_idx {
-                            let target = self.target_node_list[remove_idx];
-                            if let Ok(_) = self.delete_node(target) {
-                                if let Some(active_idx) = self.get_active_node_idx() {
-                                    self.build_target_list_from_neighbors(active_idx);
-                                    self.cycle_target_forward();
-                                }
-                            }
-                        }
+                        // if let Some(remove_idx) = self.target_node_idx {
+                        //     let target = self.target_node_list[remove_idx];
+                        //     if let Ok(_) = self.delete_node(target) {
+                        //         if let Some(active_idx) = self.get_active_node_idx() {
+                        //             self.build_target_list_from_neighbors(active_idx);
+                        //             self.cycle_target_forward();
+                        //         }
+                        //     }
+                        // }
                         return Ok(());
                     }
                     Action::IncreaseActiveNodeMass => {

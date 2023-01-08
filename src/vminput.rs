@@ -90,6 +90,7 @@ pub enum Action {
     EditActiveNodeSelectAll,
     EditActiveNodeAppend,
     EditActiveNodeInsert,
+    DeleteNodeTree,
     DeleteActiveNode,
     DeleteTargetNode,
     MarkActiveNode,
