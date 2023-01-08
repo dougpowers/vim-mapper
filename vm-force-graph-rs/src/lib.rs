@@ -204,7 +204,6 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
     }
 
     pub fn get_node_removal_tree(&self, from: NodeIndex, root: NodeIndex) -> HashSet<NodeIndex> {
-        println!("----------------");
         let mut bfs = petgraph::visit::Bfs::new(&self.graph, from);
         let mut removal_set: HashSet<NodeIndex> = HashSet::new();
         if let Some(node) = bfs.next(&self.graph) {
@@ -233,7 +232,6 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
         while let Some(idx) = bfs.next(&self.graph) {
             removal_set.insert(idx);
         }
-        println!("{:?}", removal_set);
         removal_set
     }
 
