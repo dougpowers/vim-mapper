@@ -728,7 +728,7 @@ impl Widget<AppState> for VMCanvas {
             Event::WindowConnected => {
                 ctx.request_focus();
                 if let Some(menu_visible) = self.config.menu_shown {
-                    data.menu_visible = self.config.menu_shown.unwrap();
+                    data.menu_visible = menu_visible;
                 }
             }
             _ => {

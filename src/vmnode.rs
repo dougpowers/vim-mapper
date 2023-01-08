@@ -176,7 +176,7 @@ impl VMNode {
     pub fn paint_node_badge(&mut self,
          ctx: &mut PaintCtx,
          _z_index: u32,
-         graph: &ForceGraph<u32, u32>,
+         _graph: &ForceGraph<u32, u32>,
          enabled: bool,
          config: &VMConfigVersion4, 
          character: &String,
