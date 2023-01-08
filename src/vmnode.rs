@@ -43,7 +43,7 @@ struct RectDef {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VMNode {
     pub label: String,
-    pub index: u16,
+    pub index: u32,
     pub fg_index: Option<DefaultNodeIdx>,
     // pub enabled_layout: Option<PietTextLayout>,
     // pub disabled_layout: Option<PietTextLayout>,
@@ -88,11 +88,11 @@ impl VMNode {
         &mut self, 
         ctx: &mut PaintCtx, 
         z_index: u32,
-        graph: &ForceGraph<u16, u16>,
+        graph: &ForceGraph<u32, u32>,
         enabled: bool,
         layout: &PietTextLayout,
         config: &VMConfigVersion4, 
-        target: Option<u16>,
+        target: Option<u32>,
         pos: Vec2,
         translate: &TranslateScale,
         scale: &TranslateScale,
@@ -176,7 +176,7 @@ impl VMNode {
     pub fn paint_node_badge(&mut self,
          ctx: &mut PaintCtx,
          _z_index: u32,
-         graph: &ForceGraph<u16, u16>,
+         graph: &ForceGraph<u32, u32>,
          enabled: bool,
          config: &VMConfigVersion4, 
          character: &String,
@@ -259,9 +259,9 @@ impl VMNode {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VMEdge {
     pub label: Option<String>,
-    pub from: u16,
-    pub to: u16,
-    pub index: u16,
+    pub from: u32,
+    pub to: u32,
+    pub index: u32,
 }
 
 pub struct VMNodeEditor {

@@ -33,11 +33,11 @@ use crate::{vmconfig::VMConfigVersion4, vimmapper::VimMapper};
 #[derive(Serialize, Deserialize)]
 pub struct VMSaveVersion4 {
     file_version: String, 
-    graph: ForceGraph<u16, u16>,
-    nodes: HashMap<u16, BareNodeVersion4>,
-    edges: HashMap<u16, BareEdgeVersion4>,
-    node_idx_count: u16,
-    edge_idx_count: u16,
+    graph: ForceGraph<u32, u32>,
+    nodes: HashMap<u32, BareNodeVersion4>,
+    edges: HashMap<u32, BareEdgeVersion4>,
+    node_idx_count: u32,
+    edge_idx_count: u32,
     translate: (f64, f64),
     scale: f64,
     offset_x: f64,
@@ -64,10 +64,10 @@ pub enum VMSaveState {
 
 #[derive(Serialize, Deserialize)]
 pub struct VMSaveNoVersion {
-    nodes: HashMap<u16, BareNodeVersion4>,
-    edges: HashMap<u16, BareEdgeVersion4>,
-    node_idx_count: u16,
-    edge_idx_count: u16,
+    nodes: HashMap<u32, BareNodeVersion4>,
+    edges: HashMap<u32, BareEdgeVersion4>,
+    node_idx_count: u32,
+    edge_idx_count: u32,
     translate: (f64, f64),
     scale: f64,
     offset_x: f64,
@@ -76,9 +76,9 @@ pub struct VMSaveNoVersion {
 
 impl Into<VMSaveVersion4> for VMSaveNoVersion {
     fn into(self) -> VMSaveVersion4 {
-        let mut graph: ForceGraph<u16, u16> = ForceGraph::new(DEFAULT_SIMULATION_PARAMTERS);
-        let mut nodes: HashMap<u16, VMNode> = HashMap::with_capacity(50);
-        let mut edges: HashMap<u16, VMEdge> = HashMap::with_capacity(100);
+        let mut graph: ForceGraph<u32, u32> = ForceGraph::new(DEFAULT_SIMULATION_PARAMTERS);
+        let mut nodes: HashMap<u32, VMNode> = HashMap::with_capacity(50);
+        let mut edges: HashMap<u32, VMEdge> = HashMap::with_capacity(100);
         for (_k ,v) in &self.nodes {
             let fg_index: Option<DefaultNodeIdx>;
             if v.index == 0 {
@@ -151,9 +151,9 @@ impl VMSaveSerde {
     //Instantiates a new VimMapper struct from a deserialized VMSave. The ForceGraph is created from scratch
     // and no fg_index values are guaranteed to persist from session to session.
     pub(crate) fn from_save(save: VMSaveVersion4, config: VMConfigVersion4) -> VimMapper {
-        let mut graph = <ForceGraph<u16, u16>>::new(DEFAULT_SIMULATION_PARAMTERS);
-        let mut nodes: HashMap<u16, VMNode> = HashMap::with_capacity(50);
-        let mut edges: HashMap<u16, VMEdge> = HashMap::with_capacity(100);
+        let mut graph = <ForceGraph<u32, u32>>::new(DEFAULT_SIMULATION_PARAMTERS);
+        let mut nodes: HashMap<u32, VMNode> = HashMap::with_capacity(50);
+        let mut edges: HashMap<u32, VMEdge> = HashMap::with_capacity(100);
         for (_k ,v) in save.nodes {
             let fg_index: Option<DefaultNodeIdx>;
             if v.index == 0 {
@@ -241,8 +241,8 @@ impl VMSaveSerde {
     //Instantiates a serializable VMSave from the VimMapper struct. All ForceGraph data is discarded and
     // must be recreated when the VMSave is deserialized and instantiated into a VimMapper struct
     pub(crate) fn to_save(vm: &VimMapper) -> VMSaveVersion4 {
-        let mut nodes: HashMap<u16, BareNodeVersion4> = HashMap::with_capacity(50);
-        let mut edges: HashMap<u16, BareEdgeVersion4> = HashMap::with_capacity(100);
+        let mut nodes: HashMap<u32, BareNodeVersion4> = HashMap::with_capacity(50);
+        let mut edges: HashMap<u32, BareEdgeVersion4> = HashMap::with_capacity(100);
         vm.get_nodes().iter().for_each(|(index, node)| {
             let pos = vm.get_node_pos(*index);
             nodes.insert(*index, BareNodeVersion4 {
@@ -321,8 +321,8 @@ impl VMSaveSerde {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct BareNodeVersion4 {
     label: String,
-    // edges: Vec<u16>,
-    index: u16,
+    // edges: Vec<u32>,
+    index: u32,
     pos: (f64, f64),
     is_active: bool,
     mark: Option<String>,
@@ -352,9 +352,9 @@ impl Default for BareNodeVersion4 {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct BareEdgeVersion4 {
     label: Option<String>,
-    from: u16,
-    to: u16,
-    index: u16,
+    from: u32,
+    to: u32,
+    index: u32,
 }
 
 impl Default for BareEdgeVersion4 {

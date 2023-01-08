@@ -42,7 +42,7 @@ pub enum KeybindMode {
 pub struct ActionPayload {
     pub action: Action,
     pub float: Option<f64>,
-    pub index: Option<u16>,
+    pub index: Option<u32>,
     pub string: Option<String>,
     pub mode: Option<KeybindMode>,
     pub save_state: Option<VMSaveState>,

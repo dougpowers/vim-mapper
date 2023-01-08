@@ -33,24 +33,24 @@ use crate::vmconfig::*;
 
 pub(crate) struct VimMapper {
     //The ForceGraph is contained as a background object, shadowed by the the nodes and edges HashMaps.
-    // The user_data structures provided are populated by the u16 index to the corresponding nodes and edges
+    // The user_data structures provided are populated by the u32 index to the corresponding nodes and edges
     // in the global HashMaps. This inefficiency will be rectified in future versions of Vim-Mapper by 
     // forking force_graph and implementing a trait-based interface that will bind directly to the 
     // global nodes.
-    pub(crate) graph: ForceGraph<u16, u16>,
+    pub(crate) graph: ForceGraph<u32, u32>,
     //A boolean that determines if, when an AnimFrame is received, whether another is requested.
     // ForceGraph and global HashMaps are only updated regularly when this value is true.
     pub(crate) animating: bool,
-    //The global map of nodes. All references to nodes use this u16 key to avoid holding references
+    //The global map of nodes. All references to nodes use this u32 key to avoid holding references
     // in structs.
-    pub(crate) nodes: HashMap<u16, VMNode>,
-    //The global map of edges. All references to edges use this u16 key to avoid holding references
+    pub(crate) nodes: HashMap<u32, VMNode>,
+    //The global map of edges. All references to edges use this u32 key to avoid holding references
     // in structs.
-    pub(crate) edges: HashMap<u16, VMEdge>,
-    //The global index count that provides new nodes with a unique u16 key.
-    pub(crate) node_idx_count: u16,
-    //The global index count that provides new edges with a unique u16 key.
-    pub(crate) edge_idx_count: u16,
+    pub(crate) edges: HashMap<u32, VMEdge>,
+    //The global index count that provides new nodes with a unique u32 key.
+    pub(crate) node_idx_count: u32,
+    //The global index count that provides new edges with a unique u32 key.
+    pub(crate) edge_idx_count: u32,
     //The translate portion of the canvas transform. This pans the canvas. Updated only during paints.
     pub(crate) translate: TranslateScale,
     //The scale portion of the canvas transform. This zooms the canvas. These two transforms are
@@ -72,10 +72,10 @@ pub(crate) struct VimMapper {
     //This bool allows Vim-Mapper to determine if the sheet or VMNodeEditor has focus. Notifications
     // and Commands are used to pass focus between the two.
     pub(crate) is_focused: bool,
-    // target_list: Vec<u16>,
+    // target_list: Vec<u32>,
     // target_idx: Option<usize>,
 
-    pub(crate) target_node_list: Vec<u16>,
+    pub(crate) target_node_list: Vec<u32>,
     pub(crate) target_node_idx: Option<usize>,
     //A struct that holds state and widgets for the modal node editor.
     pub(crate) node_editor: VMNodeEditor,
@@ -131,7 +131,7 @@ pub enum NodeRenderMode {
 impl Default for VimMapper {
     fn default() -> Self {
         let config = VMConfigVersion4::default();
-        let mut graph = <ForceGraph<u16, u16>>::new(
+        let mut graph = <ForceGraph<u32, u32>>::new(
             DEFAULT_SIMULATION_PARAMTERS
         );
         //The default node. Is always at index 0 and position (0.0, 0.0).
@@ -195,7 +195,7 @@ impl Default for VimMapper {
 #[allow(dead_code)]
 impl VimMapper {
     pub fn new(config: VMConfigVersion4) -> VimMapper {
-        let mut graph = <ForceGraph<u16, u16>>::new(
+        let mut graph = <ForceGraph<u32, u32>>::new(
             DEFAULT_SIMULATION_PARAMTERS
         );
         //The default node. Is always at index 0 and position (0.0, 0.0).
@@ -258,19 +258,19 @@ impl VimMapper {
         mapper
     }
 
-    pub fn get_nodes(&self) -> &HashMap<u16, VMNode> {
+    pub fn get_nodes(&self) -> &HashMap<u32, VMNode> {
         return &self.nodes;
     }
 
-    pub fn get_nodes_mut(&mut self) -> &HashMap<u16, VMNode> {
+    pub fn get_nodes_mut(&mut self) -> &HashMap<u32, VMNode> {
         return &mut self.nodes;
     }
 
-    pub fn get_edges(&self) -> &HashMap<u16, VMEdge> {
+    pub fn get_edges(&self) -> &HashMap<u32, VMEdge> {
         return &self.edges;
     }
 
-    pub fn get_edges_mut(&mut self) -> &HashMap<u16, VMEdge> {
+    pub fn get_edges_mut(&mut self) -> &HashMap<u32, VMEdge> {
         return &mut self.edges;
     }
 
@@ -299,7 +299,7 @@ impl VimMapper {
         self.node_render_mode.clone()
     }
 
-    pub fn get_node_pos(&self, idx: u16) -> Vec2 {
+    pub fn get_node_pos(&self, idx: u32) -> Vec2 {
         let node = self.nodes.get(&idx).expect("Tried to get position of a non-existent node");
         let fg_node = &self.graph.get_graph()[node.fg_index.unwrap()];
         return Vec2::new(fg_node.x(), fg_node.y());
@@ -313,21 +313,21 @@ impl VimMapper {
         return self.scale;
     }
 
-    pub fn get_node_idx_count(&self) -> u16 {
+    pub fn get_node_idx_count(&self) -> u32 {
         return self.node_idx_count;
     }
 
-    pub fn get_edge_idx_count(&self) -> u16 {
+    pub fn get_edge_idx_count(&self) -> u32 {
         return self.edge_idx_count;
     }
 
-    pub fn build_target_list_from_neighbors(&mut self, idx: u16) {
+    pub fn build_target_list_from_neighbors(&mut self, idx: u32) {
         self.target_node_list.clear();
         self.target_node_idx = None;
         let node = self.nodes.get(&idx).expect("Tried to build target list from non-existent node");
         let node_pos = self.get_node_pos(node.index);
-        let mut sort_vec: Vec<(u16, Vec2, f64)> = vec![];
-        let mut offsets: Vec<(usize, f64, u16)> = vec![];
+        let mut sort_vec: Vec<(u32, Vec2, f64)> = vec![];
+        let mut offsets: Vec<(usize, f64, u32)> = vec![];
         let target_angle = Vec2::from_angle(self.last_traverse_angle).normalize();
         for node_fg_idx in self.graph.get_graph().neighbors(
             node.fg_index.expect("Tried to get a non-existent fg_index from a node"))
@@ -390,7 +390,7 @@ impl VimMapper {
         }
     }
 
-    pub fn target_node_if_listed(&mut self, target: u16) -> Result<(), String> {
+    pub fn target_node_if_listed(&mut self, target: u32) -> Result<(), String> {
         for (list_idx, idx) in self.target_node_list.iter().enumerate() {
             if *idx == target {
                 self.target_node_idx = Some(list_idx);
@@ -430,7 +430,7 @@ impl VimMapper {
         }
     }
 
-    pub fn get_target_node_idx(&self) -> Option<u16> {
+    pub fn get_target_node_idx(&self) -> Option<u32> {
         if let Some(idx) = self.target_node_idx {
             return Some(self.target_node_list[idx]);
         } else {
@@ -438,7 +438,7 @@ impl VimMapper {
         }
     }
 
-    pub fn add_external_node(&mut self, node_label: String) -> Option<u16> {
+    pub fn add_external_node(&mut self, node_label: String) -> Option<u32> {
         self.animating = true;
         let new_node_idx = self.increment_node_idx();
         let mut new_node = VMNode {
@@ -460,7 +460,7 @@ impl VimMapper {
         Some(new_node_idx)
     }
 
-    pub fn add_node(&mut self, from_idx: u16, node_label: String, edge_label: Option<String>) -> Option<u16> {
+    pub fn add_node(&mut self, from_idx: u32, node_label: String, edge_label: Option<String>) -> Option<u32> {
         //Set animating to true to allow frozen sheets to adapt to new node
         self.animating = true;
         let new_node_idx = self.increment_node_idx();
@@ -535,7 +535,7 @@ impl VimMapper {
     // nodes with a single edge (leaf nodes) can be deleted.
     // TODO: implement graph traversal to allow any node (save the root) to be deleted along with
     // its children. Will require a visual prompt for confirmation.
-    pub fn delete_node(&mut self, idx: u16) -> Result<u16, String> {
+    pub fn delete_node(&mut self, idx: u32) -> Result<u32, String> {
         //Set animating to true to allow frozen sheets to adapt to new node
         if idx == 0 {
             return Err("Cannot delete root node!".to_string());
@@ -569,8 +569,8 @@ impl VimMapper {
 
     //Given any two node indices, return the edge that connects the two
     #[allow(dead_code)]
-    pub fn get_edge(&self, idx_1: u16, idx_2: u16) -> Option<u16> {
-        let mut return_edge: Option<u16> = None;
+    pub fn get_edge(&self, idx_1: u32, idx_2: u32) -> Option<u32> {
+        let mut return_edge: Option<u32> = None;
         self.edges.iter().for_each(|(idx, edge)| {
             if edge.from == idx_1 && edge.to == idx_2 {
                 return_edge = Some(*idx); 
@@ -584,7 +584,7 @@ impl VimMapper {
     //Iterate through the node HashMap to find the active node. Only one node can be marked as active
     // at any time. Multiple active nodes is an illegal state. No active nodes is a possible (but unlikely)
     // state.
-    pub fn get_active_node_idx(&self) -> Option<u16> {
+    pub fn get_active_node_idx(&self) -> Option<u32> {
         let active_node = self.nodes.iter().find(|item| {
             if item.1.is_active {
                 true
@@ -601,7 +601,7 @@ impl VimMapper {
 
     //Iterate through the node HashMap to set the active node. All nodes except the specified are marked
     // as inactive in the process.
-    pub fn set_node_as_active(&mut self, idx: u16) {
+    pub fn set_node_as_active(&mut self, idx: u32) {
         if let Some(node) = self.get_active_node_idx() {
             let node_pos = self.get_node_pos(node);
             let target_node_pos = self.get_node_pos(idx);
@@ -623,7 +623,7 @@ impl VimMapper {
     }
 
     //Iterate through the nodes HashMap until a node with the matching mark is found. Return if found.
-    pub fn get_node_by_mark(&mut self, char: String) -> Option<u16> {
+    pub fn get_node_by_mark(&mut self, char: String) -> Option<u32> {
         let marked_node = self.nodes.iter().find(|(_, node)| {
             if let Some(mark) = &node.mark {
                 if *mark == char {
@@ -643,14 +643,14 @@ impl VimMapper {
     }
 
     //Return the current node count and increment.
-    pub fn increment_node_idx(&mut self) -> u16 {
+    pub fn increment_node_idx(&mut self) -> u32 {
         let idx = self.node_idx_count.clone();
         self.node_idx_count += 1;
         idx
     }
 
     //Return the current edge count and increment.
-    pub fn increment_edge_idx(&mut self) -> u16 {
+    pub fn increment_edge_idx(&mut self) -> u32 {
         let idx = self.edge_idx_count.clone();
         self.edge_idx_count += 1;
         idx
@@ -666,7 +666,7 @@ impl VimMapper {
         });
     }
 
-    pub fn increase_node_mass(&mut self, idx: u16) {
+    pub fn increase_node_mass(&mut self, idx: u32) {
         if let Some(node) = self.nodes.get_mut(&idx) {
             if let Some(fg_idx) = node.fg_index {
                 self.graph.visit_nodes_mut(|fg_node| {
@@ -683,7 +683,7 @@ impl VimMapper {
         }
     }
 
-    pub fn decrease_node_mass(&mut self, idx: u16) {
+    pub fn decrease_node_mass(&mut self, idx: u32) {
         if let Some(node) = self.nodes.get_mut(&idx) {
             if let Some(fg_idx) = node.fg_index {
                 self.graph.visit_nodes_mut(|fg_node| {
@@ -706,7 +706,7 @@ impl VimMapper {
         }
     }
 
-    pub fn reset_node_mass(&mut self, idx: u16) {
+    pub fn reset_node_mass(&mut self, idx: u32) {
         if let Some(node) = self.nodes.get_mut(&idx) {
             if let Some(fg_idx) = node.fg_index {
                 self.graph.visit_nodes_mut(|fg_node| {
@@ -724,28 +724,7 @@ impl VimMapper {
         self.animating = true;
     }
 
-    pub fn toggle_node_anchor(&mut self, idx: u16) {
-        // //Only allow non-root nodes to unanchor themselves
-        // if idx != 0 {
-        //     let root_fg_idx = self.nodes.get(&0).unwrap().fg_index.unwrap();
-        //     if let Some(node) = self.nodes.get_mut(&idx) {
-        //         if let Some(fg_idx) = node.fg_index {
-        //             //Only nodes connected to the root are allowed to unanchor themselves
-        //             if self.graph.is_connected_to(&fg_idx, &root_fg_idx) {
-        //                 // self.graph.visit_nodes_mut(|fg_node| {
-        //                 //     if fg_node.index() == fg_idx {
-        //                 //         fg_node.toggle_anchor();
-        //                 //         node.anchored = fg_node.data.is_anchor;
-        //                 //         self.animating = true;
-        //                 //     }
-        //                 // });
-        //                 self.graph.get_graph_mut()[fg_idx].toggle_anchor();
-        //                 node.anchored = self.graph.get_graph()[fg_idx].data.is_anchor;
-        //             } 
-        //         }
-        //     }
-        // }
-        let scc = self.graph.get_components();
+    pub fn toggle_node_anchor(&mut self, idx: u32) {
         if let Some(node) = self.nodes.get_mut(&idx) {
             if node.anchored {
                 if !self.graph.is_sole_anchor_in_component(node.fg_index.unwrap()) {
@@ -759,7 +738,7 @@ impl VimMapper {
         }
     }
 
-    pub fn move_node(&mut self, idx: u16, vec: Vec2) {
+    pub fn move_node(&mut self, idx: u32, vec: Vec2) {
         //Allow only non-root nodes to be moved
         if idx != 0 {
             if let Some(node) = self.nodes.get_mut(&idx) {
@@ -782,10 +761,10 @@ impl VimMapper {
     }
 
     //Determine of a given Point (usually a click) intersects with a node. Return that node's index if so.
-    pub fn does_point_collide(&mut self, point: Point) -> Option<u16> {
+    pub fn does_point_collide(&mut self, point: Point) -> Option<u32> {
         self.last_collision_rects = Vec::new();
         self.last_click_point = Some(point);
-        let mut add_to_index: Option<u16> = None;
+        let mut add_to_index: Option<u32> = None;
         self.nodes.iter().for_each(|item| {
             let affine_scale = Affine::scale(self.scale.as_tuple().1);
             let affine_translate = Affine::translate(self.translate.as_tuple().0);
@@ -828,7 +807,7 @@ impl VimMapper {
     }
 
     //Opens the editor at a given node.
-    pub fn open_editor(&mut self, ctx: &mut EventCtx, idx: u16) {
+    pub fn open_editor(&mut self, ctx: &mut EventCtx, idx: u32) {
         self.set_node_as_active(idx);
         self.is_focused = false;
         self.node_editor.title_text = self.nodes.get(&idx).unwrap().label.clone();
@@ -879,7 +858,7 @@ impl VimMapper {
 
     //Given an edge index, determine which, if any, of the connected nodes is not the active one.
     #[allow(dead_code)]
-    pub fn get_non_active_node_from_edge(&self, edge_idx: u16) -> Option<u16> {
+    pub fn get_non_active_node_from_edge(&self, edge_idx: u32) -> Option<u32> {
         let from = self.edges.get(&edge_idx).unwrap().from;
         let to = self.edges.get(&edge_idx).unwrap().to;
         if from == self.get_active_node_idx().unwrap() {
@@ -950,7 +929,7 @@ impl VimMapper {
         }
     }
 
-    pub fn scroll_node_into_view(&mut self, idx: u16) {
+    pub fn scroll_node_into_view(&mut self, idx: u32) {
         if let Some(node) = self.nodes.get(&idx) {
             // if let Some(rect) = node.node_rect {
             if !node.node_rect.is_empty() {
@@ -1469,9 +1448,9 @@ impl<'a> Widget<()> for VimMapper {
         });
 
         //Determine target node for painting
-        let target_node: Option<u16> = self.get_target_node_idx();
+        let target_node: Option<u32> = self.get_target_node_idx();
 
-        // let mut active_node: Option<u16> = None;
+        // let mut active_node: Option<u32> = None;
         // if let Some(active_idx) = self.get_active_node_idx() {
         //     active_node = Some(active_idx);
         // }
@@ -1609,7 +1588,7 @@ impl<'a> Widget<()> for VimMapper {
                         self.animating,
                         self.largest_node_movement,
                         self.nodes.get(&self.get_active_node_idx().unwrap()),
-                        self.graph.get_graph().node_weights().collect::<Vec<&Node<u16>>>(),
+                        self.graph.get_graph().node_weights().collect::<Vec<&Node<u32>>>(),
                 );
                 let layout = ctx.text().new_text_layout(text)
                     .font(FontFamily::SANS_SERIF, 12.)
