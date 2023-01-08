@@ -117,6 +117,8 @@ pub struct NodeData<UserNodeData = ()> {
     ///
     /// Increasing the mass of a node increases the force with which it repels other nearby nodes.
     pub mass: f64,
+    /// Distance at which the repelling node force falls off.
+    pub distance: f64,
     /// Whether the node is fixed to its current position.
     pub is_anchor: bool,
     /// Arbitrary user data.
@@ -131,9 +133,10 @@ where
 {
     fn default() -> Self {
         NodeData {
-            x: 0.0,
-            y: 0.0,
-            mass: 10.0,
+            x: 0.,
+            y: 0.,
+            mass: 10.,
+            distance: 250.,
             is_anchor: false,
             user_data: Default::default(),
         }
@@ -168,7 +171,7 @@ pub struct ForceGraph<UserNodeData = (), UserEdgeData = ()> {
     node_indices: HashSet<DefaultNodeIdx>,
 }
 
-impl<UserNodeData: std::marker::Sync + std::marker::Send, UserEdgeData: std::marker::Sync + std::marker::Send> ForceGraph<UserNodeData, UserEdgeData> {
+impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, UserEdgeData: std::marker::Sync + std::marker::Send> ForceGraph<UserNodeData, UserEdgeData> {
     /// Constructs a new force graph.
     ///
     /// Use the following syntax to create a graph with default parameters:
@@ -196,6 +199,35 @@ impl<UserNodeData: std::marker::Sync + std::marker::Send, UserEdgeData: std::mar
 
     pub fn get_graph_mut(&mut self) -> &mut StableUnGraph<Node<UserNodeData>, EdgeData<UserEdgeData>> {
         &mut self.graph
+    }
+
+    pub fn get_components(&self) -> Vec<Vec<NodeIndex>> {
+        let tarjan = petgraph::algo::tarjan_scc(&self.graph);
+        tarjan
+    }
+
+    pub fn is_sole_anchor_in_component(&self, idx: DefaultNodeIdx) -> bool {
+        let scc = self.get_components();
+        if self.graph[idx].data.is_anchor {
+            for (_i, k) in scc.iter().enumerate() {
+                if k.contains(&idx) {
+                    let mut anchor_count = 0;
+                    for j in k {
+                        if self.graph[*j].data.is_anchor {
+                            anchor_count += 1;
+                        }
+                    }
+                    if anchor_count > 1 {
+                        return false;
+                    } else {
+                        return true;
+                    }
+                }
+            }
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /// Adds a new node and returns an index that can be used to reference the node.
@@ -322,7 +354,7 @@ pub struct Node<UserNodeData = ()> {
     ay: f64,
 }
 
-impl<UserNodeData> Node<UserNodeData> {
+impl<UserNodeData> Node<UserNodeData> where UserNodeData: std::fmt::Debug {
     /// The horizontal position of the node.
     pub fn x(&self) -> f64 {
         self.data.x
@@ -413,7 +445,8 @@ fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters)
     let mut dx = n2.data.x - n1.data.x;
     let mut dy = n2.data.y - n1.data.y;
 
-    let k = 250.;
+    // let k = 230.;
+    let k = n1.data.distance+n2.data.distance;
 
     let distance = if dx == 0.0 && dy == 0.0 {
         1.0

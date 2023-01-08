@@ -512,8 +512,6 @@ impl VimMapper {
                     ..Default::default()
                 }));
                 self.graph.add_edge(from_node.fg_index.unwrap(), new_node.fg_index.unwrap(), EdgeData { user_data: new_edge.index }); 
-                // new_node.edges.push(new_edge.index);
-                // from_node.edges.push(new_edge.index);
                 self.nodes.insert(new_node.index, new_node);
                 self.edges.insert(new_edge.index, new_edge);
             }
@@ -539,7 +537,6 @@ impl VimMapper {
     // its children. Will require a visual prompt for confirmation.
     pub fn delete_node(&mut self, idx: u16) -> Result<u16, String> {
         //Set animating to true to allow frozen sheets to adapt to new node
-        self.animating = true;
         if idx == 0 {
             return Err("Cannot delete root node!".to_string());
         }
@@ -547,16 +544,22 @@ impl VimMapper {
             let edge_count = self.graph.get_graph().edges(node.fg_index.unwrap()).count();
             if edge_count > 1 {
                 return Err("Node is not a leaf".to_string());
-            } else if edge_count > 0 {
-                let edge = self.graph.get_graph().edges(node.fg_index.unwrap()).clone().next().unwrap().weight().user_data;
-                let remainder = self.graph.get_graph()[self.graph.get_graph().neighbors(node.fg_index.unwrap()).next().unwrap()].data.user_data;
-                self.graph.remove_node(node.fg_index.unwrap());
-                self.edges.remove(&edge);
-                self.nodes.remove(&idx);
-                return Ok(remainder);
+            } else if edge_count == 1 {
+                if !self.graph.is_sole_anchor_in_component(node.fg_index.unwrap()) {
+                    let edge = self.graph.get_graph().edges(node.fg_index.unwrap()).clone().next().unwrap().weight().user_data;
+                    let remainder = self.graph.get_graph()[self.graph.get_graph().neighbors(node.fg_index.unwrap()).next().unwrap()].data.user_data;
+                    self.graph.remove_node(node.fg_index.unwrap());
+                    self.edges.remove(&edge);
+                    self.nodes.remove(&idx);
+                    self.animating = true;
+                    return Ok(remainder);
+                } else {
+                    return Err("Deletion would leave unanchored component!".to_string())
+                }
             } else {
                 self.graph.remove_node(node.fg_index.unwrap());
                 self.nodes.remove(&idx);
+                self.animating = true;
                 return Ok(0);
             }
         } else {
@@ -717,25 +720,41 @@ impl VimMapper {
         }
     }
 
+    pub fn restart_simulation(&mut self) {
+        self.animating = true;
+    }
+
     pub fn toggle_node_anchor(&mut self, idx: u16) {
-        //Only allow non-root nodes to unanchor themselves
-        if idx != 0 {
-            let root_fg_idx = self.nodes.get(&0).unwrap().fg_index.unwrap();
-            if let Some(node) = self.nodes.get_mut(&idx) {
-                if let Some(fg_idx) = node.fg_index {
-                    //Only nodes connected to the root are allowed to unanchor themselves
-                    if self.graph.is_connected_to(&fg_idx, &root_fg_idx) {
-                        // self.graph.visit_nodes_mut(|fg_node| {
-                        //     if fg_node.index() == fg_idx {
-                        //         fg_node.toggle_anchor();
-                        //         node.anchored = fg_node.data.is_anchor;
-                        //         self.animating = true;
-                        //     }
-                        // });
-                        self.graph.get_graph_mut()[fg_idx].toggle_anchor();
-                        node.anchored = self.graph.get_graph()[fg_idx].data.is_anchor;
-                    }
+        // //Only allow non-root nodes to unanchor themselves
+        // if idx != 0 {
+        //     let root_fg_idx = self.nodes.get(&0).unwrap().fg_index.unwrap();
+        //     if let Some(node) = self.nodes.get_mut(&idx) {
+        //         if let Some(fg_idx) = node.fg_index {
+        //             //Only nodes connected to the root are allowed to unanchor themselves
+        //             if self.graph.is_connected_to(&fg_idx, &root_fg_idx) {
+        //                 // self.graph.visit_nodes_mut(|fg_node| {
+        //                 //     if fg_node.index() == fg_idx {
+        //                 //         fg_node.toggle_anchor();
+        //                 //         node.anchored = fg_node.data.is_anchor;
+        //                 //         self.animating = true;
+        //                 //     }
+        //                 // });
+        //                 self.graph.get_graph_mut()[fg_idx].toggle_anchor();
+        //                 node.anchored = self.graph.get_graph()[fg_idx].data.is_anchor;
+        //             } 
+        //         }
+        //     }
+        // }
+        let scc = self.graph.get_components();
+        if let Some(node) = self.nodes.get_mut(&idx) {
+            if node.anchored {
+                if !self.graph.is_sole_anchor_in_component(node.fg_index.unwrap()) {
+                    self.graph.get_graph_mut()[node.fg_index.unwrap()].toggle_anchor();
+                    node.anchored = self.graph.get_graph()[node.fg_index.unwrap()].data.is_anchor;
                 }
+            } else {
+                self.graph.get_graph_mut()[node.fg_index.unwrap()].toggle_anchor();
+                node.anchored = self.graph.get_graph()[node.fg_index.unwrap()].data.is_anchor;
             }
         }
     }
@@ -979,16 +998,9 @@ impl VimMapper {
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                         if let Some(idx) = self.target_node_idx {
                             let node_idx = self.target_node_list[idx];
-                            // let node_pos = self.get_node_pos(self.get_active_node_idx().unwrap());
-                            // let target_node_pos = self.get_node_pos(node_idx);
-                            // let offset = target_node_pos-node_pos;
-                            // let rect = Affine::from(self.scale).transform_rect_bbox(self.nodes.get(&node_idx).unwrap().node_rect.unwrap()+offset);
                             self.scroll_node_into_view(node_idx);
-                            // self.scroll_rect_into_view(rect);
                             self.invalidate_node_layouts();
                             self.set_node_as_active(node_idx);
-                            // self.cycle_target_forward();
-                            // self.build_target_list_from_neighbors(node_idx);
                             ctx.set_handled();
                         }
                         return Ok(());
@@ -1346,7 +1358,7 @@ impl<'a> Widget<()> for VimMapper {
             self.translate = TranslateScale::new((vec.to_vec2()/2.0)+Vec2::new(self.offset_x, self.offset_y), 1.0);
         }
 
-        self.graph.visit_nodes(|fg_node| {
+        self.graph.visit_nodes_mut(|fg_node| {
             let node = self.nodes.get_mut(&fg_node.data.user_data).unwrap();
             if let None = self.enabled_layouts.get(&fg_node.index()) {
                 if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
@@ -1358,6 +1370,7 @@ impl<'a> Widget<()> for VimMapper {
                 ) {
                     // node.enabled_layout = Some(layout.clone());
                     self.enabled_layouts.insert(fg_node.index(), layout.clone());
+                    fg_node.data.distance = layout.size().width;
                 } 
             }
             if let None = self.disabled_layouts.get(&fg_node.index()) {

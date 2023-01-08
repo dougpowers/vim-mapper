@@ -678,6 +678,7 @@ impl Widget<AppState> for VMCanvas {
                     self.input_manager.set_keybind_mode(KeybindMode::Sheet);
                     inner.widget_mut().invalidate_node_layouts();
                     ctx.set_handled();
+                    inner.widget_mut().restart_simulation();
                     ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
                 }
             }
