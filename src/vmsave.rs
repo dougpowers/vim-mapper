@@ -24,7 +24,7 @@ use serde::{Serialize, Deserialize};
 use crate::constants::*;
 
 use crate::vimmapper::NodeRenderMode;
-use crate::vmnode::{VMNode, VMEdge, VMNodeEditor};
+use crate::vmnode::{VMNode, VMNodeEditor};
 use crate::{vmconfig::VMConfigVersion4, vimmapper::VimMapper};
 
 
@@ -37,7 +37,7 @@ pub struct VMSaveVersion4 {
     nodes: HashMap<u32, BareNodeVersion4>,
     // edges: HashMap<u32, BareEdgeVersion4>,
     node_idx_count: u32,
-    edge_idx_count: u32,
+    // edge_idx_count: u32,
     translate: (f64, f64),
     scale: f64,
     offset_x: f64,
@@ -78,7 +78,6 @@ impl Into<VMSaveVersion4> for VMSaveNoVersion {
     fn into(self) -> VMSaveVersion4 {
         let mut graph: ForceGraph<u32, u32> = ForceGraph::new(DEFAULT_SIMULATION_PARAMTERS);
         let mut nodes: HashMap<u32, VMNode> = HashMap::with_capacity(50);
-        let mut edges: HashMap<u32, VMEdge> = HashMap::with_capacity(100);
         for (_k ,v) in &self.nodes {
             let fg_index: Option<DefaultNodeIdx>;
             if v.index == 0 {
@@ -112,8 +111,8 @@ impl Into<VMSaveVersion4> for VMSaveNoVersion {
                 // pos: Vec2::new(v.pos.0, v.pos.1), 
                 // container: VMNodeLayoutContainer::new(v.index), 
                 mark: v.mark.clone(),
-                anchored: v.anchored,
-                mass: v.mass,
+                // anchored: v.anchored,
+                // mass: v.mass,
                 ..Default::default()
             });
         }
@@ -122,21 +121,21 @@ impl Into<VMSaveVersion4> for VMSaveNoVersion {
                 nodes.get(&v.from).unwrap().fg_index.unwrap(), 
                 nodes.get(&v.to).unwrap().fg_index.unwrap(), 
                 EdgeData { user_data: v.index });
-            edges.insert(v.index, VMEdge { 
-                label: None, 
-                from: v.from, 
-                to: v.to, 
-                index: v.index, 
-                });
+            // edges.insert(v.index, VMEdge { 
+            //     label: None, 
+            //     from: v.from, 
+            //     to: v.to, 
+            //     index: v.index, 
+            //     });
         }
-        tracing::debug!("coercing VMSaveNoVerion to VMSaveVersion4: {:?}", edges);
+        tracing::debug!("coercing VMSaveNoVerion to VMSaveVersion4");
         VMSaveVersion4 {
             file_version: CURRENT_SAVE_FILE_VERSION.to_string(),
             graph,
             nodes: self.nodes.clone(),
             // edges: self.edges.clone(),
             node_idx_count: self.node_idx_count,
-            edge_idx_count: self.edge_idx_count,
+            // edge_idx_count: self.edge_idx_count,
             translate: self.translate,
             scale: self.scale,
             offset_x: self.offset_x,
@@ -194,8 +193,8 @@ impl VMSaveSerde {
                 // pos: Vec2::new(v.pos.0, v.pos.1), 
                 // container: VMNodeLayoutContainer::new(v.index), 
                 mark: v.mark,
-                anchored: v.anchored,
-                mass: v.mass,
+                // anchored: v.anchored,
+                // mass: v.mass,
                 ..Default::default()
             });
         }
@@ -217,7 +216,7 @@ impl VMSaveSerde {
             nodes,
             // edges,
             node_idx_count: save.node_idx_count,
-            edge_idx_count: save.edge_idx_count,
+            // edge_idx_count: save.edge_idx_count,
             translate: TranslateScale::new(
                 Vec2::new(
                     save.translate.0, 
@@ -261,8 +260,9 @@ impl VMSaveSerde {
                 is_active: false,
                 targeted_internal_edge_idx: None,
                 mark: node.mark.clone(),
-                mass: node.mass,
-                anchored: node.anchored,
+                // mass: node.mass,
+                mass: vm.graph.get_graph()[node.fg_index.unwrap()].data.mass,
+                anchored: vm.graph.get_graph()[node.fg_index.unwrap()].data.is_anchor
             });
         });
         // vm.get_edges().iter().for_each(|(index, edge)| {
@@ -280,7 +280,7 @@ impl VMSaveSerde {
             nodes: nodes,
             // edges: edges,
             node_idx_count: vm.get_node_idx_count(),
-            edge_idx_count: vm.get_edge_idx_count(),
+            // edge_idx_count: vm.get_edge_idx_count(),
             translate: (vm.get_translate().as_tuple().0.x, vm.get_translate().as_tuple().0.y),
             scale: vm.get_scale().as_tuple().1,
             offset_x: vm.get_offset_x(),

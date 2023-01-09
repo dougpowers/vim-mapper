@@ -118,7 +118,7 @@ pub struct NodeData<UserNodeData = ()> {
     /// Increasing the mass of a node increases the force with which it repels other nearby nodes.
     pub mass: f64,
     /// Distance at which the repelling node force falls off.
-    pub distance: f64,
+    pub repel_distance: f64,
     /// Whether the node is fixed to its current position.
     pub is_anchor: bool,
     /// Arbitrary user data.
@@ -136,7 +136,7 @@ where
             x: 0.,
             y: 0.,
             mass: 10.,
-            distance: 250.,
+            repel_distance: 250.,
             is_anchor: false,
             user_data: Default::default(),
         }
@@ -203,25 +203,49 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
         tarjan
     }
 
-    pub fn get_node_removal_tree(&self, from: NodeIndex, root: NodeIndex) -> HashSet<NodeIndex> {
+    /// Returns Ok(disconnected_root) or Err(main_root) if the requested index is not disconnected
+    pub fn get_root_of_disconnected_component(&self, index: NodeIndex, main_root: NodeIndex) -> Result<NodeIndex, NodeIndex> {
+        let paths = all_simple_paths::<Vec<_>, _>(&self.graph, index, main_root, 0, None);
+        if paths.collect::<Vec<_>>().len() > 0 {
+            return Err(main_root);
+        } else {
+            let components = self.get_components();
+            for mut c in components {
+                if c.contains(&index) {
+                    return Ok(c.pop().unwrap());
+                }
+            }
+            return Err(main_root);
+        }
+    }
+
+    pub fn get_node_removal_tree(&mut self, from: NodeIndex, mut main_root: NodeIndex) -> HashSet<NodeIndex> {
         let mut bfs = petgraph::visit::Bfs::new(&self.graph, from);
         let mut removal_set: HashSet<NodeIndex> = HashSet::new();
         if let Some(node) = bfs.next(&self.graph) {
             removal_set.insert(node);
         }
+        if let Ok(new_root) = self.get_root_of_disconnected_component(from, main_root) {
+            main_root = new_root;
+            // self.graph[new_root].toggle_anchor();
+        }
         let mut root_index: Option<usize> = None;
         for (i, k) in bfs.stack.iter().enumerate() {
-            if *k == root {
+            if *k == main_root {
                 root_index = Some(i);
             }
         }
         if let Some(idx) = root_index {
-            bfs.stack.remove(idx);
+            // if main_root != from {
+                bfs.stack.remove(idx);
+            // }
         } else {
             let mut index_and_length: (Option<usize>, usize) = (None, std::usize::MAX);
             for (i, k) in bfs.stack.iter().enumerate() {
-                let path = all_simple_paths::<Vec<_>, _>(&self.graph, *k, root, 0, None).collect::<Vec<_>>();
-                if path[0].len() < index_and_length.1 {
+                let path = all_simple_paths::<Vec<_>, _>(&self.graph, *k, main_root, 0, None).collect::<Vec<_>>();
+                if path.len() == 0 {
+                    println!("{:?}", self.get_components());
+                } else if path[0].len() < index_and_length.1 {
                     index_and_length = (Some(i), path[0].len());
                 }
             }
@@ -443,8 +467,6 @@ fn attract_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameter
     dx /= distance;
     dy /= distance;
 
-    distance -= parameters.min_attract_distance;    
-
     let strength = parameters.force_spring * distance * 0.5;
     (dx * strength, dy * strength)
 }
@@ -476,7 +498,7 @@ fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters)
     let mut dy = n2.data.y - n1.data.y;
 
     // let k = 230.;
-    let k = (n1.data.distance+n2.data.distance)/10.*n1.data.mass;
+    let k = (n1.data.repel_distance/10.*n1.data.mass+n2.data.repel_distance/10.*n2.data.mass);
 
     let distance = if dx == 0.0 && dy == 0.0 {
         1.0
@@ -487,7 +509,6 @@ fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters)
     dx /= distance;
     dy /= distance;
 
-    // distance -= parameters.min_attract_distance / 2.;
     let strength = -parameters.force_charge / (1.+f64::exp((10.*(distance-(k/2.)))/k));
     (dx * strength, dy * strength)
 }

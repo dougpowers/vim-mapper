@@ -52,8 +52,8 @@ pub struct VMNode {
     //Cached rect of the node, transformed to screen coords. Used to scroll node into view.
     #[serde(with = "RectDef")]
     pub node_rect: Rect,
-    pub anchored: bool,
-    pub mass: f64,
+    // pub anchored: bool,
+    // pub mass: f64,
 }
 
 impl Default for VMNode {
@@ -68,8 +68,8 @@ impl Default for VMNode {
             is_active: false,
             mark: None,
             node_rect: Rect::new(0.,0.,0.,0.),
-            anchored: false,
-            mass: DEFAULT_NODE_MASS,
+            // anchored: false,
+            // mass: DEFAULT_NODE_MASS,
         };
         node
     }
@@ -144,13 +144,21 @@ impl VMNode {
                 self.paint_node_badge(ctx, z_index, graph, enabled, config, &char, BadgePosition::TopRight, &rect, &badge_border_color);
             }
 
-            if self.mass.clone() > DEFAULT_NODE_MASS {
+            // if self.mass.clone() > DEFAULT_NODE_MASS {
+            //     self.paint_node_badge(ctx, z_index, graph, enabled, config, &"+".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
+            // } else if self.mass.clone() < DEFAULT_NODE_MASS {
+            //     self.paint_node_badge(ctx, z_index, graph, enabled, config, &"-".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
+            // }
+            if graph.get_graph()[self.fg_index.unwrap()].data.mass > DEFAULT_NODE_MASS {
                 self.paint_node_badge(ctx, z_index, graph, enabled, config, &"+".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
-            } else if self.mass.clone() < DEFAULT_NODE_MASS {
+            } else if graph.get_graph()[self.fg_index.unwrap()].data.mass < DEFAULT_NODE_MASS {
                 self.paint_node_badge(ctx, z_index, graph, enabled, config, &"-".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
             }
 
-            if self.anchored {
+            // if self.anchored {
+            //     self.paint_node_badge(ctx, z_index, graph, enabled, config, &"@".to_string(), BadgePosition::BottomLeft, &rect, &badge_border_color)
+            // }
+            if graph.get_graph()[self.fg_index.unwrap()].data.is_anchor {
                 self.paint_node_badge(ctx, z_index, graph, enabled, config, &"@".to_string(), BadgePosition::BottomLeft, &rect, &badge_border_color)
             }
 
@@ -259,13 +267,13 @@ impl VMNode {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VMEdge {
-    pub label: Option<String>,
-    pub from: u32,
-    pub to: u32,
-    pub index: u32,
-}
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct VMEdge {
+//     pub label: Option<String>,
+//     pub from: u32,
+//     pub to: u32,
+//     pub index: u32,
+// }
 
 pub struct VMNodeEditor {
     pub container: WidgetPod<String, Container<String>>,

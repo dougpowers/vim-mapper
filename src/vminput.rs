@@ -90,6 +90,7 @@ pub enum Action {
     EditActiveNodeSelectAll,
     EditActiveNodeAppend,
     EditActiveNodeInsert,
+    SnipActiveNode,
     DeleteNodeTree,
     DeleteActiveNode,
     DeleteTargetNode,
@@ -331,6 +332,19 @@ impl Default for VMInputManager {
                     action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::DeleteActiveNode,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("x"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::SnipActiveNode,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
