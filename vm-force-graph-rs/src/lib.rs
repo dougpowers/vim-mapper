@@ -71,7 +71,7 @@ use std::collections::{HashSet};
 use petgraph::{
     stable_graph::{NodeIndex, StableUnGraph},
     visit::{EdgeRef, IntoEdgeReferences},
-    algo::{all_simple_paths},
+    algo::{all_simple_paths, TarjanScc},
 };
 // use rayon::prelude::*;
 use serde::{Serialize, Deserialize};
@@ -164,11 +164,26 @@ where
 }
 
 /// The main force graph structure.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ForceGraph<UserNodeData = (), UserEdgeData = ()> {
     pub parameters: SimulationParameters,
     graph: StableUnGraph<Node<UserNodeData>, EdgeData<UserEdgeData>>,
     node_indices: HashSet<DefaultNodeIdx>,
+    #[serde(skip)]
+    tarjan_scc: TarjanScc<NodeIndex>,
+}
+
+impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send + Clone, UserEdgeData: std::marker::Sync + std::marker::Send + Clone> Clone for ForceGraph<UserNodeData, UserEdgeData> {
+    fn clone(&self) -> Self {
+        let mut tarjan_scc = TarjanScc::new();
+        tarjan_scc.run(&self.graph, |_| {});
+        ForceGraph {
+            parameters: self.parameters.clone(),
+            graph: self.graph.clone(),
+            node_indices: self.node_indices.clone(),
+            tarjan_scc,
+        }
+    }
 }
 
 impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, UserEdgeData: std::marker::Sync + std::marker::Send> ForceGraph<UserNodeData, UserEdgeData> {
@@ -185,6 +200,7 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
             graph: StableUnGraph::default(),
             // node_indices: Default::default(),
             node_indices: HashSet::new(),
+            tarjan_scc: TarjanScc::new(),
         }
     }
 
@@ -203,46 +219,56 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
         tarjan
     }
 
-    /// Returns Ok(disconnected_root) or Err(main_root) if the requested index is not disconnected
-    pub fn get_root_of_disconnected_component(&self, index: NodeIndex, main_root: NodeIndex) -> Result<NodeIndex, NodeIndex> {
-        let paths = all_simple_paths::<Vec<_>, _>(&self.graph, index, main_root, 0, None);
-        if paths.collect::<Vec<_>>().len() > 0 {
-            return Err(main_root);
-        } else {
-            let components = self.get_components();
-            for mut c in components {
-                if c.contains(&index) {
-                    return Ok(c.pop().unwrap());
-                }
-            }
-            return Err(main_root);
-        }
+    pub fn get_node_component(&mut self, n1: NodeIndex) -> usize {
+        self.tarjan_scc = TarjanScc::new();
+        self.tarjan_scc.run(&self.graph, |_| {});
+        self.tarjan_scc.node_component_index(&self.graph, n1)
     }
 
-    pub fn get_node_removal_tree(&mut self, from: NodeIndex, mut main_root: NodeIndex) -> HashSet<NodeIndex> {
+    pub fn are_nodes_connected(&mut self, n1: NodeIndex, n2: NodeIndex) -> bool {
+        self.tarjan_scc = TarjanScc::new();
+        self.tarjan_scc.run(&self.graph, |_| {});
+        self.tarjan_scc.node_component_index(&self.graph, n1) == self.tarjan_scc.node_component_index(&self.graph, n2)
+    }
+
+    // /// Returns Ok(disconnected_root) or Err(main_root) if the requested index is not disconnected
+    // pub fn get_root_of_disconnected_component(&self, index: NodeIndex, main_root: NodeIndex) -> Result<NodeIndex, NodeIndex> {
+    //     let paths = all_simple_paths::<Vec<_>, _>(&self.graph, index, main_root, 0, None);
+    //     if paths.collect::<Vec<_>>().len() > 0 {
+    //         return Err(main_root);
+    //     } else {
+    //         let components = self.get_components();
+    //         for mut c in components {
+    //             if c.contains(&index) {
+    //                 return Ok(c.pop().unwrap());
+    //             }
+    //         }
+    //         return Err(main_root);
+    //     }
+    // }
+
+    pub fn get_node_removal_tree(&mut self, from: NodeIndex, root: NodeIndex) -> HashSet<NodeIndex> {
         let mut bfs = petgraph::visit::Bfs::new(&self.graph, from);
         let mut removal_set: HashSet<NodeIndex> = HashSet::new();
+        // Passed root is not in the same component as designated index, return an empty removal set
+        if !self.are_nodes_connected(from, root) {
+            return removal_set;
+        }
         if let Some(node) = bfs.next(&self.graph) {
             removal_set.insert(node);
         }
-        if let Ok(new_root) = self.get_root_of_disconnected_component(from, main_root) {
-            main_root = new_root;
-            // self.graph[new_root].toggle_anchor();
-        }
         let mut root_index: Option<usize> = None;
         for (i, k) in bfs.stack.iter().enumerate() {
-            if *k == main_root {
+            if *k == root {
                 root_index = Some(i);
             }
         }
         if let Some(idx) = root_index {
-            // if main_root != from {
-                bfs.stack.remove(idx);
-            // }
-        } else {
+            bfs.stack.remove(idx);
+        } else if self.get_node_component(root) == 0 {
             let mut index_and_length: (Option<usize>, usize) = (None, std::usize::MAX);
             for (i, k) in bfs.stack.iter().enumerate() {
-                let path = all_simple_paths::<Vec<_>, _>(&self.graph, *k, main_root, 0, None).collect::<Vec<_>>();
+                let path = all_simple_paths::<Vec<_>, _>(&self.graph, *k, root, 0, None).collect::<Vec<_>>();
                 if path.len() == 0 {
                     println!("{:?}", self.get_components());
                 } else if path[0].len() < index_and_length.1 {
@@ -458,7 +484,7 @@ fn attract_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameter
     let mut dx = n2.data.x - n1.data.x;
     let mut dy = n2.data.y - n1.data.y;
 
-    let mut distance = if dx == 0.0 && dy == 0.0 {
+    let distance = if dx == 0.0 && dy == 0.0 {
         1.0
     } else {
         (dx * dx + dy * dy).sqrt()
@@ -498,7 +524,7 @@ fn repel_nodes<D>(n1: &Node<D>, n2: &Node<D>, parameters: &SimulationParameters)
     let mut dy = n2.data.y - n1.data.y;
 
     // let k = 230.;
-    let k = (n1.data.repel_distance/10.*n1.data.mass+n2.data.repel_distance/10.*n2.data.mass);
+    let k = (n1.data.repel_distance/10.*n1.data.mass)+(n2.data.repel_distance/10.*n2.data.mass);
 
     let distance = if dx == 0.0 && dy == 0.0 {
         1.0

@@ -275,7 +275,7 @@ impl VMCanvas {
                 match payload.action {
                     Action::CreateNewNode => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            if let Some(_) = inner.widget_mut().add_node(idx, format!("New Node"), None) {
+                            if let Some(_) = inner.widget_mut().add_node(idx, format!("New Node")) {
                                 ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             }
                         }
@@ -283,7 +283,7 @@ impl VMCanvas {
                     },
                     Action::CreateNewNodeAndEdit => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New Node"), None) {
+                            if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New Node")) {
                                 self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                                 inner.widget_mut().open_editor(ctx, new_idx);
                                 ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));

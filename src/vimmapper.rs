@@ -21,6 +21,7 @@ use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, T
 use regex::Regex;
 use std::collections::HashMap;
 use std::f64::consts::*;
+use std::thread::current;
 
 use crate::vmdialog::VMDialogParams;
 use crate::vminput::*;
@@ -117,7 +118,9 @@ pub(crate) struct VimMapper {
     pub(crate) last_traverse_angle: f64,
 
     pub(crate) enabled_layouts: HashMap<DefaultNodeIdx, PietTextLayout>,
-    pub(crate) disabled_layouts: HashMap<DefaultNodeIdx, PietTextLayout>
+    pub(crate) disabled_layouts: HashMap<DefaultNodeIdx, PietTextLayout>,
+
+    pub(crate) root_nodes: HashMap<usize, DefaultNodeIdx>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -183,9 +186,12 @@ impl Default for VimMapper {
             animation_timer_token: None,
             last_traverse_angle: TAU-FRAC_PI_2,
             enabled_layouts: HashMap::new(),
-            disabled_layouts: HashMap::new()
+            disabled_layouts: HashMap::new(),
+            root_nodes: HashMap::new(),
         };
+        let root_fg_index = root_node.fg_index.unwrap();
         mapper.nodes.insert(0, root_node);
+        mapper.root_nodes.insert(mapper.graph.get_node_component(root_fg_index), root_fg_index);
         mapper
     }
 }
@@ -204,6 +210,7 @@ impl VimMapper {
             // anchored: true,
             // pos: Vec2::new(0.0, 0.0),
             // container: VMNodeLayoutContainer::new(0),
+            mark: Some("0".to_string()),
             is_active: true,
             ..Default::default()
         };
@@ -221,10 +228,8 @@ impl VimMapper {
             graph: graph, 
             animating: true,
             nodes: HashMap::with_capacity(50),
-            // edges: HashMap::with_capacity(100),
             //Account for the already-added root node
             node_idx_count: 1,
-            // edge_idx_count: 0,
             translate: DEFAULT_TRANSLATE,
             scale: DEFAULT_SCALE,
             offset_x: DEFAULT_OFFSET_X,
@@ -235,8 +240,6 @@ impl VimMapper {
             node_editor: VMNodeEditor::new(),
             is_dragging: false,
             drag_point: None,
-            // target_list: vec![],
-            // target_idx: None,
             target_node_idx: None,
             target_node_list: vec![],
             translate_at_drag: None,
@@ -263,14 +266,6 @@ impl VimMapper {
     pub fn get_nodes_mut(&mut self) -> &HashMap<u32, VMNode> {
         return &mut self.nodes;
     }
-
-    // pub fn get_edges(&self) -> &HashMap<u32, VMEdge> {
-    //     return &self.edges;
-    // }
-
-    // pub fn get_edges_mut(&mut self) -> &HashMap<u32, VMEdge> {
-    //     return &mut self.edges;
-    // }
 
     pub fn get_offset_x(&self) -> f64 {
         return self.offset_x;
@@ -314,10 +309,6 @@ impl VimMapper {
     pub fn get_node_idx_count(&self) -> u32 {
         return self.node_idx_count;
     }
-
-    // pub fn get_edge_idx_count(&self) -> u32 {
-    //     return self.edge_idx_count;
-    // }
 
     pub fn build_target_list_from_neighbors(&mut self, idx: u32) {
         self.target_node_list.clear();
@@ -454,11 +445,14 @@ impl VimMapper {
             is_anchor: true,
             ..Default::default()
         }));
+        let comonent_string = self.graph.get_node_component(new_node.fg_index.unwrap()).to_string();
+        new_node.mark = Some(comonent_string);
+        self.root_nodes.insert(self.graph.get_node_component(new_node.fg_index.unwrap()), new_node.fg_index.unwrap());
         self.nodes.insert(new_node.index, new_node);
         Some(new_node_idx)
     }
 
-    pub fn add_node(&mut self, from_idx: u32, node_label: String, edge_label: Option<String>) -> Option<u32> {
+    pub fn add_node(&mut self, from_idx: u32, node_label: String) -> Option<u32> {
         //Set animating to true to allow frozen sheets to adapt to new node
         self.animating = true;
         let new_node_idx = self.increment_node_idx();
@@ -511,14 +505,29 @@ impl VimMapper {
     }
 
     pub fn get_node_deletion_count(&mut self, idx: u32) -> usize {
-        self.graph.get_node_removal_tree(
-            self.nodes.get(&idx).unwrap().fg_index.unwrap(), 
-            self.nodes.get(&0).unwrap().fg_index.unwrap()
-        ).len()
+        if let Some(node) = self.nodes.get(&idx) {
+            let node_component = self.graph.get_node_component(node.fg_index.unwrap());
+            let component_root = *self.root_nodes.get(&node_component).unwrap();
+            return self.graph.get_node_removal_tree(
+                self.nodes.get(&idx).unwrap().fg_index.unwrap(), 
+                component_root,
+            ).len();
+        } else {
+            return 0;
+        }
     }
 
     pub fn snip_node(&mut self, idx: u32) -> Result<u32, String> {
         if let Some(node) = self.nodes.get(&idx) {
+            let mut node_is_root: bool = false;
+            for v in self.root_nodes.values() {
+                if *v == node.fg_index.unwrap() {
+                    node_is_root = true;
+                }
+            }
+            if node_is_root {
+                return Err(String::from("Cannot snip a root node."));
+            }
             let neighbors = self.graph.get_graph().neighbors(node.fg_index.unwrap()).collect::<Vec<_>>();
             let neighbor_count = self.graph.get_graph().neighbors(node.fg_index.unwrap()).count();
             if neighbor_count > 2 {
@@ -555,11 +564,15 @@ impl VimMapper {
             return Err("Cannot delete root node!".to_string());
         }
         if let Some(node) = self.nodes.get(&idx) {
-            let removal_list = self.graph.get_node_removal_tree(node.fg_index.unwrap(), self.nodes.get(&0).unwrap().fg_index.unwrap());
+            let node_component = self.graph.get_node_component(node.fg_index.unwrap());
+            let component_root = *self.root_nodes.get(&node_component).unwrap();
+            let removal_list = self.graph.get_node_removal_tree(node.fg_index.unwrap(), component_root);
             let edge_count = self.graph.get_graph().edges(node.fg_index.unwrap()).count();
             if edge_count > 1 {
                 for idx in removal_list {
-                    // self.nodes.remove(&0);
+                    if idx == component_root {
+                        self.root_nodes.remove(&node_component);
+                    }
                     self.nodes.remove(&self.graph.get_graph()[idx].data.user_data);
                     self.graph.remove_node(idx);
                     self.animating = true;
@@ -627,11 +640,9 @@ impl VimMapper {
             let angle = Vec2::new(target_node_pos.x-node_pos.x, target_node_pos.y-node_pos.y).atan2();
             self.last_traverse_angle = angle;
         }
-        let fg_root = self.nodes.get(&0).unwrap().fg_index.unwrap();
         self.nodes.iter_mut().for_each(|item| {
             if item.1.index == idx {
                 item.1.is_active = true;
-                // self.graph.get_node_removal_tree(item.1.fg_index.unwrap(), fg_root);
             } else {
                 item.1.is_active = false;
             }
@@ -639,6 +650,36 @@ impl VimMapper {
         self.build_target_list_from_neighbors(idx);
         if self.target_node_list.len() > 0 {
             self.cycle_target_forward();
+        }
+    }
+
+    pub fn is_node_root(&self, idx: u32) -> bool {
+        if let Some(node) = self.nodes.get(&idx) {
+            for v in self.root_nodes.values() {
+                if node.fg_index.unwrap() == *v {
+                    return true;
+                }
+            }
+            return false;
+        } else {
+            return false;
+        }
+    }
+
+    pub fn set_node_mark(&mut self, idx: u32, char: String) {
+        if self.is_node_root(idx) {
+            return;
+        }
+        let regex = Regex::new("[0-9]").expect("Failed to compile regex");
+        if regex.is_match(&char) {
+            return;
+        }
+        if let Some(node) = self.nodes.get_mut(&idx) {
+            if char == " " {
+                node.mark = None;
+            } else {
+                node.mark = Some(char);
+            }
         }
     }
 
@@ -1039,6 +1080,9 @@ impl VimMapper {
                         if let Some(remove_idx) = self.get_active_node_idx() {
                             let count = self.get_node_deletion_count(remove_idx);
                             tracing::debug!("Attempting to delete {} nodes", count);
+                            if count == 0 {
+                                return Ok(());
+                            }
                             if count <= 1 {
                                 if let Ok(idx) = self.delete_node(remove_idx) {
                                     self.set_node_as_active(idx);
@@ -1143,11 +1187,15 @@ impl VimMapper {
                     }
                     Action::MarkActiveNode => {
                         if let Some(active_idx) = self.get_active_node_idx() {
+                            //Check that the chosen node isn't a root. Do nothing and return immediately if so.
+                            if self.is_node_root(active_idx) {return Ok(());}
                             //Check that a node doesn't already have this mark. Clear if that's the case.
                             if let Some(holder) = self.get_node_by_mark(payload.string.clone().unwrap()) {
-                                self.nodes.get_mut(&holder).unwrap().set_mark(" ".to_string());
+                                self.set_node_mark(holder, " ".to_string());
+                                // self.nodes.get_mut(&holder).unwrap().set_mark(" ".to_string());
                             }
-                            self.nodes.get_mut(&active_idx).unwrap().set_mark(payload.string.clone().unwrap());
+                            // self.nodes.get_mut(&active_idx).unwrap().set_mark(payload.string.clone().unwrap());
+                            self.set_node_mark(active_idx, payload.string.clone().unwrap());
                         }
                         return Ok(());
                     },
@@ -1288,7 +1336,7 @@ impl<'a> Widget<()> for VimMapper {
             }
             Event::MouseDown(event) if event.button.is_right() => {
                 if let Some(idx) = self.does_point_collide(event.pos) {
-                    self.add_node(idx, DEFAULT_NEW_NODE_LABEL.to_string(), None);
+                    self.add_node(idx, DEFAULT_NEW_NODE_LABEL.to_string());
                 }
                 ctx.request_anim_frame();
             }
@@ -1399,10 +1447,6 @@ impl<'a> Widget<()> for VimMapper {
                 //Kick off animation and calculation
                 ctx.request_layout();
                 ctx.request_anim_frame();
-                tracing::debug!("light: {:?}", _env.get(druid::theme::BUTTON_LIGHT));
-                tracing::debug!("dark: {:?}", _env.get(druid::theme::BUTTON_DARK));
-                tracing::debug!("disabled light: {:?}", _env.get(druid::theme::DISABLED_BUTTON_LIGHT));
-                tracing::debug!("disabled dark: {:?}", _env.get(druid::theme::DISABLED_BUTTON_DARK));
             }
             LifeCycle::HotChanged(is_hot) => {
                 //Cache is_hot values
@@ -1450,38 +1494,6 @@ impl<'a> Widget<()> for VimMapper {
                     self.disabled_layouts.insert(fg_node.index(), layout.clone());
                 } 
             }
-            // match node.enabled_layout {
-            //     Some(_) => (),
-            //     None => {
-            //         if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
-            //             ctx.text(), node.label.clone(), BoxConstraints::new(
-            //                 Size::new(0., 0.),
-            //                 Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
-            //             ),
-            //             &self.config.get_color(VMColor::LabelTextColor).ok().expect("Couldn't find label text color in config."),
-            //         ) {
-            //             node.enabled_layout = Some(layout.clone());
-            //         } else {
-            //             panic!("Could not build an appropriate sized enabled label for node {:?}", node);
-            //         }
-            //     }
-            // }
-            // match node.disabled_layout {
-            //     Some(_) => (),
-            //     None => {
-            //         if let Ok(layout) = VimMapper::build_label_layout_for_constraints(
-            //             ctx.text(), node.label.clone(), BoxConstraints::new(
-            //                 Size::new(0., 0.),
-            //                 Size::new(NODE_LABEL_MAX_CONSTRAINTS.0, NODE_LABEL_MAX_CONSTRAINTS.1)
-            //             ),
-            //             &self.config.get_color(VMColor::DisabledLabelTextColor).ok().expect("Couldn't find disabled label text color in config."),
-            //         ) {
-            //             node.disabled_layout = Some(layout.clone());
-            //         } else {
-            //             panic!("Could not build an appropriate sized disabled label for node {:?}", node);
-            //         }
-            //     }
-            // }
         });
 
         //Layout editor
@@ -1669,13 +1681,17 @@ impl<'a> Widget<()> for VimMapper {
                         red += 195/self.target_node_list.len() as u8;
                     }
                 });
+                let active_fg_index = self.nodes.get(&idx).unwrap().fg_index.unwrap();
+                let component = self.graph.get_node_component(active_fg_index);
+                let current_root = self.root_nodes.get(&component).unwrap();
                 let text = format!(
-                        "Is Animating: {:?}\nLarget Node Movement: {:?}\nActive Node: {:?}\nGraph: {:?}", 
+                        "Is Animating: {:?}\nLarget Node Movement: {:?}\nRoots: {:?}\nRemoval List: {:?}\nCurrent Component:{:?}", 
                         self.animating,
                         self.largest_node_movement,
-                        self.nodes.get(&self.get_active_node_idx().unwrap()),
-                        // self.graph.get_graph().node_weights().collect::<Vec<&Node<u32>>>(),
-                        0
+                        // self.nodes.get(&self.get_active_node_idx().unwrap()),
+                        self.root_nodes,
+                        self.graph.get_node_removal_tree(active_fg_index, *current_root),
+                        component,
                 );
                 let layout = ctx.text().new_text_layout(text)
                     .font(FontFamily::SANS_SERIF, 12.)
@@ -1688,6 +1704,7 @@ impl<'a> Widget<()> for VimMapper {
                         let canvas_size = ctx.size();
                         let layout_size = text.size();
                         let point = Point::new(canvas_size.width-layout_size.width-50., canvas_size.height-layout_size.height-50.);
+                        ctx.fill(Rect::new(point.x, point.y, point.x+layout_size.width, point.y+layout_size.height), &Color::rgba8(255,255,255,200));
                         ctx.draw_text(&text, point);
                     });
                 }

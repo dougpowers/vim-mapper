@@ -76,13 +76,13 @@ impl Default for VMNode {
 }
 
 impl VMNode {
-    pub fn set_mark(&mut self, mark: String) {
-        if mark == " ".to_string() {
-            self.mark = None;
-        } else {
-            self.mark = Some(mark);
-        }
-    }
+    // pub fn set_mark(&mut self, mark: String) {
+    //     if mark == " ".to_string() {
+    //         self.mark = None;
+    //     } else {
+    //         self.mark = Some(mark);
+    //     }
+    // }
 
     pub fn paint_node(
         &mut self, 

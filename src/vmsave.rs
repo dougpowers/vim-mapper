@@ -35,6 +35,7 @@ pub struct VMSaveVersion4 {
     file_version: String, 
     graph: ForceGraph<u32, u32>,
     nodes: HashMap<u32, BareNodeVersion4>,
+    root_nodes: HashMap<usize, DefaultNodeIdx>,
     // edges: HashMap<u32, BareEdgeVersion4>,
     node_idx_count: u32,
     // edge_idx_count: u32,
@@ -105,11 +106,8 @@ impl Into<VMSaveVersion4> for VMSaveNoVersion {
             }
             nodes.insert(v.index, VMNode {
                 label: v.label.clone(), 
-                // edges: v.edges, 
                 index: v.index, 
                 fg_index: fg_index, 
-                // pos: Vec2::new(v.pos.0, v.pos.1), 
-                // container: VMNodeLayoutContainer::new(v.index), 
                 mark: v.mark.clone(),
                 // anchored: v.anchored,
                 // mass: v.mass,
@@ -129,17 +127,24 @@ impl Into<VMSaveVersion4> for VMSaveNoVersion {
             //     });
         }
         tracing::debug!("coercing VMSaveNoVerion to VMSaveVersion4");
+        let mut new_nodes = self.nodes.clone();
+        new_nodes.get_mut(&0).unwrap().mark = Some("0".to_string());
+        let mut root_nodes: HashMap<usize, DefaultNodeIdx> = HashMap::new();
+        root_nodes.insert(graph.get_node_component(nodes.get(&0).unwrap().fg_index.unwrap()), nodes.get(&0).unwrap().fg_index.unwrap());
+        // self.nodes.get_mut(&0).unwrap().mark = Some("0".to_string());
+        if graph.get_components().len() > root_nodes.len() {
+            tracing::debug!("VMSaveNoVersion has extra root nodes!");
+        }
         VMSaveVersion4 {
             file_version: CURRENT_SAVE_FILE_VERSION.to_string(),
             graph,
-            nodes: self.nodes.clone(),
-            // edges: self.edges.clone(),
+            nodes: new_nodes,
             node_idx_count: self.node_idx_count,
-            // edge_idx_count: self.edge_idx_count,
             translate: self.translate,
             scale: self.scale,
             offset_x: self.offset_x,
             offset_y: self.offset_y,
+            root_nodes,
         }
     }
 }
@@ -150,35 +155,9 @@ impl VMSaveSerde {
     //Instantiates a new VimMapper struct from a deserialized VMSave. The ForceGraph is created from scratch
     // and no fg_index values are guaranteed to persist from session to session.
     pub(crate) fn from_save(save: VMSaveVersion4, config: VMConfigVersion4) -> VimMapper {
-        // let mut graph = <ForceGraph<u32, u32>>::new(DEFAULT_SIMULATION_PARAMTERS);
         let graph = save.graph;
         let mut nodes: HashMap<u32, VMNode> = HashMap::with_capacity(50);
-        // let mut edges: HashMap<u32, VMEdge> = HashMap::with_capacity(100);
         for (_k ,v) in save.nodes {
-            // let fg_index: Option<DefaultNodeIdx>;
-            // if v.index == 0 {
-            //     fg_index = Some(graph.add_node(NodeData {
-            //         is_anchor: true,
-            //         x: v.pos.0,
-            //         y: v.pos.1,
-            //         mass: v.mass,
-            //         user_data: {
-            //             0
-            //         },
-            //         ..Default::default()
-            //     }));
-            // } else {
-            //     fg_index = Some(graph.add_node(NodeData {
-            //         is_anchor: v.anchored,
-            //         x: v.pos.0,
-            //         y: v.pos.1,
-            //         mass: v.mass,
-            //         user_data: {
-            //             v.index
-            //         },
-            //         ..Default::default()
-            //     }));
-            // }
             let mut fg_index: DefaultNodeIdx = DefaultNodeIdx::default();
             graph.visit_nodes(|n| {
                 if n.data.user_data == v.index {
@@ -187,36 +166,17 @@ impl VMSaveSerde {
             });
             nodes.insert(v.index, VMNode {
                 label: v.label.clone(), 
-                // edges: v.edges, 
                 index: v.index, 
                 fg_index: Some(fg_index), 
-                // pos: Vec2::new(v.pos.0, v.pos.1), 
-                // container: VMNodeLayoutContainer::new(v.index), 
                 mark: v.mark,
-                // anchored: v.anchored,
-                // mass: v.mass,
                 ..Default::default()
             });
         }
-        // for (_k,v) in save.edges {
-        //     graph.add_edge(
-        //         nodes.get(&v.from).unwrap().fg_index.unwrap(), 
-        //         nodes.get(&v.to).unwrap().fg_index.unwrap(), 
-        //         EdgeData { user_data: v.index });
-        //     edges.insert(v.index, VMEdge { 
-        //         label: None, 
-        //         from: v.from, 
-        //         to: v.to, 
-        //         index: v.index, 
-        //         });
-        // }
         let mut vm = VimMapper {
             graph,
             animating: true,
             nodes,
-            // edges,
             node_idx_count: save.node_idx_count,
-            // edge_idx_count: save.edge_idx_count,
             translate: TranslateScale::new(
                 Vec2::new(
                     save.translate.0, 
@@ -236,11 +196,10 @@ impl VMSaveSerde {
             is_hot: true,
             config,
             node_render_mode: NodeRenderMode::AllEnabled,
+            root_nodes: save.root_nodes,
             ..Default::default()
         };
         vm.set_node_as_active(0);
-        // vm.build_target_list_from_neighbors(0);
-        // vm.cycle_target_forward();
         vm
     }
 
@@ -248,32 +207,19 @@ impl VMSaveSerde {
     // must be recreated when the VMSave is deserialized and instantiated into a VimMapper struct
     pub(crate) fn to_save(vm: &VimMapper) -> VMSaveVersion4 {
         let mut nodes: HashMap<u32, BareNodeVersion4> = HashMap::with_capacity(50);
-        // let mut edges: HashMap<u32, BareEdgeVersion4> = HashMap::with_capacity(100);
         vm.get_nodes().iter().for_each(|(index, node)| {
             let pos = vm.get_node_pos(*index);
             nodes.insert(*index, BareNodeVersion4 {
                 label: node.label.clone(),
-                // edges: node.edges.clone(),
                 index: node.index,
-                // pos: (node.pos.x, node.pos.y),
                 pos: (pos.x, pos.y),
                 is_active: false,
                 targeted_internal_edge_idx: None,
                 mark: node.mark.clone(),
-                // mass: node.mass,
                 mass: vm.graph.get_graph()[node.fg_index.unwrap()].data.mass,
                 anchored: vm.graph.get_graph()[node.fg_index.unwrap()].data.is_anchor
             });
         });
-        // vm.get_edges().iter().for_each(|(index, edge)| {
-        // vm.edges.iter().for_each(|(index, edge)| {
-        //     edges.insert(*index, BareEdgeVersion4 {
-        //         label: None,
-        //         from: edge.from,
-        //         to: edge.to,
-        //         index: *index,
-        //     });
-        // });
         let save = VMSaveVersion4 {
             file_version: CURRENT_SAVE_FILE_VERSION.to_string(),
             graph: vm.graph.clone(),
@@ -285,6 +231,7 @@ impl VMSaveSerde {
             scale: vm.get_scale().as_tuple().1,
             offset_x: vm.get_offset_x(),
             offset_y: vm.get_offset_y(),
+            root_nodes: vm.root_nodes.clone(),
         };
         save
     }

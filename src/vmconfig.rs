@@ -35,8 +35,15 @@ struct VMConfigNoVersion {
     pub light_palette: HashMap<String, (u8,u8,u8,u8)>,
 }
 
+// impl Into<VMConfigVersion4> for VMConfigNoVersion {
+//     fn into(self) -> VMConfigVersion4 {
+
+//     }
+// }
+
 impl VMConfigNoVersion {
     fn convert_to_current(&mut self) -> VMConfigVersion4 {
+        tracing::debug!("Coercing VMConfigNoVersion to VMConfigVersion 4");
         self.fill_missing_colors();
         let mut dark_palette: HashMap<VMColor, (u8,u8,u8,u8)> = HashMap::new();
         let mut light_palette: HashMap<VMColor, (u8,u8,u8,u8)> = HashMap::new();
@@ -205,13 +212,13 @@ impl VMConfigVersion4 {
     fn ensure_full_color_schemes(&mut self) {
         let example = VMConfigVersion4::default();
         for (key, color) in &example.light_palette {
-            if let None = self.dark_palette.get(&key) {
+            if let None = self.light_palette.get(&key) {
                 self.light_palette.insert((*key).clone(), (*color).clone());
             } 
         }
         for (key, color) in &example.dark_palette {
-            if let None = self.light_palette.get(&key) {
-                self.light_palette.insert((*key).clone(), (*color).clone());
+            if let None = self.dark_palette.get(&key) {
+                self.dark_palette.insert((*key).clone(), (*color).clone());
             } 
         }
     }
@@ -237,32 +244,22 @@ impl VMConfigSerde {
             if !path.exists() {
                 println!("No config file found. Creating at {}", path.display());
                 let mut config = VMConfigVersion4::default();
-                let system_mode = dark_light::detect();
-
-                match system_mode {
-                    dark_light::Mode::Light => {
-                        config.set_color_scheme(ColorScheme::LIGHT);
-                    }
-                    dark_light::Mode::Dark => {
-                        config.set_color_scheme(ColorScheme::DARK);
-                    }
-                }
-
                 fs::write(path, serde_json::to_string_pretty(&config).ok().expect("Failed to serialize default config!")).expect("Failed to write default config to file");
                 return Ok(config)
             } else {
                 if let Ok(string) = fs::read_to_string(path.clone()) {
+                    println!("Config found... Attempting to deserialize...");
                     if let Ok(mut config) = serde_json::from_str::<VMConfigVersion4>(&string) {
                         config.ensure_full_color_schemes();
                         return Ok(config);
-                    } else if let Ok(mut config) = serde_json::from_str::<VMConfigNoVersion>(&string) {
-                        config.fill_missing_colors();
-                        let mut config_path_renamed = path.clone();
-                        config_path_renamed.set_extension("old");
-                        fs::rename(path, config_path_renamed);
-                        let current_config = config.convert_to_current();
-                        VMConfigSerde::save(&current_config);
-                        return Ok(current_config);
+                    // } else if let Ok(mut config) = serde_json::from_str::<VMConfigNoVersion>(&string) {
+                    //     config.fill_missing_colors();
+                    //     let mut config_path_renamed = path.clone();
+                    //     config_path_renamed.set_extension("old");
+                    //     fs::rename(path, config_path_renamed);
+                    //     let current_config = config.convert_to_current();
+                    //     VMConfigSerde::save(&current_config);
+                    //     return Ok(current_config);
                     } else {
                         let mut config_path_renamed = path.clone();
                         config_path_renamed.set_extension("old");
@@ -336,13 +333,26 @@ impl Default for VMConfigVersion4 {
         dark_palette.insert(AlertButtonDark, (40,0,0,255));
         dark_palette.insert(DisabledButtonLight, (56,56,56,255));
         dark_palette.insert(DisabledButtonDark, (40,40,40,255));
-        VMConfigVersion4 {
+
+        let mut config = VMConfigVersion4 {
             file_version: String::from(CURRENT_CONFIG_FILE_VERSION.to_string()),
             menu_shown: Some(true),
             color_scheme: ColorScheme::LIGHT,
             light_palette,
             dark_palette,
+        };
+
+        let system_mode = dark_light::detect();
+
+        match system_mode {
+            dark_light::Mode::Light => {
+                config.set_color_scheme(ColorScheme::LIGHT);
+            }
+            dark_light::Mode::Dark => {
+                config.set_color_scheme(ColorScheme::DARK);
+            }
         }
+        config
     }
 
 }
