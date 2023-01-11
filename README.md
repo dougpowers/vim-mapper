@@ -19,6 +19,9 @@ For WSL2 cross-compilation or Linux compilation on Debian, install librust-gtk-d
 sudo apt install librust-gtk-dev
 ```
 
+Other packages like build-essentials may be necessary if a Linux build environment doesn't exist. For other distros, please search for the relevant rust GTK dev libraries.
+
+
 Clone the repository
 
 ```
