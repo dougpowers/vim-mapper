@@ -5,7 +5,27 @@ Vim-Mapper is an experimental graph editor with vim-like keybindings. It uses a 
 
 ## Compiling
 
-Install rustup
+Install [rustup](https://rustup.rs)
+
+Ensure that rustc v1.66.0 is installed
+
+```
+rustup toolchain install 1.66.0
+```
+
+Clone the repository
+
+```
+git clone https://github.com/dougpowers/vim-mapper vim-mapper 
+```
+
+Compile Vim-Mapper
+
+```
+cd vim-mapper
+cargo build --release
+```
+
 
 For WSL2 cross-compilation, install librust-gtk-dev
 
@@ -111,7 +131,7 @@ Vim-Mapper stores its configuration in JSON format at ~/AppData/Roaming/vim-mapp
 | Alt+F11             | Sheet, Start | Hide app menu                                                                                                           |
 
 ## Mouse Controls
-Vim-Mapper is intended to be used via efficient keybinds but basic mouse controls are supported. Not all features are accessible through these mouse controls. Refer to [Keybindings](#Keybindings) for how to use these features.
+Vim-Mapper is intended to be used via efficient keybinds but basic mouse controls are supported. Not all features are accessible through these mouse controls. Refer to [Keybindings](Keybindings) for how to use these features.
 
 Nodes can be activated by single left click. They can be edited by double left click. New child nodes can be created by right-clicking on the desired parent. The viewport can be panned by dragging while holding left click. The viewport can also be panned vertically by scrolling and horizontally by holding 'Shift' while scrolling. The viewport can be zoomed by holding right click or 'Ctrl' while scrolling.
 
