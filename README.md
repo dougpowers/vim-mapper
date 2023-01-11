@@ -17,7 +17,7 @@ Create a child to the active node by pressing 'O'. To simultaneously create, act
 
 The active node is outlined in blue. The current targeted child node is outlined in light red. Press the 'n' key to cycle target clockwise or 'N' to cycle counter-clockwise. Press 'Enter' to make the targeted node active.
 
-To edit the active node, press 'a', 'i', or 'c' to append, insert, or select the full node text, respectively.
+To edit the active node, press 'a', 'i', or 'c' to append after, insert before, or select the full node text, respectively.
 
 To delete a node and its ancestors, press 'd'. A confirmation dialog will be displayed if more than one node is to be removed.
 
@@ -29,14 +29,12 @@ When executing Vim-Mapper from the terminal, the user can open an existing sheet
 A non-root node in a linear chain (one that has only two neighbors) can be removed and its neighbors joined by pressing 'x'.
 
 ### External Nodes
-New root nodes ("externals") can be created with 'Ctrl-Shift-o'. These appear on top of the root node in move mode. Move them using 'hjkl' or 'HJKL' and press 'Enter' to place them. These nodes constitute a new "component" that is unconnected and therefore non attracted to the default component. New root nodes will be assigned a numerical mark from 1 to 9, corresponding to their respective component indices. Externals past 9 in index are allowed but will not be marked and can only be selected via [searching](Searching).
+New root nodes ("externals") can be created with 'Ctrl-Shift-o'. These appear on top of the root node in move mode. Move them using 'hjkl' or 'HJKL' and press 'Enter' to place them. These nodes constitute a new "component" that is unconnected and therefore non attracted to the default component (though they still push on nearby nodes from all components). New root nodes will be assigned a numerical mark from 1 to 9, corresponding to their respective component indices. These indices will shift to remain contiguous if an external is removed. Externals past index 9 are supported but will not be marked and can only be selected via [searching](Searching).
 
 ### Marking
-Vim-Mapper allows the user to "mark" each node with any non-numeric printable character. Press 'm' to enter marking mode then press any printable character to mark that node. Press ''' (apostrophe) to enter mark jump mode then press any non-numeric printable character to activate the node marked with that character.
+Vim-Mapper allows the user to "mark" a non-root node with any non-numeric printable character. Press 'm' to enter marking mode then press any printable character to mark that node. Marking any non-root node with ' ' (Space) will clear its mark. Press ''' (Apostrophe) to enter mark jump mode then press any non-numeric printable character to activate the node marked with that character.
 
-Root nodes will have an unchangeable numeric mark corresponding to the index of the component.
-
-Marking a non-root node with the space key will clear it.
+Root nodes will have an unchangeable numeric mark corresponding to the index of the component. This mark may change if external nodes are removed.
 
 Note the red "m" or "'" indicator in the bottom-left of the screen denoting that the user is now in marking or mark jump mode. These modes expire after 3 seconds of no input.
 
@@ -44,7 +42,7 @@ Note the red "m" or "'" indicator in the bottom-left of the screen denoting that
 Nodes can be navigated to via a case-insensitive text search. Press '/' and enter a string to begin filtering all nodes. Nodes that do not match will be grayed out as the string is entered. Press 'Enter' to begin search result navigation. Press 'n' or 'N' to cycle through matched nodes and press 'Enter' to select the desired match. If only one node matches the search string, pressing 'Enter' will skip result navigation and select it directly.
 
 ### Node Movement
-Nodes can be moved by pressing '`' (backtick). This anchors the node and enables move mode. Press 'hjkl' or 'HJKL' to move the node around the canvas. Pressing '@' will unanchor the node and cancel move mode. Pressing 'Enter' will confirm the new position for the node. Subsequently unanchoring the node will cause it once again to reposition relative to its connected and unconnected neighbor nodes.
+Nodes can be moved by pressing '`' (Backtick). This anchors the node and enables move mode. Press 'hjkl' or 'HJKL' to move the node around the canvas. Pressing '@' will unanchor the node and cancel move mode. Pressing 'Enter' will confirm the new position for the node. Subsequently unanchoring the node will cause it once again to reposition relative to its connected and unconnected neighbor nodes.
 
 ### Mass
 Vim-Mapper nodes have a default "mass" which affects how much other nodes are pushed away from it. Press the '+' or '-' keys to increment or decrement this mass for the active node. Press the '=' key to return the node to its default mass. A "+" or "-" badge will appear on the node if its mass is above or below the default.
@@ -65,11 +63,11 @@ Vim-Mapper stores its configuration in JSON format at ~/AppData/Roaming/vim-mapp
 | **Key Combination** | **Mode**     | **Description**                                                                                                         |
 |---------------------|--------------|-------------------------------------------------------------------------------------------------------------------------|
 | Ctrl-n              | Any          | Create new sheet, discarding the current sheet                                                                          |
+| Ctrl-o              | Any          | Open an existing sheet, discarding the current sheet                                                                          |
 | Ctrl-s              | Any          | Save sheet                                                                                                              |
 | Ctrl-Shift-s        | Any          | Open a dialog to save sheet to specific file                                                                            |
 | Enter               | Edit         | Submit node change                                                                                                      |
 | Esc                 | Edit         | Cancel node change                                                                                                      |
-| G                   | Sheet        | Center root node                                                                                                        |
 | Enter               | Sheet        | Set targeted child node as active                                                                                       |
 | n                   | Sheet        | Cycle clockwise target through child nodes                                                                              |
 | N                   | Sheet        | Cycle counter-clockwise through child nodes                                                                             |
@@ -87,20 +85,21 @@ Vim-Mapper stores its configuration in JSON format at ~/AppData/Roaming/vim-mapp
 | k / K               | Sheet        | Pan the viewport up by a little / a lot                                                                                 |
 | h / H               | Sheet        | Pan the viewport left by a little / a lot                                                                               |
 | l / L               | Sheet        | Pan the viewport right by a little / a lot                                                                              |
+| Ctrl-j              | Sheet        | Zoom the viewport out                                                                                                   |
+| Ctrl-k              | Sheet        | Zoom the viewport in                                                                                                    |
 | /                   | Sheet        | Enter search entry mode                                                                                                 |
 | Enter               | Search Entry | Enter search mode and begin result navigation                                                                           |
+| Esc               | Search Entry | Cancel search entry navigation                                                                           |
 | n                   | Search       | Cycle forward through search results                                                                                    |
 | N                   | Search       | Cycle backward throug search results                                                                                    |
 | Enter               | Search       | Activate selected search result                                                                                         |
-| Esc                 | Search       | Cancel search                                                                                                           |
+| Esc                 | Search       | Cancel search result navigation                                                                                                           |
 | `                   | Sheet        | Enter move mode for the active node and anchor it                                                                       |
 | j / J               | Move         | Move the node down by a little / a lot                                                                                  |
 | k / K               | Move         | Move the node up by a little / a lot                                                                                    |
 | h / H               | Move         | Move the node left by a little / a lot                                                                                  |
 | l / L               | Move         | Move the node right by a little / a lot                                                                                 |
 | @                   | Move         | Cancel move and unanchor node                                                                                           |
-| Ctrl-j              | Sheet        | Zoom the viewport out                                                                                                   |
-| Ctrl-k              | Sheet        | Zoom the viewport in                                                                                                    |
 | +                   | Sheet        | Increase node mass                                                                                                      |
 | -                   | Sheet        | Decrease node mass                                                                                                      |
 | =                   | Sheet        | Reset node mass                                                                                                         |
@@ -112,12 +111,12 @@ Vim-Mapper stores its configuration in JSON format at ~/AppData/Roaming/vim-mapp
 | Alt+F11             | Sheet, Start | Hide app menu                                                                                                           |
 
 ## Mouse Controls
-Vim-Mapper is intended to be used via efficient keybinds but basic mouse controls are supported. Not all features are accessible through these mouse controls. Refer to [link](Keybindings) for how to use these features.
+Vim-Mapper is intended to be used via efficient keybinds but basic mouse controls are supported. Not all features are accessible through these mouse controls. Refer to [Keybindings](Keybindings) for how to use these features.
 
 Nodes can be activated by single left click. They can be edited by double left click. New child nodes can be created by right-clicking on the desired parent. The viewport can be panned by dragging while holding left click. The viewport can also be panned vertically by scrolling and horizontally by holding 'Shift' while scrolling. The viewport can be zoomed by holding right click or 'Ctrl' while scrolling.
 
 ## Acknowledgements
-Vim-Mapper uses a forked version of the [force-graph-rs](https://github.com/t-mw/force-graph-rs) crate by [@tobmansf](twitter.com/tobmansf) to position and manage nodes. The [vm_force_graph_rs](https://github.com/dougpowers/vim-mapper/tree/main/vm-force-graph-rs) crate is not currently planned to be published on crates.io.
+Vim-Mapper uses a forked version of the [force-graph-rs](https://github.com/t-mw/force-graph-rs) crate by [@tobmansf](https://twitter.com/tobmansf) to position and manage nodes. The [vm_force_graph_rs](https://github.com/dougpowers/vim-mapper/tree/main/vm-force-graph-rs) crate is not currently planned to be published on crates.io.
 
 ## Contact
 Doug Powers - dougpowers@gmail.com - [LinkedIn](https://www.linkedin.com/in/douglas-powers-537380104)
