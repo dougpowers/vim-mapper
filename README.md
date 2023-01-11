@@ -111,7 +111,7 @@ Vim-Mapper stores its configuration in JSON format at ~/AppData/Roaming/vim-mapp
 | Alt+F11             | Sheet, Start | Hide app menu                                                                                                           |
 
 ## Mouse Controls
-Vim-Mapper is intended to be used via efficient keybinds but basic mouse controls are supported. Not all features are accessible through these mouse controls. Refer to [Keybindings](Keybindings) for how to use these features.
+Vim-Mapper is intended to be used via efficient keybinds but basic mouse controls are supported. Not all features are accessible through these mouse controls. Refer to [Keybindings](#Keybindings) for how to use these features.
 
 Nodes can be activated by single left click. They can be edited by double left click. New child nodes can be created by right-clicking on the desired parent. The viewport can be panned by dragging while holding left click. The viewport can also be panned vertically by scrolling and horizontally by holding 'Shift' while scrolling. The viewport can be zoomed by holding right click or 'Ctrl' while scrolling.
 
