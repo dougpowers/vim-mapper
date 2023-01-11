@@ -911,7 +911,7 @@ impl VimMapper {
         if let Some(rect) = self.node_editor.editor_rect {
             self.scroll_rect_into_view(rect);
         }
-        ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Auto));
+        ctx.submit_command(Command::new(TAKE_FOCUS_SELECT_ALL, (), Target::Auto));
         ctx.submit_command(Command::new(
             EXECUTE_ACTION,
             ActionPayload {
@@ -1076,9 +1076,7 @@ impl VimMapper {
                             ctx.set_handled();
                         }
                         return Ok(());
-                    }
-                    Action::EditActiveNodeAppend => todo!(),
-                    Action::EditActiveNodeInsert => todo!(),
+                    },
                     Action::DeleteNodeTree => {
                         let idx = payload.index.unwrap();
                         if let Ok(idx) = self.delete_node(idx) {
@@ -1444,7 +1442,7 @@ impl<'a> Widget<()> for VimMapper {
             //     ctx.set_handled();
             //     ctx.request_anim_frame();
             // }
-            Event::Notification(note) if note.is(TAKE_FOCUS) => {
+            Event::Notification(note) if note.is(TAKE_FOCUS_SELECT_ALL) => {
                 if !self.node_editor.is_visible {
                     self.node_editor.container.event(ctx, event, &mut self.node_editor.title_text, _env);
                 }

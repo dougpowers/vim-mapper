@@ -327,6 +327,32 @@ impl Default for VMInputManager {
                     kb_type: KeybindType::Key, 
                     regex: None, 
                     group_actions: None,
+                    key: Some(Key::Character(String::from("a"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::EditActiveNodeAppend,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("i"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::EditActiveNodeInsert,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
                     key: Some(Key::Character(String::from("d"))),
                     modifiers: None, 
                     action_payloads: vec![Some(

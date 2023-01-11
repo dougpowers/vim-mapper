@@ -326,11 +326,41 @@ impl Controller<String, TextBox<String>> for VMNodeEditorController {
                 ctx.resign_focus();
                 ctx.set_handled();
             }
-            Event::Command(command) if command.is(TAKE_FOCUS) => {
+            Event::Command(command) if command.is(TAKE_FOCUS_SELECT_ALL) => {
                 ctx.request_focus();
                 ctx.set_handled();
                 child.event(ctx, event, data, env);
                 let selection = Selection::new(0, data.len());
+                loop {
+                    if child.text_mut().can_write() {
+                        if let Some(ime) = child.text_mut().borrow_mut().set_selection(selection) {
+                            ctx.invalidate_text_input(ime);
+                        }
+                        child.set_text_alignment(druid::TextAlignment::Start);
+                        break;
+                    }
+                }
+            }
+            Event::Command(command) if command.is(TAKE_FOCUS_INSERT) => {
+                ctx.request_focus();
+                ctx.set_handled();
+                child.event(ctx, event, data, env);
+                let selection = Selection::caret(0);
+                loop {
+                    if child.text_mut().can_write() {
+                        if let Some(ime) = child.text_mut().borrow_mut().set_selection(selection) {
+                            ctx.invalidate_text_input(ime);
+                        }
+                        child.set_text_alignment(druid::TextAlignment::Start);
+                        break;
+                    }
+                }
+            }
+            Event::Command(command) if command.is(TAKE_FOCUS_APPEND) => {
+                ctx.request_focus();
+                ctx.set_handled();
+                child.event(ctx, event, data, env);
+                let selection = Selection::caret(data.len());
                 loop {
                     if child.text_mut().can_write() {
                         if let Some(ime) = child.text_mut().borrow_mut().set_selection(selection) {

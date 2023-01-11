@@ -286,7 +286,7 @@ impl VMCanvas {
                                 self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                                 inner.widget_mut().open_editor(ctx, new_idx);
                                 ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
-                                ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Widget(inner.id())));
+                                ctx.submit_command(Command::new(TAKE_FOCUS_SELECT_ALL, (), Target::Widget(inner.id())));
                             }
                         }
                         return Ok(());
@@ -314,10 +314,28 @@ impl VMCanvas {
                             self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().open_editor(ctx, idx);
                             ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
-                            ctx.submit_command(Command::new(TAKE_FOCUS, (), Target::Widget(inner.id())));
+                            ctx.submit_command(Command::new(TAKE_FOCUS_SELECT_ALL, (), Target::Widget(inner.id())));
                         }
                         return Ok(());
-                    }
+                    },
+                    Action::EditActiveNodeInsert => {
+                        if let Some(idx) = inner.widget().get_active_node_idx() {
+                            self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
+                            inner.widget_mut().open_editor(ctx, idx);
+                            ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
+                            ctx.submit_command(Command::new(TAKE_FOCUS_INSERT, (), Target::Widget(inner.id())));
+                        }
+                        return Ok(());
+                    },
+                    Action::EditActiveNodeAppend => {
+                        if let Some(idx) = inner.widget().get_active_node_idx() {
+                            self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
+                            inner.widget_mut().open_editor(ctx, idx);
+                            ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
+                            ctx.submit_command(Command::new(TAKE_FOCUS_APPEND, (), Target::Widget(inner.id())));
+                        }
+                        return Ok(());
+                    },
                     Action::ChangeModeWithTimeoutRevert => {
                         self.input_manager.set_timeout_revert_mode(Some(self.input_manager.get_keybind_mode()));
                         self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
