@@ -17,13 +17,16 @@ Create a child to the active node by pressing 'O'. To simultaneously create, act
 
 The active node is outlined in blue. The current targeted child node is outlined in light red. Press the 'n' key to cycle target clockwise or 'N' to cycle counter-clockwise. Press 'Enter' to make the targeted node active.
 
-To edit the active node, press 'c'.
+To edit the active node, press 'a', 'i', or 'c' to append, insert, or select the full node text, respectively.
 
 To delete a node and its ancestors, press 'd'. A confirmation dialog will be displayed if more than one node is to be removed.
 
 When executing Vim-Mapper from the terminal, the user can open an existing sheet by specifying a valid .vmd file as the first argument. 
 
 ## Advanced features
+
+### Snipping
+A non-root node in a linear chain (one that has only two neighbors) can be removed and its neighbors joined by pressing 'x'.
 
 ### External Nodes
 New root nodes ("externals") can be created with 'Ctrl-Shift-o'. These appear on top of the root node in move mode. Move them using 'hjkl' or 'HJKL' and press 'Enter' to place them. These nodes constitute a new "component" that is unconnected and therefore non attracted to the default component. New root nodes will be assigned a numerical mark from 1 to 9, corresponding to their respective component indices. Externals past 9 in index are allowed but will not be marked and can only be selected via [searching](Searching).
@@ -59,34 +62,54 @@ If the user feels comfortable with the keybindings provided, they can hide the "
 Vim-Mapper stores its configuration in JSON format at ~/AppData/Roaming/vim-mapper/vmconfig on Windows and ~/.config/vim-mapper/vmconfig on Linux. This file can be edited manually to change color values but this is only recommended for advanced users. New versions of Vim-Mapper may not persist these custom changes and malformed configurations may cause unindended behavior or crashes.
 
 ## Keybindings
-| Key Combination | Context                         | Description                                   |
-|-----------------|---------------------------------|-----------------------------------------------|
-| Ctrl-n          | Any                             | Create new sheet, discarding the current sheet |
-| Ctrl-s          | Any                             | Save sheet                                    |
-| Ctrl-Shift-s    | Any                             | Save sheet to a file                          |
-| Enter           | Editor focused                  | Submit node change                            |
-| Esc             | Editor focused                  | Cancel node change                            |
-| n               | Sheet focused, no node active   | Select root node                              |
-| Enter           | Sheet focused, node active      | Set targeted child node as active            |
-| n               | Sheet focused, node active      | Cycle target through child nodes              |
-| c               | Sheet focused, node active      | Edit active node                              |
-| o               | Sheet focused, node active      | Create new leaf node, set as active, and edit |
-| d               | Sheet focused, left node active | Delete leaf node                              |
-| G               | Sheet focused                   | Center viewport on root node                  |
-| j / J           | Sheet focused                   | Pan the viewport down by a little / a lot     |
-| k / K           | Sheet focused                   | Pan the viewport up by a little / a lot       |
-| h / H           | Sheet focused                   | Pan the viewport left by a little / a lot     |
-| l / L           | Sheet focused                   | Pan the viewport right by a little / a lot    |
-| Ctrl-j          | Sheet focused                   | Zoom the viewport out                         |
-| Ctrl-k          | Sheet focused                   | Zoom the viewport in                          |
-| +               | Sheet focused, node active      | Increase node mass                            |
-| -               | Sheet focused, node active      | Decrease node mass                            |
-| =               | Sheet focused, node active      | Reset node mass                               |
-| @       | Sheet focused, node active | Anchor the active node              |
-| m<char\> | Sheet focused, node active | Mark the active node with <char\>    |
-| m<Space\> | Sheet focused, node active | Clear the mark on the active node    |
-| '<char\> | Sheet focused              | Jump to the node marked with <char\> |
-| Alt+F10         | App focused                     | Toggle between dark and light mode            |
+| **Key Combination** | **Mode**     | **Description**                                                                                                         |
+|---------------------|--------------|-------------------------------------------------------------------------------------------------------------------------|
+| Ctrl-n              | Any          | Create new sheet, discarding the current sheet                                                                          |
+| Ctrl-s              | Any          | Save sheet                                                                                                              |
+| Ctrl-Shift-s        | Any          | Open a dialog to save sheet to specific file                                                                            |
+| Enter               | Edit         | Submit node change                                                                                                      |
+| Esc                 | Edit         | Cancel node change                                                                                                      |
+| G                   | Sheet        | Center root node                                                                                                        |
+| Enter               | Sheet        | Set targeted child node as active                                                                                       |
+| n                   | Sheet        | Cycle clockwise target through child nodes                                                                              |
+| N                   | Sheet        | Cycle counter-clockwise through child nodes                                                                             |
+| i                   | Sheet        | Edit active node, placing the caret at the beginning of the text                                                        |
+| a                   | Sheet        | Edit active node, placing the caret at the end of the text                                                              |
+| c                   | Sheet        | Edit active node, selecting the full text                                                                               |
+| o                   | Sheet        | Create new child node, set as active, and edit                                                                          |
+| O                   | Sheet        | Create new child node                                                                                                   |
+| Ctrl-Shift-o        | Sheet        | Create a new external root node and enter move mode                                                                     |
+| d                   | Sheet        | Delete node and children radiating away from root (displays confirmation dialog if more than one node is to be deleted) |
+| x                   | Sheet        | Remove a node with only two neighbors and join them together                                                            |
+| gg                  | Sheet        | Center viewport on active node                                                                                          |
+| G                   | Sheet        | Center viewport on root node                                                                                            |
+| j / J               | Sheet        | Pan the viewport down by a little / a lot                                                                               |
+| k / K               | Sheet        | Pan the viewport up by a little / a lot                                                                                 |
+| h / H               | Sheet        | Pan the viewport left by a little / a lot                                                                               |
+| l / L               | Sheet        | Pan the viewport right by a little / a lot                                                                              |
+| /                   | Sheet        | Enter search entry mode                                                                                                 |
+| Enter               | Search Entry | Enter search mode and begin result navigation                                                                           |
+| n                   | Search       | Cycle forward through search results                                                                                    |
+| N                   | Search       | Cycle backward throug search results                                                                                    |
+| Enter               | Search       | Activate selected search result                                                                                         |
+| Esc                 | Search       | Cancel search                                                                                                           |
+| `                   | Sheet        | Enter move mode for the active node and anchor it                                                                       |
+| j / J               | Move         | Move the node down by a little / a lot                                                                                  |
+| k / K               | Move         | Move the node up by a little / a lot                                                                                    |
+| h / H               | Move         | Move the node left by a little / a lot                                                                                  |
+| l / L               | Move         | Move the node right by a little / a lot                                                                                 |
+| @                   | Move         | Cancel move and unanchor node                                                                                           |
+| Ctrl-j              | Sheet        | Zoom the viewport out                                                                                                   |
+| Ctrl-k              | Sheet        | Zoom the viewport in                                                                                                    |
+| +                   | Sheet        | Increase node mass                                                                                                      |
+| -                   | Sheet        | Decrease node mass                                                                                                      |
+| =                   | Sheet        | Reset node mass                                                                                                         |
+| @                   | Sheet        | Anchor the active node                                                                                                  |
+| m<char\>            | Sheet        | Mark the active node with <char\>                                                                                       |
+| m<Space\>           | Sheet        | Clear the mark on the active node                                                                                       |
+| '<char\>            | Sheet        | Jump to the node marked with <char\>                                                                                    |
+| Alt+F10             | Sheet, Start | Toggle between dark and light mode                                                                                      |
+| Alt+F11             | Sheet, Start | Hide app menu                                                                                                           |
 
 ## Mouse Controls
 Vim-Mapper is intended to be used via efficient keybinds but basic mouse controls are supported. Not all features are accessible through these mouse controls. Refer to [link](Keybindings) for how to use these features.
