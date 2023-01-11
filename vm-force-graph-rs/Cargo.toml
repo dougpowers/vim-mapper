@@ -1,5 +1,5 @@
 [package]
-name = "vm_force_graph"
+name = "vm_force_graph_rs"
 version = "0.4.0"
 description = "Force-directed graph algorithm customized for the Vim-Mapper program"
 authors = ["Douglas Powers <dougpowers@gmail.com>"]

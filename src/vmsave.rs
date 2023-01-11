@@ -18,7 +18,7 @@ use std::path::{PathBuf, Path};
 
 use druid::{Vec2, Data};
 use druid::kurbo::TranslateScale;
-use vm_force_graph::{ForceGraph, DefaultNodeIdx, NodeData, EdgeData};
+use vm_force_graph_rs::{ForceGraph, DefaultNodeIdx, NodeData, EdgeData};
 use serde::{Serialize, Deserialize};
 
 use crate::constants::*;

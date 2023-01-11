@@ -11,29 +11,47 @@ For WSL2 cross-compilation, install librust-gtk-dev
 
 ## How to use Vim-Mapper
 
-Vim-Mapper presents a simple interface. All new sheets will start with a single, fixed node called "Root". All subsequent nodes will connect back to this root node. 
+Vim-Mapper presents a simple interface. All new sheets will start with a single node called "Root". Subsequent nodes will connect back to this root node. 
 
-The active node is outlined in blue. The current targetted child node is outlined in light red. Press the 'n' key to cycle to the desired child node and then press 'Enter' to make that node active.
+Create a child to the active node by pressing 'O'. To simultaneously create, activate, and edit a child, press 'o'.
 
-When executing Vim-Mapper from the terminal, the user can open a sheet by specifying a valid .vmd file as the first argument.
+The active node is outlined in blue. The current targeted child node is outlined in light red. Press the 'n' key to cycle target clockwise or 'N' to cycle counter-clockwise. Press 'Enter' to make the targeted node active.
+
+To edit the active node, press 'c'.
+
+When executing Vim-Mapper from the terminal, the user can open an existing sheet by specifying a valid .vmd file as the first argument. 
 
 ## Advanced features
 
+### Node Movement
+Nodes can be moved by pressing '`' (backtick). This anchors the node and enables move mode. Press 'hjkl' or 'HJKL' to move the node around the canvas. Press 'Enter' to confirm the new position for the node. Unanchoring the node will cause it once again to reposition relative to its connected and unconnected neighbor nodes.
+
+### External Nodes
+New root nodes ("externals") can be created with 'Ctrl-Shift-o'. These appear on top of the root node in move mode. Move them using 'hjkl' or 'HJKL' and press 'Enter' to place them. These nodes create a new "component" that is unconnected and therefore non attracted to the default component. They'll be assigned a numerical mark from 1 to 9, corresponding to their component index. Externals past 9 in index are allowed but will not be marked and must be selection via [searching](Searching).
+
 ### Marking
-Vim-Mapper allows the user to "mark" each node with any printable character. Press 'm' to enter marking mode then press any printable character to mark that node. Press the apostrophe ("'") key to enter mark jump mode then press any printable character to activate the node marked with that character.
+Vim-Mapper allows the user to "mark" each node with any non-numeric printable character. Press 'm' to enter marking mode then press any printable character to mark that node. Press ''' (apostrophe) to enter mark jump mode then press any non-numeric printable character to activate the node marked with that character.
 
-Marking a node with the space key will clear it.
+Root nodes will have an unchangeable numeric mark corresponding to the index of the component.
 
-Note the red 'm' or ''' indicator in the bottom-left of the screen denoting that the use is now in marking or mark jump mode. These modes exprire after 3 seconds.
+Marking a non-root node with the space key will clear it.
+
+Note the red "m" or "'" indicator in the bottom-left of the screen denoting that the user is now in marking or mark jump mode. These modes expire after 3 seconds of no input.
 
 ### Mass
-Vim-Mapper nodes have a default "mass" which affects how much other nodes are pushed away from it. Press the "+" or "-" keys to increment or decrement this mass for the active node. Press the "=" key to return the node to its default mass. A "+" or "-" badge will appear on the node if its mass is above or below the default.
+Vim-Mapper nodes have a default "mass" which affects how much other nodes are pushed away from it. Press the '+' or '-' keys to increment or decrement this mass for the active node. Press the '=' key to return the node to its default mass. A "+" or "-" badge will appear on the node if its mass is above or below the default.
 
-### Anchors
-The root node of a Vim-Mapper sheet will always be anchored. This means that it will not move in relation to any other node. New nodes are, by default, unanchored. The user can toggle the anchoring state of any node by pressing the "@" key. A "@" badge will appear on the node to indicate that it is anchored.
+### Searching
+Nodes can be navigated to via a case-insensitive text search. Press '/' and enter a string to begin filtering all nodes. Nodes that do not match will be grayed out as the string is entered. Press 'Enter' to begin search result navigation. Press 'n' or 'N' to cycle through matched nodes and press 'Enter' to select the desired match. If only one node matches the search string, pressing 'Enter' will skip result navigation and select it directly.
+
+### Anchoring
+The root node of a Vim-Mapper sheet will be anchored by default. This means that it will not move in relation to any other node. All components must have at least 1 anchored node and Vim-Mapper will not allow a deletion if any of the removed nodes are the sole anchored node in that component. New nodes are, by default, unanchored. The user can toggle the anchoring state of any node by pressing the '@' key. A "@" badge will appear on the node to indicate that it is anchored.
 
 ### Color Scheme
-Vim-Mapper supports dark mode. It will attempt to detect your OS mode on first start-up. If this fails, the user can press Alt+F10 to toggle between dark mode and light mode. This preference will be saved.
+Vim-Mapper supports dark mode. It will attempt to detect your OS mode on first start-up. If this fails, the user can press 'Alt+F10' to toggle between dark mode and light mode. This preference will be saved.
+
+### Hiding the Main Menu
+If the user feels comfortable with the keybindings provided, they can hide the "File" menu by pressing 'Alt-F11'. This may make dark mode more complete and provide a cleaner interface in maximized screen. This preference is saved.
 
 ## Keybindings
 | Key Combination | Context                         | Description                                   |
@@ -44,7 +62,7 @@ Vim-Mapper supports dark mode. It will attempt to detect your OS mode on first s
 | Enter           | Editor focused                  | Submit node change                            |
 | Esc             | Editor focused                  | Cancel node change                            |
 | n               | Sheet focused, no node active   | Select root node                              |
-| Enter           | Sheet focused, node active      | Set targetted child node as active            |
+| Enter           | Sheet focused, node active      | Set targeted child node as active            |
 | n               | Sheet focused, node active      | Cycle target through child nodes              |
 | c               | Sheet focused, node active      | Edit active node                              |
 | o               | Sheet focused, node active      | Create new leaf node, set as active, and edit |
@@ -66,7 +84,13 @@ Vim-Mapper supports dark mode. It will attempt to detect your OS mode on first s
 | Alt+F10         | App focused                     | Toggle between dark and light mode            |
 
 ## Mouse Controls
-Nodes can be activated by single left click. They can be edited by double left click. New child nodes can be created by right-clicking on the desired parent. The viewport panned by dragging while holding left click. The viewport can also be panned vertically by scrolling and horizontally by holding 'Shift' while scrolling. The viewport can be zoomed by holding right click or 'Ctrl' while scrolling.
+Vim-Mapper is intended to be used via efficient keybinds but basic mouse controls are supported. Not all features are accessible through these mouse controls. Refer to [link](Keybindings) for how to use these features.
+
+Nodes can be activated by single left click. They can be edited by double left click. New child nodes can be created by right-clicking on the desired parent. The viewport can be panned by dragging while holding left click. The viewport can also be panned vertically by scrolling and horizontally by holding 'Shift' while scrolling. The viewport can be zoomed by holding right click or 'Ctrl' while scrolling.
+
+
+## Acknowledgements
+Vim-Mapper uses a forked version of the [force-graph-rs](https://github.com/t-mw/force-graph-rs) crate by [@tobmansf](twitter.com/tobmansf) to position and manage nodes. The [vm_force_graph_rs](https://github.com/dougpowers/vim-mapper/tree/main/vm-force-graph-rs) crate is not currently planned to be published on crates.io.
 
 ## Contact
 Doug Powers - dougpowers@gmail.com - [LinkedIn](https://www.linkedin.com/in/douglas-powers-537380104)

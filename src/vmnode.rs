@@ -13,7 +13,7 @@
 // limitations under the License.
 use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::{Selection}, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
 use serde::{Serialize, Deserialize};
-use vm_force_graph::{DefaultNodeIdx, ForceGraph};
+use vm_force_graph_rs::{DefaultNodeIdx, ForceGraph};
 
 use crate::{constants::*, vmconfig::*};
 

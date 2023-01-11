@@ -15,7 +15,7 @@
 use std::time::Duration;
 
 use druid::{kurbo::TranslateScale, Selector, Vec2};
-use vm_force_graph::SimulationParameters;
+use vm_force_graph_rs::SimulationParameters;
 use crate::vminput::ActionPayload;
 
 pub const CURRENT_SAVE_FILE_VERSION: &str = "0.4.0";
