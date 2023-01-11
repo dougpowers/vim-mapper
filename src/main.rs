@@ -57,7 +57,6 @@ impl VMCanvas {
     pub fn new(config: VMConfigVersion4) -> VMCanvas {
         VMCanvas {
             inner: None,
-            // dialog: VMCanvas::make_dialog(&config),
             dialog: VMCanvas::new_dialog(&config, VMDialog::make_start_dialog_params()),
             dialog_visible: true,
             path: None,

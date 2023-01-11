@@ -21,7 +21,6 @@ use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, T
 use regex::Regex;
 use std::collections::HashMap;
 use std::f64::consts::*;
-use std::thread::current;
 
 use crate::vmdialog::VMDialogParams;
 use crate::vminput::*;
@@ -428,13 +427,10 @@ impl VimMapper {
     }
 
     pub fn add_external_node(&mut self, node_label: String) -> Option<u32> {
-        self.animating = true;
         let new_node_idx = self.increment_node_idx();
         let mut new_node = VMNode {
             label: node_label.clone(),
-            // edges: Vec::with_capacity(10),
             index: new_node_idx,
-            // anchored: true,
             ..Default::default()
         };
         new_node.fg_index = Some(self.graph.add_node(NodeData {
@@ -445,10 +441,22 @@ impl VimMapper {
             is_anchor: true,
             ..Default::default()
         }));
-        let comonent_string = self.graph.get_node_component(new_node.fg_index.unwrap()).to_string();
-        new_node.mark = Some(comonent_string);
-        self.root_nodes.insert(self.graph.get_node_component(new_node.fg_index.unwrap()), new_node.fg_index.unwrap());
+        let component = self.graph.get_node_component(new_node.fg_index.unwrap());
+        if component < 10 {
+            new_node.mark = Some(component.to_string());
+        }
+        self.rebuild_root_nodes();
+        self.root_nodes.insert(component, new_node.fg_index.unwrap());
+        for (k, v) in &self.root_nodes {
+            tracing::debug!("Root node index says node {:?} is part of component {:?}, actually part of component {:?}",
+                v,
+                k,
+                self.graph.get_node_component(*v)
+            );
+        }
         self.nodes.insert(new_node.index, new_node);
+        self.animating = true;
+        tracing::debug!("{:?}\n{:?}", self.root_nodes, self.graph.get_components());
         Some(new_node_idx)
     }
 
@@ -462,8 +470,6 @@ impl VimMapper {
 
         //Offset the new node from its progenitor to keep the ForceGraph from applying too-great repulsion
         // forces.
-        // let x_offset = (rand::random::<f64>()-0.5) + self.graph.parameters.min_attract_distance;
-        // let y_offset = (rand::random::<f64>()-0.5) + self.graph.parameters.min_attract_distance;
         let offset_vec = Vec2::new(rand::random::<f64>()-0.5, rand::random::<f64>()-0.5) * self.graph.parameters.min_attract_distance;
         let new_node_pos = Vec2::new(from_node_pos.x + offset_vec.x, from_node_pos.y + offset_vec.y);
         match from_node {
@@ -471,10 +477,7 @@ impl VimMapper {
             Some(from_node) => {
                 let mut new_node = VMNode {
                     label: node_label.clone(),
-                    // edges: Vec::with_capacity(10),
                     index: new_node_idx,
-                    // pos: Vec2::new(from_node.pos.x + offset_vec.x, from_node.pos.y + offset_vec.y),
-                    // container: VMNodeLayoutContainer::new(new_node_idx),
                     ..Default::default()
                 };
                 new_node.fg_index = Some(self.graph.add_node(NodeData {
@@ -486,7 +489,6 @@ impl VimMapper {
                 }));
                 self.graph.add_edge(from_node.fg_index.unwrap(), new_node.fg_index.unwrap(), EdgeData { user_data: 0 }); 
                 self.nodes.insert(new_node.index, new_node);
-                // self.edges.insert(new_edge.index, new_edge);
             }
             _ => {
                 panic!("Tried to add to a non-existent node")
@@ -554,6 +556,19 @@ impl VimMapper {
         }
     }
 
+    pub fn rebuild_root_nodes(&mut self) {
+        let mut new_roots = HashMap::new();
+        tracing::debug!("--------------");
+        for (k, v) in self.root_nodes.iter_mut() {
+            let new_component = self.graph.get_node_component(*v);
+            tracing::debug!("component {:?} is now {:?}", *k, new_component);
+            new_roots.insert(new_component, *v);
+            self.nodes.get_mut(&self.graph.get_graph()[*v].data.user_data).unwrap().mark = Some(new_component.to_string());
+        }
+        self.root_nodes = new_roots;
+        tracing::debug!("{:?}\n{:?}", self.root_nodes, self.graph.get_components());
+    }
+
     //Deletes a leaf node. Returns the global index of the node it was attached to. Currently only
     // nodes with a single edge (leaf nodes) can be deleted.
     // TODO: implement graph traversal to allow any node (save the root) to be deleted along with
@@ -567,51 +582,66 @@ impl VimMapper {
             let node_component = self.graph.get_node_component(node.fg_index.unwrap());
             let component_root = *self.root_nodes.get(&node_component).unwrap();
             let removal_list = self.graph.get_node_removal_tree(node.fg_index.unwrap(), component_root);
-            let edge_count = self.graph.get_graph().edges(node.fg_index.unwrap()).count();
-            if edge_count > 1 {
-                for idx in removal_list {
-                    if idx == component_root {
+            // let edge_count = self.graph.get_graph().edges(node.fg_index.unwrap()).count();
+            if self.is_node_root(idx) {
+                tracing::debug!("Removing external root");
+                for fg_idx in removal_list {
+                    if fg_idx == component_root {
                         self.root_nodes.remove(&node_component);
                     }
-                    self.nodes.remove(&self.graph.get_graph()[idx].data.user_data);
-                    self.graph.remove_node(idx);
-                    self.animating = true;
+                    self.nodes.remove(&self.graph.get_graph()[fg_idx].data.user_data);
+                    self.graph.remove_node(fg_idx);
                 }
-                // return Err("Node is not a leaf".to_string());
-                return Ok(0)
-            } else if edge_count == 1 {
-                if !self.graph.is_sole_anchor_in_component(node.fg_index.unwrap()) {
-                    let remainder = self.graph.get_graph()[self.graph.get_graph().neighbors(node.fg_index.unwrap()).next().unwrap()].data.user_data;
-                    self.graph.remove_node(node.fg_index.unwrap());
-                    self.nodes.remove(&idx);
-                    self.animating = true;
-                    return Ok(remainder);
-                } else {
-                    return Err("Deletion would leave unanchored component!".to_string())
-                }
-            } else {
-                self.graph.remove_node(node.fg_index.unwrap());
-                self.nodes.remove(&idx);
-                self.animating = true;
+                self.rebuild_root_nodes();
                 return Ok(0);
+            } else {
+                let mut removal_would_unanchor_component = false;
+                for idx in &removal_list {
+                    if self.graph.is_sole_anchor_in_component(*idx) {
+                        removal_would_unanchor_component = true;
+                    }
+                }
+                if removal_would_unanchor_component {
+                    return Err(String::from("Removal of node tree would unanchor component!"));
+                } else {
+                    for idx in removal_list {
+                        self.nodes.remove(&self.graph.get_graph()[idx].data.user_data);
+                        self.graph.remove_node(idx);
+                    }
+                    return Ok(0);
+                }
             }
+            // if edge_count > 1 {
+            //     for idx in removal_list {
+            //         if idx == component_root {
+            //             self.root_nodes.remove(&node_component);
+            //         }
+            //         self.nodes.remove(&self.graph.get_graph()[idx].data.user_data);
+            //         self.graph.remove_node(idx);
+            //         self.animating = true;
+            //     }
+            //     // return Err("Node is not a leaf".to_string());
+            //     return Ok(0)
+            // } else if edge_count == 1 {
+            //     if !self.graph.is_sole_anchor_in_component(node.fg_index.unwrap()) {
+            //         let remainder = self.graph.get_graph()[self.graph.get_graph().neighbors(node.fg_index.unwrap()).next().unwrap()].data.user_data;
+            //         self.graph.remove_node(node.fg_index.unwrap());
+            //         self.nodes.remove(&idx);
+            //         self.animating = true;
+            //         return Ok(remainder);
+            //     } else {
+            //         return Err("Deletion would leave unanchored component!".to_string())
+            //     }
+            // } else {
+            //     self.graph.remove_node(node.fg_index.unwrap());
+            //     self.nodes.remove(&idx);
+            //     self.animating = true;
+            //     return Ok(0);
+            // }
         } else {
             return Err("Node does not exist!".to_string());
         }
     }
-
-    //Given any two node indices, return the edge that connects the two
-    // pub fn get_edge(&self, idx_1: u32, idx_2: u32) -> Option<u32> {
-    //     let mut return_edge: Option<u32> = None;
-    //     self.edges.iter().for_each(|(idx, edge)| {
-    //         if edge.from == idx_1 && edge.to == idx_2 {
-    //             return_edge = Some(*idx); 
-    //         } else if edge.from == idx_2 && edge.to == idx_1 {
-    //             return_edge = Some(*idx);
-    //         }
-    //     });
-    //     return return_edge;
-    // }
 
     //Iterate through the node HashMap to find the active node. Only one node can be marked as active
     // at any time. Multiple active nodes is an illegal state. No active nodes is a possible (but unlikely)
