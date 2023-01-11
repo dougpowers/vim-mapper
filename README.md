@@ -13,6 +13,12 @@ Ensure that rustc v1.66.0 is installed
 rustup toolchain install 1.66.0
 ```
 
+For WSL2 cross-compilation or Linux compilation on Debian, install librust-gtk-dev
+
+```
+sudo apt install librust-gtk-dev
+```
+
 Clone the repository
 
 ```
@@ -26,8 +32,6 @@ cd vim-mapper
 cargo build --release
 ```
 
-
-For WSL2 cross-compilation, install librust-gtk-dev
 
 ## How to use Vim-Mapper
 
