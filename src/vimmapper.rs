@@ -1261,8 +1261,15 @@ impl VimMapper {
                         return Ok(());
                     },
                     Action::ToggleDebug => {
-                        self.debug_data = !self.debug_data;
-                        return Ok(());
+                        #[cfg(debug_assertions)]
+                        {
+                            self.debug_data = !self.debug_data;
+                            return Ok(());
+                        }
+                        #[cfg(not(debug_assertions))]
+                        {
+                            return Ok(());
+                        }
                     }
                     Action::PanUp => {
                         self.offset_y += payload.float.unwrap();
