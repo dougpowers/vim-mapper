@@ -1003,6 +1003,8 @@ pub fn main() {
         menu_visible: true,
         save_state: if launch_with_file {
             VMSaveState::Saved
+        } else if launch_with_unsaved_path {
+            VMSaveState::UnsavedChanges
         } else {
             VMSaveState::NoSheetOpened
         }
