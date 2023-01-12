@@ -248,7 +248,6 @@ impl VMConfigSerde {
                 return Ok(config)
             } else {
                 if let Ok(string) = fs::read_to_string(path.clone()) {
-                    println!("Config found... Attempting to deserialize...");
                     if let Ok(mut config) = serde_json::from_str::<VMConfigVersion4>(&string) {
                         config.ensure_full_color_schemes();
                         return Ok(config);

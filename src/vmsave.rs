@@ -131,9 +131,14 @@ impl Into<VMSaveVersion4> for VMSaveNoVersion {
         new_nodes.get_mut(&0).unwrap().mark = Some("0".to_string());
         let mut root_nodes: HashMap<usize, DefaultNodeIdx> = HashMap::new();
         root_nodes.insert(graph.get_node_component(nodes.get(&0).unwrap().fg_index.unwrap()), nodes.get(&0).unwrap().fg_index.unwrap());
-        // self.nodes.get_mut(&0).unwrap().mark = Some("0".to_string());
-        if graph.get_components().len() > root_nodes.len() {
+        let mut components = graph.get_components();
+        if components.len() > root_nodes.len() {
             tracing::debug!("VMSaveNoVersion has extra root nodes!");
+            for i in 1..components.len() {
+                components[i].sort();
+                root_nodes.insert(graph.get_node_component(components[i][0]), components[i][0]);
+                new_nodes.get_mut(&graph.get_graph()[components[i][0]].data.user_data).unwrap().mark = Some(i.to_string());
+            }
         }
         VMSaveVersion4 {
             file_version: CURRENT_SAVE_FILE_VERSION.to_string(),

@@ -73,6 +73,10 @@ impl VMCanvas {
         } else {
             self.path = Some(path.clone());
             if let Ok(_) = fs::write(&path, "test") {
+                #[allow(unused_must_use)]
+                {
+                    fs::remove_file(path.clone());
+                }
                 self.path = Some(path.clone());
                 return Ok(path.clone());
             } else {
@@ -933,6 +937,7 @@ pub fn main() {
     }
 
     let mut launch_with_file = false;
+    let mut launch_with_unsaved_path = false;
     let args: Vec<String> = std::env::args().collect();
     if let Some(str) = args.get(1) {
         let path = Path::new(str);
@@ -944,9 +949,20 @@ pub fn main() {
                         canvas.path = Some(path.clone());
                         canvas.load_new_mapper(vm);
                         launch_with_file = true;
-                        println!("Launching with open sheet: {}.", path.display());
+                        println!("Launching with open sheet: {}...", path.display());
                     }
                 }
+            }
+        } else if let Some(ext) = path.extension() {
+            if ext == "vmd" {
+                if let Ok(path) = canvas.set_path(path.to_path_buf()) {
+                    let vm = VimMapper::new(canvas.config.clone());
+                    launch_with_unsaved_path = true;
+                    canvas.load_new_mapper(vm);
+                    println!("Launching new file with path: {}...", path.display());
+                }
+            } else {
+                println!("Cannot create a new file without a .vmd extension!");
             }
         }
     }
@@ -963,6 +979,8 @@ pub fn main() {
         menu_visible: true,
         save_state: if launch_with_file {
             VMSaveState::Saved
+        } else if launch_with_unsaved_path {
+            VMSaveState::UnsavedChanges
         } else {
             VMSaveState::NoSheetOpened
         }
