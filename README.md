@@ -1,7 +1,7 @@
 [![license](https://img.shields.io/crates/l/druid)](https://github.com/dougpowers/vim-mapper/blob/main/LICENCE)
 ## Vim-Mapper - A simple vim-inspired brainstorming tool.
 
-Vim-Mapper is an experimental graph editor with vim-like keybindings. It uses a force-directed graph algorithm to dynamically position nodes. Its goal is to allow a user to rapidly create a node-tree without moving their hands from the home row of the keyboard.
+Vim-Mapper is a graph editor with vim-like keybindings. It uses a force-directed algorithm to dynamically position nodes. Its goal is to allow a user create a node-tree for any purpose at the speed of thought without moving their hands from the home row of the keyboard.
 
 ## Compiling
 
