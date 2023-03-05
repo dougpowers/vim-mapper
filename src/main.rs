@@ -100,13 +100,30 @@ impl VMCanvas {
         }
     }
 
-    pub fn load_new_mapper(&mut self, mapper: VimMapper) {
-        self.tabs.push(VMTab {
-            vm: WidgetPod::new(mapper),
-            tab_name: String::from("Tab 1"),
-        });
-        self.input_managers.push(VMInputManager::new());
-        self.tab_bar.widget_mut().update_tabs(&vec![String::from("Tab 1")], self.active_tab);
+    // pub fn load_new_mapper(&mut self, mapper: VimMapper) {
+    //     self.tabs.push(VMTab {
+    //         vm: WidgetPod::new(mapper),
+    //         tab_name: String::from("Tab 1"),
+    //     });
+    //     self.input_managers.push(VMInputManager::new());
+    //     self.tab_bar.widget_mut().update_tabs(&vec![String::from("Tab 1")], self.active_tab);
+    //     self.hide_dialog();
+    // }
+
+    pub fn load_new_tabs(&mut self, tabs: Vec<VMTab>, active_tab: usize) {
+        let tab_names = &tabs.iter().map(|v| {return v.tab_name.clone();}).collect();
+        self.tabs = vec![];
+        self.input_managers = vec![];
+        for tab in tabs {
+            self.tabs.push(tab);
+            self.input_managers.push(VMInputManager::new());
+        }
+        self.active_tab = active_tab; 
+        self.tab_bar.widget_mut().update_tabs(
+            // &vec![String::from("Tab 1")], 
+            tab_names,
+            self.active_tab
+        );
         self.hide_dialog();
     }
 
@@ -224,7 +241,8 @@ impl VMCanvas {
                 }
                 Action::CreateNewSheet => {
                     if data.save_state == VMSaveState::Saved || data.save_state == VMSaveState::NoSheetOpened || data.save_state == VMSaveState::DiscardChanges {
-                        self.load_new_mapper(VimMapper::new(self.config.clone()));
+                        // self.load_new_mapper(VimMapper::new(self.config.clone()));
+                        self.load_new_tabs(vec![VMTab { tab_name: String::from("Tab 1"), vm: WidgetPod::new(VimMapper::new(self.config.clone()))}], 0);
                         self.path = None;
                         data.save_state = VMSaveState::NoSave;
                         ctx.children_changed();
@@ -255,11 +273,10 @@ impl VMCanvas {
                 }
                 Action::SaveSheet => { 
                     let tab = &mut self.tabs.get_mut(self.active_tab);
-                    if let Some(tab) = tab {
-                        let inner = &mut tab.vm;
+                    if let Some(_) = tab {
                         if let Some(path) = self.path.clone() {
                             if let Ok(_) = VMSaveSerde::save(
-                                &VMSaveSerde::to_save(inner.widget()),
+                                &VMSaveSerde::to_save(&self.tabs, self.active_tab),
                                 path,
                             ) {
                                     data.save_state = VMSaveState::Saved;
@@ -310,9 +327,64 @@ impl VMCanvas {
                 }
                 match payload.action {
                     Action::GoToNextTab => {
-                        if let Some(tab) = self.tabs.get_mut(self.active_tab + 1) {
+                        if self.tabs.len() > 1 {
+                            if let Some(tab) = self.tabs.get_mut(self.active_tab + 1) {
+                                let inner = &mut tab.vm;
+                                self.active_tab = self.active_tab + 1;
+                                ctx.children_changed();
+                                ctx.request_layout();
+                                ctx.set_handled();
+                                inner.widget_mut().set_is_focused(true);
+                                let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+                                self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
+                                return Ok(());
+                            } else {
+                                self.active_tab = 0;
+                                ctx.children_changed();
+                                ctx.request_layout();
+                                ctx.set_handled();
+                                self.tabs.get_mut(self.active_tab).unwrap().vm.widget_mut().set_is_focused(true);
+                                let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+                                self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
+                                return Ok(());
+                            }
+                        } else {
+                            return Ok(());
+                        }
+                    },
+                    Action::GoToPreviousTab => {
+                        let tabs_len = self.tabs.len();
+                        if tabs_len > 1 {
+                            if self.active_tab == 0 {
+                                let inner = &mut self.tabs[tabs_len-1].vm;
+                                self.active_tab = tabs_len-1;
+                                ctx.children_changed();
+                                ctx.request_layout();
+                                ctx.set_handled();
+                                inner.widget_mut().set_is_focused(true);
+                                let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+                                self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
+                                return Ok(());
+                            } else {
+                                let inner = &mut self.tabs[self.active_tab-1].vm;
+                                self.active_tab = self.active_tab-1;
+                                ctx.children_changed();
+                                ctx.request_layout();
+                                ctx.set_handled();
+                                inner.widget_mut().set_is_focused(true);
+                                let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+                                self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
+                                return Ok(());
+                            }
+                        } else {
+                            return Ok(());
+                        }
+                    },
+                    Action::GoToTab => {
+                        let tab_index = payload.tab_index.unwrap();
+                        if let Some(tab) = self.tabs.get_mut(tab_index) {
                             let inner = &mut tab.vm;
-                            self.active_tab = self.active_tab + 1;
+                            self.active_tab = tab_index;
                             ctx.children_changed();
                             ctx.request_layout();
                             ctx.set_handled();
@@ -321,13 +393,6 @@ impl VMCanvas {
                             self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
                             return Ok(());
                         } else {
-                            self.active_tab = 0;
-                            ctx.children_changed();
-                            ctx.request_layout();
-                            ctx.set_handled();
-                            self.tabs.get_mut(self.active_tab).unwrap().vm.widget_mut().set_is_focused(true);
-                            let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
-                            self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
                             return Ok(());
                         }
                     },
@@ -605,9 +670,10 @@ impl Widget<AppState> for VMCanvas {
             Event::Command(command) if command.is(druid::commands::OPEN_FILE) => {
                 let payload = command.get_unchecked(druid::commands::OPEN_FILE);
                 if let Ok((save, path)) = VMSaveSerde::load(payload.path().to_str().unwrap().to_string()) {
-                    let vm = VMSaveSerde::from_save(save, self.config.clone());
+                    let (tabs, active_tab) = VMSaveSerde::from_save(save, self.config.clone());
                     self.path = Some(path);
-                    self.load_new_mapper(vm);
+                    // self.load_new_mapper(vm);
+                    self.load_new_tabs(tabs, active_tab);
                     data.save_state = VMSaveState::Saved;
                     ctx.children_changed();
                 }
@@ -620,20 +686,32 @@ impl Widget<AppState> for VMCanvas {
                 if self.tabs.get(self.active_tab).is_some() {
                     let payload = command.get_unchecked(druid::commands::SAVE_FILE_AS);
                     let res = self.set_path(payload.path().to_path_buf());
-                    let inner = &self.tabs.get(self.active_tab).unwrap().vm;
+                    // let inner = &self.tabs.get(self.active_tab).unwrap().vm;
                     if let Ok(path) = res {
                         match data.save_state {
                             VMSaveState::UnsavedChanges => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                // VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                VMSaveSerde::save(
+                                    &VMSaveSerde::to_save(&self.tabs, self.active_tab),
+                                    path
+                                );
                             },
                             VMSaveState::SaveAsInProgress => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                // VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                VMSaveSerde::save(
+                                    &VMSaveSerde::to_save(&self.tabs, self.active_tab),
+                                    path
+                                );
                             },
                             VMSaveState::SaveAsInProgressThenQuit => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                // VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                VMSaveSerde::save(
+                                    &VMSaveSerde::to_save(&self.tabs, self.active_tab),
+                                    path
+                                );
                                 ctx.submit_command(Command::new(
                                     EXECUTE_ACTION,
                                     ActionPayload {
@@ -645,7 +723,11 @@ impl Widget<AppState> for VMCanvas {
                             },
                             VMSaveState::SaveAsInProgressThenNew => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                // VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                VMSaveSerde::save(
+                                    &VMSaveSerde::to_save(&self.tabs, self.active_tab),
+                                    path
+                                );
                                 ctx.submit_command(Command::new(
                                     EXECUTE_ACTION,
                                     ActionPayload {
@@ -657,7 +739,11 @@ impl Widget<AppState> for VMCanvas {
                             },
                             VMSaveState::SaveAsInProgressThenOpen => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                // VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                VMSaveSerde::save(
+                                    &VMSaveSerde::to_save(&self.tabs, self.active_tab),
+                                    path
+                                );
                                 ctx.submit_command(Command::new(
                                     EXECUTE_ACTION,
                                     ActionPayload {
@@ -669,7 +755,11 @@ impl Widget<AppState> for VMCanvas {
                             },
                             VMSaveState::Saved => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                // VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
+                                VMSaveSerde::save(
+                                    &VMSaveSerde::to_save(&self.tabs, self.active_tab),
+                                    path
+                                );
                             },
                             _ => {
                                 tracing::error!("Tried to resolve SaveAs with an invalid save_state!");
@@ -838,6 +928,16 @@ impl Widget<AppState> for VMCanvas {
                     data.menu_visible = menu_visible;
                 }
             }
+            Event::MouseDown(mouse_event) => {
+                if self.dialog_visible {
+                    self.dialog.event(ctx, event, &mut (), env);
+                } else if self.tab_bar.layout_rect().contains(mouse_event.pos) {
+                    self.tab_bar.event(ctx, event, &mut (), env);
+                } else if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+                    let inner = &mut tab.vm;
+                    inner.event(ctx, event, &mut (), env);
+                }
+            }
             _ => {
                 if self.dialog_visible {
                     self.dialog.event(ctx, event, &mut (), env);
@@ -880,7 +980,7 @@ impl Widget<AppState> for VMCanvas {
             inner.layout(ctx, bc, &(), env);
             inner.set_origin(ctx, Point::new(0., 0.));
             self.tab_bar.layout(ctx, bc, &(), env);
-            self.tab_bar.set_origin(ctx, Point::new(0., bc.max().height));
+            self.tab_bar.set_origin(ctx, Point::new(0., bc.max().height - TAB_BAR_HEIGHT));
         }
         bc.max()
     }
@@ -1040,9 +1140,10 @@ pub fn main() {
             if let Some(ext) = path.extension() {
                 if ext == "vmd" {
                     if let Ok((save, path)) = VMSaveSerde::load(path.display().to_string()) {
-                        let vm = VMSaveSerde::from_save(save, canvas.config.clone());
+                        let (tabs, active_tab) = VMSaveSerde::from_save(save, canvas.config.clone());
                         canvas.path = Some(path.clone());
-                        canvas.load_new_mapper(vm);
+                        // canvas.load_new_mapper(vm);
+                        canvas.load_new_tabs(tabs, active_tab);
                         launch_with_file = true;
                         println!("Launching with open sheet: {}...", path.display());
                     }
@@ -1051,9 +1152,10 @@ pub fn main() {
         } else if let Some(ext) = path.extension() {
             if ext == "vmd" {
                 if let Ok(path) = canvas.set_path(path.to_path_buf()) {
-                    let vm = VimMapper::new(canvas.config.clone());
+                    let (tabs, active_tab) = (vec![VMTab {tab_name: String::from("Tab 1"), vm: WidgetPod::new(VimMapper::new(canvas.config.clone()))}], 0);
                     launch_with_unsaved_path = true;
-                    canvas.load_new_mapper(vm);
+                    // canvas.load_new_mapper(vm);
+                    canvas.load_new_tabs(tabs, active_tab);
                     println!("Launching new file with path: {}...", path.display());
                 }
             } else {

@@ -549,7 +549,7 @@ impl VimMapper {
 
     pub fn rebuild_root_nodes(&mut self) {
         let mut new_roots = HashMap::new();
-        for (k, v) in self.root_nodes.iter_mut() {
+        for (_, v) in self.root_nodes.iter_mut() {
             let new_component = self.graph.get_node_component(*v);
             new_roots.insert(new_component, *v);
             self.nodes.get_mut(&self.graph.get_graph()[*v].data.user_data).unwrap().mark = Some(new_component.to_string());

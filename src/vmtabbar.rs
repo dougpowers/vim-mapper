@@ -1,12 +1,9 @@
-use druid::{Size, Widget, piet::{PietTextLayout, Text, TextLayoutBuilder, TextLayout},Color, RenderContext, Rect, Point, FontFamily, Affine, Vec2};
+use druid::{Size, Widget, piet::{PietTextLayout, Text, TextLayoutBuilder, TextLayout},Color, RenderContext, Rect, Point, FontFamily, Event, Command, Target};
 
-use crate::{vmconfig::{VMConfigVersion4, VMColor}};
+use crate::{vmconfig::{VMConfigVersion4, VMColor}, vminput::{ActionPayload, Action}};
 use crate::constants::*;
 
 pub struct VMTabBar {
-    // tab_names: Vec<String>,
-    // tab_label_layouts: Vec<Option<PietTextLayout>>,
-    // tab_label_sizes: Vec<Option<Size>>,
     tabs: Vec<(String, Option<PietTextLayout>, Option<Size>)>,
     active_tab: usize,
     tab_text_color: Color,
@@ -49,21 +46,40 @@ impl VMTabBar {
 }
 
 impl Widget<()> for VMTabBar {
-    fn event(&mut self, ctx: &mut druid::EventCtx, event: &druid::Event, data: &mut (), env: &druid::Env) {
+    fn event(&mut self, ctx: &mut druid::EventCtx, event: &druid::Event, _data: &mut (), _env: &druid::Env) {
         match event {
+            Event::MouseDown(mouse_event) => {
+                for index in 0..self.tabs.len() {
+                    let x_min = *&self.tabs[0..index].iter().fold(0., |acc, v| {
+                        return acc + v.2.unwrap().width + TAB_BAR_LABEL_PADDING_X*2.;
+                    });
+                    let x_max = x_min + self.tabs[index].2.unwrap().width + TAB_BAR_LABEL_PADDING_X*2.;
+                    if mouse_event.pos.x > x_min && mouse_event.pos.x < x_max {
+                        ctx.submit_command(Command::new(
+                            EXECUTE_ACTION,
+                            ActionPayload {
+                                action: Action::GoToTab,
+                                tab_index: Some(index),
+                                ..Default::default()
+                            },
+                            Target::Global
+                        ));
+                    }
+                }
+            },
             _ => {
 
             }
         }
     }
 
-    fn lifecycle(&mut self, ctx: &mut druid::LifeCycleCtx, event: &druid::LifeCycle, data: &(), env: &druid::Env) {
+    fn lifecycle(&mut self, _ctx: &mut druid::LifeCycleCtx, _event: &druid::LifeCycle, _data: &(), _env: &druid::Env) {
     }
 
-    fn update(&mut self, ctx: &mut druid::UpdateCtx, old_data: &(), data: &(), env: &druid::Env) {
+    fn update(&mut self, _ctx: &mut druid::UpdateCtx, _old_data: &(), _data: &(), _env: &druid::Env) {
     }
 
-    fn layout(&mut self, ctx: &mut druid::LayoutCtx, bc: &druid::BoxConstraints, data: &(), env: &druid::Env) -> Size {
+    fn layout(&mut self, ctx: &mut druid::LayoutCtx, _bc: &druid::BoxConstraints, _data: &(), _env: &druid::Env) -> Size {
         for index in 0..self.tabs.len() {
             let mut tab = &mut self.tabs[index];
             if tab.1.is_none() {
@@ -79,13 +95,12 @@ impl Widget<()> for VMTabBar {
         self.tabs.iter().fold(Size::ZERO, |acc, v| {
             return Size {
                 height: TAB_BAR_HEIGHT,
-                width: acc.width + v.2.unwrap().width + TAB_BAR_LABEL_PADDING_X*2.
+                width: acc.width + v.2.unwrap().ceil().width + TAB_BAR_LABEL_PADDING_X*2.
         }
         }).ceil()
     }
 
     fn paint(&mut self, ctx: &mut druid::PaintCtx, _data: &(), _env: &druid::Env) {
-        ctx.transform(Affine::translate(Vec2::new(0., -TAB_BAR_HEIGHT)));
         let size = ctx.size();
         let mut x = 0.0;
         for index in 0..self.tabs.len() {

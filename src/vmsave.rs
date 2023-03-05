@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{PathBuf, Path};
 
-use druid::{Vec2, Data};
+use druid::{Vec2, Data, WidgetPod};
 use druid::kurbo::TranslateScale;
 use vm_force_graph_rs::{ForceGraph, DefaultNodeIdx, NodeData, EdgeData};
 use serde::{Serialize, Deserialize};
@@ -45,12 +45,16 @@ pub struct VMSaveVersion4 {
     offset_y: f64,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct VMSaveVersion5 {
     file_version: String,
-    tabs: Vec<VMTabSave>
+    tabs: Vec<VMTabSave>,
+    active_tab: usize,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct VMTabSave {
+    tab_name: String,
     graph: ForceGraph<u32, u32>,
     nodes: HashMap<u32, BareNodeVersion4>,
     root_nodes: HashMap<usize, DefaultNodeIdx>,
@@ -61,20 +65,43 @@ pub struct VMTabSave {
     offset_y: f64,
 }
 
+impl From<VMSaveVersion4> for VMSaveVersion5 {
+    fn from(save: VMSaveVersion4) -> Self {
+        VMSaveVersion5 {
+            file_version: String::from(CURRENT_SAVE_FILE_VERSION),
+            tabs: vec![
+                VMTabSave { 
+                    tab_name: String::from("Tab 1"),
+                    graph: save.graph,
+                    nodes: save.nodes, 
+                    root_nodes: save.root_nodes, 
+                    node_idx_count: save.node_idx_count, 
+                    translate: save.translate, 
+                    scale: save.scale, 
+                    offset_x: save.offset_x, 
+                    offset_y: save.offset_y 
+                }
+            ],
+            active_tab: 0,
+        }
+    }
+}
+
+impl From<VMSaveNoVersion> for VMSaveVersion5 {
+    fn from(save: VMSaveNoVersion) -> Self {
+        VMSaveVersion5::from(VMSaveVersion4::from(save))
+    }
+}
+
 #[derive(Data, PartialEq, Clone, Debug)]
 pub enum VMSaveState {
     NoSheetOpened,
     NoSave,
     UnsavedChanges,
-    // SaveAsInProgressFileExists,
     SaveAsInProgress,
-    // SaveAsInProgressFileExistsThenQuit,
     SaveAsInProgressThenQuit,
-    // SaveAsInProgressFileExistsThenNew,
     SaveAsInProgressThenNew,
     SaveAsInProgressThenOpen,
-    // SaveInProgress,
-    // SaveInProgressThenQuit,
     Saved,
     DiscardChanges,
 }
@@ -91,29 +118,11 @@ pub struct VMSaveNoVersion {
     offset_y: f64,
 }
 
-impl Into<VMSaveVersion5> for VMSaveVersion4 {
-    fn into(self) -> VMSaveVersion5 {
-        VMSaveVersion5 {
-            file_version: String::from(CURRENT_SAVE_FILE_VERSION),
-            tabs: vec![VMTabSave { 
-                graph: self.graph, 
-                nodes: self.nodes, 
-                root_nodes: self.root_nodes, 
-                node_idx_count: self.node_idx_count, 
-                translate: self.translate, 
-                scale: self.scale, 
-                offset_x: self.offset_x, 
-                offset_y: self.offset_y
-            }],
-        }
-    }
-}
-
-impl Into<VMSaveVersion4> for VMSaveNoVersion {
-    fn into(self) -> VMSaveVersion4 {
+impl From<VMSaveNoVersion> for VMSaveVersion4 {
+    fn from(save: VMSaveNoVersion) -> Self {
         let mut graph: ForceGraph<u32, u32> = ForceGraph::new(DEFAULT_SIMULATION_PARAMTERS);
         let mut nodes: HashMap<u32, VMNode> = HashMap::with_capacity(50);
-        for (_k ,v) in &self.nodes {
+        for (_k ,v) in &save.nodes {
             let fg_index: Option<DefaultNodeIdx>;
             if v.index == 0 {
                 fg_index = Some(graph.add_node(NodeData {
@@ -146,14 +155,14 @@ impl Into<VMSaveVersion4> for VMSaveNoVersion {
                 ..Default::default()
             });
         }
-        for (_k,v) in &self.edges {
+        for (_k,v) in &save.edges {
             graph.add_edge(
                 nodes.get(&v.from).unwrap().fg_index.unwrap(), 
                 nodes.get(&v.to).unwrap().fg_index.unwrap(), 
                 EdgeData { user_data: v.index });
         }
         tracing::debug!("coercing VMSaveNoVerion to VMSaveVersion4");
-        let mut new_nodes = self.nodes.clone();
+        let mut new_nodes = save.nodes.clone();
         new_nodes.get_mut(&0).unwrap().mark = Some("0".to_string());
         let mut root_nodes: HashMap<usize, DefaultNodeIdx> = HashMap::new();
         root_nodes.insert(graph.get_node_component(nodes.get(&0).unwrap().fg_index.unwrap()), nodes.get(&0).unwrap().fg_index.unwrap());
@@ -170,11 +179,11 @@ impl Into<VMSaveVersion4> for VMSaveNoVersion {
             file_version: CURRENT_SAVE_FILE_VERSION.to_string(),
             graph,
             nodes: new_nodes,
-            node_idx_count: self.node_idx_count,
-            translate: self.translate,
-            scale: self.scale,
-            offset_x: self.offset_x,
-            offset_y: self.offset_y,
+            node_idx_count: save.node_idx_count,
+            translate: save.translate,
+            scale: save.scale,
+            offset_x: save.offset_x,
+            offset_y: save.offset_y,
             root_nodes,
         }
     }
@@ -185,95 +194,110 @@ pub struct VMSaveSerde;
 impl VMSaveSerde {
     //Instantiates a new VimMapper struct from a deserialized VMSave. The ForceGraph is created from scratch
     // and no fg_index values are guaranteed to persist from session to session.
-    pub(crate) fn from_save(save: VMSaveVersion4, config: VMConfigVersion4) -> VimMapper {
-        let graph = save.graph;
-        let mut nodes: HashMap<u32, VMNode> = HashMap::with_capacity(50);
-        for (_k ,v) in save.nodes {
-            let mut fg_index: DefaultNodeIdx = DefaultNodeIdx::default();
-            graph.visit_nodes(|n| {
-                if n.data.user_data == v.index {
-                    fg_index = n.index();
-                }
-            });
-            nodes.insert(v.index, VMNode {
-                label: v.label.clone(), 
-                index: v.index, 
-                fg_index: Some(fg_index), 
-                mark: v.mark,
-                ..Default::default()
-            });
-        }
-        let mut vm = VimMapper {
-            graph,
-            animating: true,
-            nodes,
-            node_idx_count: save.node_idx_count,
-            translate: TranslateScale::new(
-                Vec2::new(
-                    save.translate.0, 
-                    save.translate.1),
-                0.),
-            scale: TranslateScale::new(
-                Vec2::new(
-                    0., 
+    pub(crate) fn from_save(save: VMSaveVersion5, config: VMConfigVersion4) -> (Vec<VMTab>, usize) {
+        let mut vms: Vec<VMTab> = vec![];
+        for tab in save.tabs {
+            let graph = tab.graph;
+            let mut nodes: HashMap<u32, VMNode> = HashMap::with_capacity(50);
+            for (_k ,v) in tab.nodes {
+                let mut fg_index: DefaultNodeIdx = DefaultNodeIdx::default();
+                graph.visit_nodes(|n| {
+                    if n.data.user_data == v.index {
+                        fg_index = n.index();
+                    }
+                });
+                nodes.insert(v.index, VMNode {
+                    label: v.label.clone(), 
+                    index: v.index, 
+                    fg_index: Some(fg_index), 
+                    mark: v.mark,
+                    ..Default::default()
+                });
+            }
+            let mut vm = VimMapper {
+                graph,
+                animating: true,
+                nodes,
+                node_idx_count: tab.node_idx_count,
+                translate: TranslateScale::new(
+                    Vec2::new(
+                        tab.translate.0, 
+                        tab.translate.1),
                     0.),
-                save.scale),
-            offset_x: save.offset_x,
-            offset_y: save.offset_y,
-            is_focused: true,
-            target_node_list: vec![],
-            target_node_idx: None,
-            node_editor: VMNodeEditor::new(),
-            is_hot: true,
-            config,
-            node_render_mode: NodeRenderMode::AllEnabled,
-            root_nodes: save.root_nodes,
-            ..Default::default()
-        };
-        vm.set_node_as_active(0);
-        vm
+                scale: TranslateScale::new(
+                    Vec2::new(
+                        0., 
+                        0.),
+                    tab.scale),
+                offset_x: tab.offset_x,
+                offset_y: tab.offset_y,
+                is_focused: true,
+                target_node_list: vec![],
+                target_node_idx: None,
+                node_editor: VMNodeEditor::new(),
+                is_hot: true,
+                config: config.clone(),
+                node_render_mode: NodeRenderMode::AllEnabled,
+                root_nodes: tab.root_nodes,
+                ..Default::default()
+            };
+            vm.set_node_as_active(0);
+            vms.push(VMTab {vm: WidgetPod::new(vm), tab_name: tab.tab_name});
+        }
+        (vms, save.active_tab)
     }
 
     //Instantiates a serializable VMSave from the VimMapper struct. All ForceGraph data is discarded and
     // must be recreated when the VMSave is deserialized and instantiated into a VimMapper struct
-    pub(crate) fn to_save(vm: &VimMapper) -> VMSaveVersion4 {
-        let mut nodes: HashMap<u32, BareNodeVersion4> = HashMap::with_capacity(50);
-        vm.get_nodes().iter().for_each(|(index, node)| {
-            let pos = vm.get_node_pos(*index);
-            nodes.insert(*index, BareNodeVersion4 {
-                label: node.label.clone(),
-                index: node.index,
-                pos: (pos.x, pos.y),
-                is_active: false,
-                targeted_internal_edge_idx: None,
-                mark: node.mark.clone(),
-                mass: vm.graph.get_graph()[node.fg_index.unwrap()].data.mass,
-                anchored: vm.graph.get_graph()[node.fg_index.unwrap()].data.is_anchor
+    pub(crate) fn to_save(vms: &Vec<VMTab>, active_tab: usize) -> VMSaveVersion5 {
+        let mut tabs: Vec<VMTabSave> = vec![];
+        for tab in vms {
+            let vm = tab.vm.widget();
+            let mut nodes: HashMap<u32, BareNodeVersion4> = HashMap::with_capacity(50);
+            vm.get_nodes().iter().for_each(|(index, node)| {
+                let pos = vm.get_node_pos(*index);
+                nodes.insert(*index, BareNodeVersion4 {
+                    label: node.label.clone(),
+                    index: node.index,
+                    pos: (pos.x, pos.y),
+                    is_active: false,
+                    targeted_internal_edge_idx: None,
+                    mark: node.mark.clone(),
+                    mass: vm.graph.get_graph()[node.fg_index.unwrap()].data.mass,
+                    anchored: vm.graph.get_graph()[node.fg_index.unwrap()].data.is_anchor
+                });
             });
-        });
-        let save = VMSaveVersion4 {
-            file_version: CURRENT_SAVE_FILE_VERSION.to_string(),
-            graph: vm.graph.clone(),
-            nodes: nodes,
-            // edges: edges,
-            node_idx_count: vm.get_node_idx_count(),
-            // edge_idx_count: vm.get_edge_idx_count(),
-            translate: (vm.get_translate().as_tuple().0.x, vm.get_translate().as_tuple().0.y),
-            scale: vm.get_scale().as_tuple().1,
-            offset_x: vm.get_offset_x(),
-            offset_y: vm.get_offset_y(),
-            root_nodes: vm.root_nodes.clone(),
-        };
-        save
+            let save = VMTabSave {
+                tab_name: tab.tab_name.clone(),
+                graph: vm.graph.clone(),
+                nodes: nodes,
+                node_idx_count: vm.get_node_idx_count(),
+                translate: (vm.get_translate().as_tuple().0.x, vm.get_translate().as_tuple().0.y),
+                scale: vm.get_scale().as_tuple().1,
+                offset_x: vm.get_offset_x(),
+                offset_y: vm.get_offset_y(),
+                root_nodes: vm.root_nodes.clone(),
+            };
+            tabs.push(save)
+        }
+        VMSaveVersion5 {
+            file_version: String::from(CURRENT_SAVE_FILE_VERSION),
+            tabs,
+            active_tab
+        }
     }
 
-    pub(crate) fn load(path: String) -> Result<(VMSaveVersion4, PathBuf), String> {
+    pub(crate) fn load(path: String) -> Result<(VMSaveVersion5, PathBuf), String> {
         if let Ok(string) = fs::read_to_string(path.clone()) {
             if let Ok(path) = Path::new(&path.clone()).canonicalize() {
-                if let Ok(save) = serde_json::from_str::<VMSaveVersion4>(string.as_str()) {
+                if let Ok(save) = serde_json::from_str::<VMSaveVersion5>(string.as_str()) {
                     return Ok((save, path));
+                } else if let Ok(save) = serde_json::from_str::<VMSaveVersion4>(string.as_str()) {
+                    tracing::debug!("Converting from VMSaveVersion4");
+                    return Ok((VMSaveVersion5::from(save), path))
                 } else if let Ok(save) = serde_json::from_str::<VMSaveNoVersion>(string.as_str()) {
-                    return Ok((save.into(), path));
+                    tracing::debug!("Converting from VMSaveNoVersion");
+                    return Ok((VMSaveVersion5::from(save), path));
                 } else {
                     return Err(String::from("Could not serialize from save."));
                 }
@@ -285,12 +309,12 @@ impl VMSaveSerde {
         }
     }
 
-    pub(crate) fn save(save: &VMSaveVersion4, path: PathBuf) -> Result<String, String> {
+    pub(crate) fn save(save: &VMSaveVersion5, path: PathBuf) -> Result<String, String> {
         #[cfg(debug_assertions)]
         {
             println!("Saving file to {}", path.display());
         }
-        if let Ok(string) = serde_json::to_string::<VMSaveVersion4>(save) {
+        if let Ok(string) = serde_json::to_string::<VMSaveVersion5>(save) {
             if let Ok(_) = fs::write(path, string) {
                 Ok("File saved".to_string())
             } else {

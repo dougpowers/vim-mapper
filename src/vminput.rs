@@ -140,7 +140,7 @@ pub enum Action {
     DeleteTab,
     GoToNextTab,
     GoToPreviousTab,
-    SelectTab,
+    GoToTab,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -923,7 +923,7 @@ impl Default for VMInputManager {
                     regex: None,
                     group_actions: None,
                     key: Some(Key::Tab),
-                    modifiers: Some(Modifiers::CONTROL & Modifiers::SHIFT),
+                    modifiers: Some(Modifiers::CONTROL | Modifiers::SHIFT),
                     action_payloads: vec![Some(ActionPayload {
                         action: Action::GoToPreviousTab,
                         ..Default::default()
