@@ -17,10 +17,10 @@ use druid::widget::{prelude::*, Flex};
 use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Command, Target, WidgetPod, LocalizedString, MenuItem, FileSpec, FontFamily, WindowId, Menu, AppDelegate};
 use druid::piet::{Text, TextLayout, TextLayoutBuilder};
 use vmdialog::{VMDialogParams, VMDialog};
+use vmtabbar::VMTabBar;
 use std::fs;
 use std::path::{PathBuf, Path};
 use std::time::{SystemTime, UNIX_EPOCH};
-
 
 mod vmnode;
 
@@ -43,25 +43,40 @@ mod vmdialog;
 
 mod vmbutton;
 
+mod vmtabbar;
+
 struct VMCanvas {
-    inner: Option<WidgetPod<(), VimMapper>>,
+    // tabs: Vec<WidgetPod<(), VimMapper>>,
+    tabs: Vec<VMTab>,
+    active_tab: usize,
+    tab_bar: WidgetPod<(), VMTabBar>,
+    // inner: Option<WidgetPod<(), VimMapper>>,
     dialog: WidgetPod<(), Flex<()>>,
     dialog_visible: bool,
     path: Option<PathBuf>,
     config: VMConfigVersion4,
-    input_manager: VMInputManager,
+    // input_manager: VMInputManager,
+    input_managers: Vec<VMInputManager>,
     last_frame_time: u128,
+}
+
+struct VMTab {
+    vm: WidgetPod<(), VimMapper>,
+    tab_name: String,
 }
 
 impl VMCanvas {
     pub fn new(config: VMConfigVersion4) -> VMCanvas {
         VMCanvas {
-            inner: None,
+            tabs: vec![],
+            active_tab: 0,
+            tab_bar: WidgetPod::new(VMTabBar::new(&config, &vec![], 0)),
             dialog: VMCanvas::new_dialog(&config, VMDialog::make_start_dialog_params()),
             dialog_visible: true,
             path: None,
             config,
-            input_manager: VMInputManager::new(),
+            // input_manager: VMInputManager::new(),
+            input_managers: vec![VMInputManager::new()],
             last_frame_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
         }
     }
@@ -86,7 +101,12 @@ impl VMCanvas {
     }
 
     pub fn load_new_mapper(&mut self, mapper: VimMapper) {
-        self.inner = Some(WidgetPod::new(mapper));
+        self.tabs.push(VMTab {
+            vm: WidgetPod::new(mapper),
+            tab_name: String::from("Tab 1"),
+        });
+        self.input_managers.push(VMInputManager::new());
+        self.tab_bar.widget_mut().update_tabs(&vec![String::from("Tab 1")], self.active_tab);
         self.hide_dialog();
     }
 
@@ -115,28 +135,31 @@ impl VMCanvas {
         if let Some(payload) = payload {
             if let Some(_) = self.path {
                 match payload.action {
-                    Action::CreateNewNode => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::CreateNewNodeAndEdit => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::ActivateTargetedNode => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::IncreaseActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::DecreaseActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::ResetActiveNodeMass => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::ToggleAnchorActiveNode => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::EditActiveNodeSelectAll => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::EditActiveNodeAppend => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::EditActiveNodeInsert => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::DeleteActiveNode => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::DeleteTargetNode => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::MarkActiveNode => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::MoveActiveNodeDown => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::MoveActiveNodeUp => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::MoveActiveNodeLeft => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::MoveActiveNodeRight => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::PanUp => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::PanDown => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::PanLeft => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::PanRight => data.save_state = VMSaveState::UnsavedChanges,
-                    Action::ZoomOut => data.save_state = VMSaveState::UnsavedChanges,
+                    Action::CreateNewNode |
+                    Action::CreateNewNodeAndEdit |
+                    Action::CreateNewTab |
+                    Action::GoToNextTab |
+                    Action::GoToPreviousTab |
+                    Action::ActivateTargetedNode |
+                    Action::IncreaseActiveNodeMass |
+                    Action::DecreaseActiveNodeMass |
+                    Action::ResetActiveNodeMass |
+                    Action::ToggleAnchorActiveNode |
+                    Action::EditActiveNodeSelectAll |
+                    Action::EditActiveNodeAppend |
+                    Action::EditActiveNodeInsert |
+                    Action::DeleteActiveNode |
+                    Action::DeleteTargetNode |
+                    Action::MarkActiveNode |
+                    Action::MoveActiveNodeDown |
+                    Action::MoveActiveNodeUp |
+                    Action::MoveActiveNodeLeft |
+                    Action::MoveActiveNodeRight |
+                    Action::PanUp |
+                    Action::PanDown |
+                    Action::PanLeft |
+                    Action::PanRight |
+                    Action::ZoomOut |
                     Action::ZoomIn => data.save_state = VMSaveState::UnsavedChanges,
                     _ => ()
                 }
@@ -153,8 +176,14 @@ impl VMCanvas {
                     if let Err(reason) = result {
                         panic!("Application panicked on config save: {}", reason);
                     } 
-                    if let Some(vm) = &mut self.inner {
-                        vm.widget_mut().set_config(self.config.clone());
+                    if self.tabs.get(self.active_tab).is_some() {
+                        for tab in self.tabs.iter_mut() {
+                            tab.vm.widget_mut().set_config(self.config.clone());
+                        }
+
+                        self.tab_bar = WidgetPod::new(VMTabBar::new(&self.config, &self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect(), self.active_tab));
+                        ctx.children_changed();
+
                         ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
                         if self.dialog_visible {
                             ctx.submit_command(Command::new(
@@ -225,7 +254,9 @@ impl VMCanvas {
                     return Ok(());
                 }
                 Action::SaveSheet => { 
-                    if let Some(inner) = &self.inner {
+                    let tab = &mut self.tabs.get_mut(self.active_tab);
+                    if let Some(tab) = tab {
+                        let inner = &mut tab.vm;
                         if let Some(path) = self.path.clone() {
                             if let Ok(_) = VMSaveSerde::save(
                                 &VMSaveSerde::to_save(inner.widget()),
@@ -270,12 +301,51 @@ impl VMCanvas {
                 _ => ()
             }
         }
-        if let Some(inner) = &mut self.inner {
+        let tab = &mut self.tabs.get_mut(self.active_tab);
+        if let Some(tab) = tab {
+            let inner = &mut tab.vm;
             if let Some(payload) = payload {
                 if payload.action != Action::ChangeModeWithTimeoutRevert {
-                    self.input_manager.clear_timeout();
+                    self.input_managers[self.active_tab].clear_timeout();
                 }
                 match payload.action {
+                    Action::GoToNextTab => {
+                        if let Some(tab) = self.tabs.get_mut(self.active_tab + 1) {
+                            let inner = &mut tab.vm;
+                            self.active_tab = self.active_tab + 1;
+                            ctx.children_changed();
+                            ctx.request_layout();
+                            ctx.set_handled();
+                            inner.widget_mut().set_is_focused(true);
+                            let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+                            self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
+                            return Ok(());
+                        } else {
+                            self.active_tab = 0;
+                            ctx.children_changed();
+                            ctx.request_layout();
+                            ctx.set_handled();
+                            self.tabs.get_mut(self.active_tab).unwrap().vm.widget_mut().set_is_focused(true);
+                            let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+                            self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
+                            return Ok(());
+                        }
+                    },
+                    Action::CreateNewTab => {
+                        self.tabs.push(VMTab {
+                            vm: WidgetPod::new(VimMapper::new(self.config.clone())),
+                            tab_name: String::from(format!("Tab {}", self.tabs.len() + 1)),
+                        });
+                        self.input_managers.push(VMInputManager::new());
+                        self.active_tab = self.tabs.len() - 1;
+                        ctx.children_changed();
+                        ctx.request_layout();
+                        ctx.set_handled();
+                        self.tabs.get_mut(self.active_tab).unwrap().vm.widget_mut().set_is_focused(true);
+                        let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+                        self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
+                        return Ok(());
+                    },
                     Action::CreateNewNode => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
                             if let Some(_) = inner.widget_mut().add_node(idx, format!("New Node")) {
@@ -287,7 +357,7 @@ impl VMCanvas {
                     Action::CreateNewNodeAndEdit => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
                             if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New Node")) {
-                                self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
+                                self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
                                 inner.widget_mut().open_editor(ctx, new_idx);
                                 ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                                 ctx.submit_command(Command::new(TAKE_FOCUS_SELECT_ALL, (), Target::Widget(inner.id())));
@@ -315,7 +385,7 @@ impl VMCanvas {
                     },
                     Action::EditActiveNodeSelectAll => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
+                            self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().open_editor(ctx, idx);
                             ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             ctx.submit_command(Command::new(TAKE_FOCUS_SELECT_ALL, (), Target::Widget(inner.id())));
@@ -324,7 +394,7 @@ impl VMCanvas {
                     },
                     Action::EditActiveNodeInsert => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
+                            self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().open_editor(ctx, idx);
                             ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             ctx.submit_command(Command::new(TAKE_FOCUS_INSERT, (), Target::Widget(inner.id())));
@@ -333,7 +403,7 @@ impl VMCanvas {
                     },
                     Action::EditActiveNodeAppend => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
+                            self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().open_editor(ctx, idx);
                             ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             ctx.submit_command(Command::new(TAKE_FOCUS_APPEND, (), Target::Widget(inner.id())));
@@ -341,8 +411,9 @@ impl VMCanvas {
                         return Ok(());
                     },
                     Action::ChangeModeWithTimeoutRevert => {
-                        self.input_manager.set_timeout_revert_mode(Some(self.input_manager.get_keybind_mode()));
-                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                        let current_mode = Some(self.input_managers[self.active_tab].get_keybind_mode());
+                        self.input_managers[self.active_tab].set_timeout_revert_mode(current_mode);
+                        self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
                         match payload.mode {
                             Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
                                 inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
@@ -361,16 +432,16 @@ impl VMCanvas {
                                     if active_idx == 0 {
                                         ()
                                     } else {
-                                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                                        self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
                                     }
                                 }
                             }
                             Some(KeybindMode::SearchBuild) => {
-                                self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                                self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
                                 inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                             },
                             Some(KeybindMode::SearchedSheet) => {
-                                self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                                self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
                                 if inner.widget().get_target_list_length() == 1 {
                                     ctx.submit_command(EXECUTE_ACTION.with(
                                         ActionPayload {
@@ -378,21 +449,21 @@ impl VMCanvas {
                                             ..Default::default()
                                         }
                                     ));
-                                    self.input_manager.set_keybind_mode(KeybindMode::Sheet);
+                                    self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
                                 } else if inner.widget().get_target_list_length() == 0 {
                                     let idx = if let Some(idx) = inner.widget().get_active_node_idx() {
                                             idx
                                         } else {
                                             0
                                         };
-                                    self.input_manager.set_keybind_mode(KeybindMode::Sheet);
+                                    self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
                                     inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
                                     inner.widget_mut().build_target_list_from_neighbors(idx);
                                     inner.widget_mut().cycle_target_forward();
                                 }
                             }
                             _ => {
-                                self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                                self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
                                 // if let Some(inner) = &mut self.inner {
                                     inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
                                 // }
@@ -402,7 +473,9 @@ impl VMCanvas {
                         return Ok(());
                     }
                     _ => {
-                        if let Some(inner) = &self.inner {
+                        let tab = &mut self.tabs.get_mut(self.active_tab);
+                        if let Some(tab) = tab {
+                            let inner = &mut tab.vm;
                             if !inner.widget().is_editor_open() {
                                 ctx.submit_command(Command::new(EXECUTE_ACTION, payload.clone(), Target::Widget(inner.id())));
                             }
@@ -517,7 +590,8 @@ impl Widget<AppState> for VMCanvas {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut AppState, env: &Env) {
         ctx.request_layout();
         ctx.request_paint();
-        if let Some(_) = &self.inner {
+        let tab = &mut self.tabs.get_mut(self.active_tab);
+        if tab.is_some() {
         } else if !self.dialog_visible {
             // if ctx.is_hot() {
                 ctx.request_focus();
@@ -543,22 +617,23 @@ impl Widget<AppState> for VMCanvas {
                 panic!();
             }
             Event::Command(command) if command.is(druid::commands::SAVE_FILE_AS) => {
-                if let Some(_) = self.inner {
+                if self.tabs.get(self.active_tab).is_some() {
                     let payload = command.get_unchecked(druid::commands::SAVE_FILE_AS);
                     let res = self.set_path(payload.path().to_path_buf());
+                    let inner = &self.tabs.get(self.active_tab).unwrap().vm;
                     if let Ok(path) = res {
                         match data.save_state {
                             VMSaveState::UnsavedChanges => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
                             },
                             VMSaveState::SaveAsInProgress => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
                             },
                             VMSaveState::SaveAsInProgressThenQuit => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
                                 ctx.submit_command(Command::new(
                                     EXECUTE_ACTION,
                                     ActionPayload {
@@ -570,7 +645,7 @@ impl Widget<AppState> for VMCanvas {
                             },
                             VMSaveState::SaveAsInProgressThenNew => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
                                 ctx.submit_command(Command::new(
                                     EXECUTE_ACTION,
                                     ActionPayload {
@@ -582,7 +657,7 @@ impl Widget<AppState> for VMCanvas {
                             },
                             VMSaveState::SaveAsInProgressThenOpen => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
                                 ctx.submit_command(Command::new(
                                     EXECUTE_ACTION,
                                     ActionPayload {
@@ -594,7 +669,7 @@ impl Widget<AppState> for VMCanvas {
                             },
                             VMSaveState::Saved => {
                                 data.save_state = VMSaveState::Saved;
-                                VMSaveSerde::save(&VMSaveSerde::to_save(&self.inner.as_ref().unwrap().widget()), path);
+                                VMSaveSerde::save(&VMSaveSerde::to_save(inner.widget()), path);
                             },
                             _ => {
                                 tracing::error!("Tried to resolve SaveAs with an invalid save_state!");
@@ -677,7 +752,9 @@ impl Widget<AppState> for VMCanvas {
                 if let Ok(_) = self.handle_action(ctx, data, &Some(payload.to_owned())) {
                     ctx.set_handled();
                 } else {
-                    if let Some(inner) = &mut self.inner {
+                    let tab = &mut self.tabs.get_mut(self.active_tab);
+                    if let Some(tab) = tab {
+                        let inner = &mut tab.vm;
                         inner.event(ctx, event, &mut(), env);
                     } else {
                         self.dialog.event(ctx, event, &mut (), env);
@@ -694,9 +771,12 @@ impl Widget<AppState> for VMCanvas {
                 }
             }
             Event::Notification(note) if note.is(SUBMIT_CHANGES) => {
-                if let Some(inner) = &mut self.inner {
+                let tab = &mut self.tabs.get_mut(self.active_tab);
+                if let Some(tab) = tab {
+                    let inner = &mut tab.vm;
                     inner.widget_mut().close_editor(ctx, true);
-                    self.input_manager.set_keybind_mode(KeybindMode::Sheet);
+                    // self.input_manager.set_keybind_mode(KeybindMode::Sheet);
+                    self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
                     inner.widget_mut().invalidate_node_layouts();
                     ctx.set_handled();
                     inner.widget_mut().restart_simulation();
@@ -704,16 +784,18 @@ impl Widget<AppState> for VMCanvas {
                 }
             }
             Event::Notification(note) if note.is(CANCEL_CHANGES) => {
-                if let Some(inner) = &mut self.inner {
+                let tab = &mut self.tabs.get_mut(self.active_tab);
+                if let Some(tab) = tab {
+                    let inner = &mut tab.vm;
                     inner.widget_mut().close_editor(ctx, false);
-                    self.input_manager.set_keybind_mode(KeybindMode::Sheet);
+                    self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
                     ctx.set_handled();
                     ctx.request_anim_frame();
                     ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
                 }
             }
             Event::KeyDown(key_event) => {
-                let payloads = self.input_manager.accept_key(key_event.clone(), ctx);
+                let payloads = self.input_managers[self.active_tab].accept_key(key_event.clone(), ctx);
                 for payload in &payloads {
                     if self.dialog_visible 
                         && (key_event.key == druid::keyboard_types::Key::Tab ||
@@ -723,7 +805,9 @@ impl Widget<AppState> for VMCanvas {
                         if key_event.key == druid::keyboard_types::Key::Tab {
                             ctx.focus_next();
                             ctx.set_handled();
-                            if let Some(inner) = self.inner.as_ref() {
+                            let tab = &mut self.tabs.get_mut(self.active_tab);
+                            if let Some(tab) = tab {
+                                let inner = &mut tab.vm;
                                 if inner.widget().node_editor.container.has_focus() {
                                     ctx.focus_next()
                                 }
@@ -734,7 +818,9 @@ impl Widget<AppState> for VMCanvas {
                         if let Ok(_) = self.handle_action(ctx, data, payload) {
 
                         } else {
-                            if let Some(inner) = &mut self.inner {
+                            let tab = &mut self.tabs.get_mut(self.active_tab);
+                            if let Some(tab) = tab {
+                                let inner = &mut tab.vm;
                                 inner.event(ctx, event, &mut (), env);
                             }
                         }
@@ -742,8 +828,8 @@ impl Widget<AppState> for VMCanvas {
                 }
             }
             Event::Timer(token) => {
-                if Some(*token) == self.input_manager.get_timout_token() {
-                    self.input_manager.timeout();
+                if Some(*token) == self.input_managers[self.active_tab].get_timout_token() {
+                    self.input_managers[self.active_tab].timeout();
                 } 
             }
             Event::WindowConnected => {
@@ -755,7 +841,8 @@ impl Widget<AppState> for VMCanvas {
             _ => {
                 if self.dialog_visible {
                     self.dialog.event(ctx, event, &mut (), env);
-                } else if let Some(inner) = &mut self.inner {
+                } else if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+                    let inner = &mut tab.vm;
                     inner.event(ctx, event, &mut (), env);
                 }
             }
@@ -767,15 +854,18 @@ impl Widget<AppState> for VMCanvas {
         if self.dialog_visible {
             self.dialog.lifecycle(ctx, event, &(), env);
         }
-        if let Some(inner) = &mut self.inner {
+        if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+            let inner = &mut tab.vm;
             inner.lifecycle(ctx, event, &(), env);
+            self.tab_bar.lifecycle(ctx, event, &(), env);
         }
     }
 
     fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &AppState, _data: &AppState, env: &Env) {
         if self.dialog_visible {
             self.dialog.update(ctx, &(), env);
-        } else if let Some(inner) = &mut self.inner {
+        } else if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+            let inner = &mut tab.vm;
             inner.update(ctx, &(), env);
         }
     }
@@ -785,9 +875,12 @@ impl Widget<AppState> for VMCanvas {
             self.dialog.layout(ctx, bc, &(), env);
             self.dialog.set_origin(ctx, Point::new(0., 0.));
         } 
-        if let Some(inner) = &mut self.inner {
+        if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+            let inner = &mut tab.vm;
             inner.layout(ctx, bc, &(), env);
             inner.set_origin(ctx, Point::new(0., 0.));
+            self.tab_bar.layout(ctx, bc, &(), env);
+            self.tab_bar.set_origin(ctx, Point::new(0., bc.max().height));
         }
         bc.max()
     }
@@ -823,16 +916,16 @@ impl Widget<AppState> for VMCanvas {
                 _ => ()
             }
         }
-        if let Some(inner) = &mut self.inner {
+        if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+            let inner = &mut tab.vm;
             inner.paint(ctx, &(), env);
-            let layout = ctx.text().new_text_layout(self.input_manager.get_string())
+            let layout = ctx.text().new_text_layout(self.input_managers[self.active_tab].get_string())
                 .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
                 .text_color( self.config.get_color(VMColor::ComposeIndicatorTextColor).ok().expect("compose indicator text color not found in config"))
                 .build().unwrap();
             ctx.paint_with_z_index(100, move |ctx| {
                 ctx.draw_text(&layout, 
                     (Point::new(0., ctx_size.height-layout.size().height).to_vec2() + DEFAULT_COMPOSE_INDICATOR_INSET).to_point()
-                    // (Point::new(0., 0.))
                 );
             });
             if inner.widget().debug_data {
@@ -849,10 +942,12 @@ impl Widget<AppState> for VMCanvas {
                 });
                 self.last_frame_time = now;
             }
+            self.tab_bar.paint_always(ctx, &(), env);
         }
         if self.dialog_visible {
             let rect = ctx.size().to_rect();
-            if self.inner.is_none() {
+            let tab = self.tabs.get_mut(self.active_tab);
+            if tab.is_none() {
                 ctx.fill(rect,
                     &self.config.get_color(VMColor::SheetBackgroundColor).expect("Couldn't get sheet background color from config")
                     );

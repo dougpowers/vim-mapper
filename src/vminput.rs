@@ -43,6 +43,7 @@ pub struct ActionPayload {
     pub action: Action,
     pub float: Option<f64>,
     pub index: Option<u32>,
+    pub tab_index: Option<usize>,
     pub string: Option<String>,
     pub mode: Option<KeybindMode>,
     pub save_state: Option<VMSaveState>,
@@ -56,6 +57,7 @@ impl Default for ActionPayload {
             action: Action::NullAction,
             float: None,
             index: None,
+            tab_index: None,
             string: None,
             mode: None,
             save_state: None,
@@ -134,6 +136,11 @@ pub enum Action {
     ToggleMenuVisible,
     CreateDialog,
     PrintToLogInfo,
+    CreateNewTab,
+    DeleteTab,
+    GoToNextTab,
+    GoToPreviousTab,
+    SelectTab,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -898,6 +905,42 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![None],
                     mode: KeybindMode::Sheet,
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
+                    regex: None,
+                    group_actions: None,
+                    key: Some(Key::Tab),
+                    modifiers: Some(Modifiers::CONTROL),
+                    action_payloads: vec![Some(ActionPayload {
+                        action: Action::GoToNextTab,
+                        ..Default::default()
+                    })],
+                    mode: KeybindMode::Global,
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
+                    regex: None,
+                    group_actions: None,
+                    key: Some(Key::Tab),
+                    modifiers: Some(Modifiers::CONTROL & Modifiers::SHIFT),
+                    action_payloads: vec![Some(ActionPayload {
+                        action: Action::GoToPreviousTab,
+                        ..Default::default()
+                    })],
+                    mode: KeybindMode::Global,
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
+                    regex: None,
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("t"))),
+                    modifiers: Some(Modifiers::CONTROL),
+                    action_payloads: vec![Some(ActionPayload {
+                        action: Action::CreateNewTab,
+                        ..Default::default()
+                    })],
+                    mode: KeybindMode::Global,
                 },
             ],
             string: String::new(),

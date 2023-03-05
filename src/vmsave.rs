@@ -21,7 +21,7 @@ use druid::kurbo::TranslateScale;
 use vm_force_graph_rs::{ForceGraph, DefaultNodeIdx, NodeData, EdgeData};
 use serde::{Serialize, Deserialize};
 
-use crate::constants::*;
+use crate::{constants::*, VMTab};
 
 use crate::vimmapper::NodeRenderMode;
 use crate::vmnode::{VMNode, VMNodeEditor};
@@ -39,6 +39,22 @@ pub struct VMSaveVersion4 {
     // edges: HashMap<u32, BareEdgeVersion4>,
     node_idx_count: u32,
     // edge_idx_count: u32,
+    translate: (f64, f64),
+    scale: f64,
+    offset_x: f64,
+    offset_y: f64,
+}
+
+pub struct VMSaveVersion5 {
+    file_version: String,
+    tabs: Vec<VMTabSave>
+}
+
+pub struct VMTabSave {
+    graph: ForceGraph<u32, u32>,
+    nodes: HashMap<u32, BareNodeVersion4>,
+    root_nodes: HashMap<usize, DefaultNodeIdx>,
+    node_idx_count: u32,
     translate: (f64, f64),
     scale: f64,
     offset_x: f64,
@@ -75,6 +91,24 @@ pub struct VMSaveNoVersion {
     offset_y: f64,
 }
 
+impl Into<VMSaveVersion5> for VMSaveVersion4 {
+    fn into(self) -> VMSaveVersion5 {
+        VMSaveVersion5 {
+            file_version: String::from(CURRENT_SAVE_FILE_VERSION),
+            tabs: vec![VMTabSave { 
+                graph: self.graph, 
+                nodes: self.nodes, 
+                root_nodes: self.root_nodes, 
+                node_idx_count: self.node_idx_count, 
+                translate: self.translate, 
+                scale: self.scale, 
+                offset_x: self.offset_x, 
+                offset_y: self.offset_y
+            }],
+        }
+    }
+}
+
 impl Into<VMSaveVersion4> for VMSaveNoVersion {
     fn into(self) -> VMSaveVersion4 {
         let mut graph: ForceGraph<u32, u32> = ForceGraph::new(DEFAULT_SIMULATION_PARAMTERS);
@@ -109,8 +143,6 @@ impl Into<VMSaveVersion4> for VMSaveNoVersion {
                 index: v.index, 
                 fg_index: fg_index, 
                 mark: v.mark.clone(),
-                // anchored: v.anchored,
-                // mass: v.mass,
                 ..Default::default()
             });
         }
@@ -119,12 +151,6 @@ impl Into<VMSaveVersion4> for VMSaveNoVersion {
                 nodes.get(&v.from).unwrap().fg_index.unwrap(), 
                 nodes.get(&v.to).unwrap().fg_index.unwrap(), 
                 EdgeData { user_data: v.index });
-            // edges.insert(v.index, VMEdge { 
-            //     label: None, 
-            //     from: v.from, 
-            //     to: v.to, 
-            //     index: v.index, 
-            //     });
         }
         tracing::debug!("coercing VMSaveNoVerion to VMSaveVersion4");
         let mut new_nodes = self.nodes.clone();

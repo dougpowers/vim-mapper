@@ -251,14 +251,6 @@ impl VMConfigSerde {
                     if let Ok(mut config) = serde_json::from_str::<VMConfigVersion4>(&string) {
                         config.ensure_full_color_schemes();
                         return Ok(config);
-                    // } else if let Ok(mut config) = serde_json::from_str::<VMConfigNoVersion>(&string) {
-                    //     config.fill_missing_colors();
-                    //     let mut config_path_renamed = path.clone();
-                    //     config_path_renamed.set_extension("old");
-                    //     fs::rename(path, config_path_renamed);
-                    //     let current_config = config.convert_to_current();
-                    //     VMConfigSerde::save(&current_config);
-                    //     return Ok(current_config);
                     } else {
                         let mut config_path_renamed = path.clone();
                         config_path_renamed.set_extension("old");

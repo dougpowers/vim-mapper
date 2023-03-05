@@ -123,12 +123,9 @@ impl VMNode {
             }
 
             let border_background;
-            // let mut container;
             if !enabled {
-                // container = self.disabled_layout.clone();
                 border_background = config.get_color(VMColor::DisabledNodeBackgroundColor).ok().expect("DIsabled node background color not found in config");
             } else {
-                // container = self.enabled_layout.clone();
                 border_background = config.get_color(VMColor::NodeBackgroundColor).ok().expect("Node background color not found in config");
             }
 
@@ -144,22 +141,14 @@ impl VMNode {
                 self.paint_node_badge(ctx, z_index, graph, enabled, config, &char, BadgePosition::TopRight, &rect, &badge_border_color);
             }
 
-            // if self.mass.clone() > DEFAULT_NODE_MASS {
-            //     self.paint_node_badge(ctx, z_index, graph, enabled, config, &"+".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
-            // } else if self.mass.clone() < DEFAULT_NODE_MASS {
-            //     self.paint_node_badge(ctx, z_index, graph, enabled, config, &"-".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
-            // }
             if graph.get_graph()[self.fg_index.unwrap()].data.mass > DEFAULT_NODE_MASS {
                 self.paint_node_badge(ctx, z_index, graph, enabled, config, &"+".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
             } else if graph.get_graph()[self.fg_index.unwrap()].data.mass < DEFAULT_NODE_MASS {
                 self.paint_node_badge(ctx, z_index, graph, enabled, config, &"-".to_string(), BadgePosition::BottomCenter, &rect, &badge_border_color);
             }
 
-            // if self.anchored {
-            //     self.paint_node_badge(ctx, z_index, graph, enabled, config, &"@".to_string(), BadgePosition::BottomLeft, &rect, &badge_border_color)
-            // }
             if graph.get_graph()[self.fg_index.unwrap()].data.is_anchor {
-                self.paint_node_badge(ctx, z_index, graph, enabled, config, &"@".to_string(), BadgePosition::BottomLeft, &rect, &badge_border_color)
+                self.paint_node_badge(ctx, z_index, graph, enabled, config, &"⚓".to_string(), BadgePosition::BottomLeft, &rect, &badge_border_color)
             }
 
             //Paint debug decals (node index)
@@ -167,7 +156,6 @@ impl VMNode {
                 ctx.transform(Affine::from(TranslateScale::new(Vec2::new(-10., -10.), 1.)));
                 let index_debug_decal = ctx.text()
                 .new_text_layout(
-                    // self.index.to_string()
                     format!("{} ({})", self.index, self.fg_index.unwrap().index())
                 )
                 .font(FontFamily::SANS_SERIF, 12.)

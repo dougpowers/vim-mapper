@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::Borrow;
-
 use druid::{widget::{Flex, SizedBox, Label, MainAxisAlignment, Controller}, WidgetExt, Command, Target, WidgetPod, Widget, RawMods};
 
 use crate::{vmconfig::{VMConfigVersion4, VMColor}, vminput::{Action, ActionPayload}, vmsave::VMSaveState};
@@ -60,41 +58,6 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogController {
             data: &T,
             env: &druid::Env,
         ) {
-        match event.borrow() {
-            // druid::LifeCycle::BuildFocusChain => {
-            //     ctx.register_for_focus();
-            // }
-            // druid::LifeCycle::FocusChanged(is_focused) => {
-            //     #[cfg(debug_assertions)]
-            //     if *is_focused {
-            //         tracing::debug!("{:?} is now focused", ctx.widget_id());
-            //         self.lifecycle(child, ctx, 
-            //         &druid::LifeCycle::HotChanged {
-            //             0: true,
-            //         }, 
-            //         data, env);
-            //         ctx.request_paint();
-            //     } else {
-            //         tracing::debug!("{:?} is now NOT focused", ctx.widget_id());
-            //         self.lifecycle(child, ctx, 
-            //         &druid::LifeCycle::HotChanged {
-            //             0: false,
-            //         }, 
-            //         data, env);
-            //         ctx.request_paint();
-            //     }
-            // }
-            // druid::LifeCycle::HotChanged(is_hot) => {
-            //     #[cfg(debug_assertions)]
-            //     if *is_hot {
-            //         tracing::debug!("{:?} is now hot", ctx.widget_id());
-            //     } else {
-            //         tracing::debug!("{:?} is now NOT hot", ctx.widget_id());
-            //     }
-            //     ctx.request_paint();
-            // }
-            _ => ()
-        }
         child.lifecycle(ctx, event, data, env);
     }
 }

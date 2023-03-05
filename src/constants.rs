@@ -18,7 +18,7 @@ use druid::{kurbo::TranslateScale, Selector, Vec2};
 use vm_force_graph_rs::SimulationParameters;
 use crate::vminput::ActionPayload;
 
-pub const CURRENT_SAVE_FILE_VERSION: &str = "0.4.0";
+pub const CURRENT_SAVE_FILE_VERSION: &str = "0.5.0";
 pub const CURRENT_CONFIG_FILE_VERSION: &str = "0.4.0";
 
 pub const DEFAULT_BORDER_WIDTH: f64 = 3.;
@@ -56,6 +56,13 @@ pub const DEFAULT_NODE_MOVE_AMOUNT_LARGE: f64 = 100.;
 
 pub const NODE_LABEL_MAX_CONSTRAINTS: (f64, f64) = (200., 115.);
 pub const BADGE_BORDER_INFLATION_AMOUNT: f64 = 3.;
+
+pub const DEFAULT_TAB_LABEL_FONT_SIZE: f64 = 16.;
+pub const TAB_BAR_HEIGHT: f64 = DEFAULT_TAB_LABEL_FONT_SIZE*2.;
+pub const TAB_BAR_LABEL_PADDING_X: f64 = 6.0;
+pub const TAB_BAR_LABEL_PADDING_Y: f64 = 2.0;
+pub const TAB_BAR_INDICATOR_HEIGHT: f64 = 4.0;
+pub const TAB_DIVIDER_WIDTH: f64 = 1.0;
 
 pub const VEC_ORIGIN: Vec2 = Vec2::new(0., 0.);
 pub const DEFAULT_TRANSLATE: TranslateScale = TranslateScale::new(
