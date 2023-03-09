@@ -22,7 +22,7 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::f64::consts::*;
 
-use crate::vmdialog::VMDialogParams;
+use crate::vmdialog::VMDialog;
 use crate::vminput::*;
 use crate::vmnode::{VMNode, VMNodeEditor};
 
@@ -1050,37 +1050,7 @@ impl VimMapper {
                                     EXECUTE_ACTION,
                                     ActionPayload {
                                         action: Action::CreateDialog,
-                                        dialog_params: Some(VMDialogParams {
-                                            buttons: vec![
-                                                (
-                                                    String::from("Cancel"),
-                                                    vec![
-                                                        ActionPayload {
-                                                            action: Action::NullAction,
-                                                            ..Default::default()
-                                                        }
-                                                    ],
-                                                    false
-                                                ),
-                                                (
-                                                    format!("Delete {} nodes", count),
-                                                    vec![
-                                                        ActionPayload {
-                                                            action: Action::DeleteNodeTree,
-                                                            index: Some(remove_idx),
-                                                            ..Default::default()
-                                                        }
-                                                    ],
-                                                    true
-                                                )
-                                            ],
-                                            prompts: vec![
-                                                (
-                                                    format!("Do you want to delete this node and {} descendants?", count-1),
-                                                    Some(VMColor::AlertColor)
-                                                )
-                                            ],
-                                        }),
+                                        dialog_params: Some(VMDialog::make_delete_node_prompt_dialog_params(count, remove_idx)),
                                         ..Default::default()
                                     },
                                     Target::Global

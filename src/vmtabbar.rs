@@ -25,10 +25,10 @@ impl VMTabBar {
         VMTabBar {
             tabs,
             active_tab,
-            tab_text_color: config.get_color(VMColor::LabelTextColor).unwrap(),
-            tab_background_color_active: config.get_color(VMColor::DisabledNodeBackgroundColor).unwrap(),
-            tab_background_color_inactive: config.get_color(VMColor::NodeBackgroundColor).unwrap(),
-            tab_active_indicator_color: config.get_color(VMColor::ActiveNodeBorderColor).unwrap(),
+            tab_text_color: config.get_color(VMColor::TabText).unwrap(),
+            tab_background_color_active: config.get_color(VMColor::TabActive).unwrap(),
+            tab_background_color_inactive: config.get_color(VMColor::TabInactive).unwrap(),
+            tab_active_indicator_color: config.get_color(VMColor::TabIndicator).unwrap(),
         }
     }
 

@@ -197,6 +197,10 @@ pub enum VMColor {
     AlertButtonDark,
     DisabledButtonLight,
     DisabledButtonDark,
+    TabInactive,
+    TabActive,
+    TabText,
+    TabIndicator
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -305,6 +309,10 @@ impl Default for VMConfigVersion4 {
         light_palette.insert(AlertButtonDark, (40,0,0,255));
         light_palette.insert(DisabledButtonLight, (56,56,56,255));
         light_palette.insert(DisabledButtonDark, (40,40,40,255));
+        light_palette.insert(TabText, (0,0,0,255));
+        light_palette.insert(TabActive, (180,180,180,255));
+        light_palette.insert(TabInactive, (200,200,200,192));
+        light_palette.insert(TabIndicator, (125,125,255,255));
         dark_palette.insert(LabelTextColor, (255,255,255,255));
         dark_palette.insert(DisabledLabelTextColor, (255,255,255,128));
         dark_palette.insert(NodeBorderColor, (215,215,215,255));
@@ -324,6 +332,10 @@ impl Default for VMConfigVersion4 {
         dark_palette.insert(AlertButtonDark, (40,0,0,255));
         dark_palette.insert(DisabledButtonLight, (56,56,56,255));
         dark_palette.insert(DisabledButtonDark, (40,40,40,255));
+        dark_palette.insert(TabText, (255,255,255,255));
+        dark_palette.insert(TabActive, (60,60,60,255));
+        dark_palette.insert(TabInactive, (100,100,100,192));
+        dark_palette.insert(TabIndicator, (125,125,255,255));
 
         let mut config = VMConfigVersion4 {
             file_version: String::from(CURRENT_CONFIG_FILE_VERSION.to_string()),

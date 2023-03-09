@@ -97,6 +97,8 @@ pub const CANCEL_CHANGES: Selector = Selector::new("cancel-changes");
 
 pub const TOGGLE_MAIN_MENU: Selector = Selector::new("toggle-main-menu");
 
+pub const SUBMIT_INPUT_ACTION: Selector = Selector::new("execute-input-action");
+
 pub const DIALOG_EXECUTE_ACTIONS: Selector<Vec<ActionPayload>> = Selector::<Vec<ActionPayload>>::new("dialog-execute-action");
 
 pub const REFRESH: Selector = Selector::new("refresh");

@@ -14,13 +14,13 @@
 
 use std::{collections::{HashMap}, path::PathBuf};
 
-use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, RawMods};
+use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, RawMods, Data};
 use regex::Regex;
 use common_macros::hash_map;
 use crate::{constants::*, vmsave::VMSaveState, vmdialog::VMDialogParams};
 
 #[allow(dead_code)]
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Data, Clone, PartialEq, Debug)]
 pub enum KeybindMode {
     Start,
     Dialog,
@@ -137,7 +137,11 @@ pub enum Action {
     CreateDialog,
     PrintToLogInfo,
     CreateNewTab,
+    OpenNewTabInput,
     DeleteTab,
+    OpenDeleteTabPrompt,
+    RenameTab,
+    OpenRenameTabInput,
     GoToNextTab,
     GoToPreviousTab,
     GoToTab,
@@ -916,7 +920,7 @@ impl Default for VMInputManager {
                         action: Action::GoToNextTab,
                         ..Default::default()
                     })],
-                    mode: KeybindMode::Global,
+                    mode: KeybindMode::Sheet,
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
@@ -928,7 +932,7 @@ impl Default for VMInputManager {
                         action: Action::GoToPreviousTab,
                         ..Default::default()
                     })],
-                    mode: KeybindMode::Global,
+                    mode: KeybindMode::Sheet,
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
@@ -937,10 +941,34 @@ impl Default for VMInputManager {
                     key: Some(Key::Character(String::from("t"))),
                     modifiers: Some(Modifiers::CONTROL),
                     action_payloads: vec![Some(ActionPayload {
-                        action: Action::CreateNewTab,
+                        action: Action::OpenNewTabInput,
                         ..Default::default()
                     })],
-                    mode: KeybindMode::Global,
+                    mode: KeybindMode::Sheet,
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
+                    regex: None,
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("r"))),
+                    modifiers: Some(Modifiers::CONTROL),
+                    action_payloads: vec![Some(ActionPayload {
+                        action: Action::OpenRenameTabInput,
+                        ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
+                    regex: None,
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("w"))),
+                    modifiers: Some(Modifiers::CONTROL),
+                    action_payloads: vec![Some(ActionPayload {
+                        action: Action::OpenDeleteTabPrompt,
+                        ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
                 },
             ],
             string: String::new(),

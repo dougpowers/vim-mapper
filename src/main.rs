@@ -16,7 +16,7 @@
 use druid::widget::{prelude::*, Flex};
 use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Command, Target, WidgetPod, LocalizedString, MenuItem, FileSpec, FontFamily, WindowId, Menu, AppDelegate};
 use druid::piet::{Text, TextLayout, TextLayoutBuilder};
-use vmdialog::{VMDialogParams, VMDialog};
+use vmdialog::{VMDialogParams, VMDialog, VMInputParams};
 use vmtabbar::VMTabBar;
 use std::fs;
 use std::path::{PathBuf, Path};
@@ -46,16 +46,13 @@ mod vmbutton;
 mod vmtabbar;
 
 struct VMCanvas {
-    // tabs: Vec<WidgetPod<(), VimMapper>>,
     tabs: Vec<VMTab>,
     active_tab: usize,
     tab_bar: WidgetPod<(), VMTabBar>,
-    // inner: Option<WidgetPod<(), VimMapper>>,
-    dialog: WidgetPod<(), Flex<()>>,
+    dialog: WidgetPod<String, Flex<String>>,
     dialog_visible: bool,
     path: Option<PathBuf>,
     config: VMConfigVersion4,
-    // input_manager: VMInputManager,
     input_managers: Vec<VMInputManager>,
     last_frame_time: u128,
 }
@@ -75,7 +72,6 @@ impl VMCanvas {
             dialog_visible: true,
             path: None,
             config,
-            // input_manager: VMInputManager::new(),
             input_managers: vec![VMInputManager::new()],
             last_frame_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
         }
@@ -100,16 +96,6 @@ impl VMCanvas {
         }
     }
 
-    // pub fn load_new_mapper(&mut self, mapper: VimMapper) {
-    //     self.tabs.push(VMTab {
-    //         vm: WidgetPod::new(mapper),
-    //         tab_name: String::from("Tab 1"),
-    //     });
-    //     self.input_managers.push(VMInputManager::new());
-    //     self.tab_bar.widget_mut().update_tabs(&vec![String::from("Tab 1")], self.active_tab);
-    //     self.hide_dialog();
-    // }
-
     pub fn load_new_tabs(&mut self, tabs: Vec<VMTab>, active_tab: usize) {
         let tab_names = &tabs.iter().map(|v| {return v.tab_name.clone();}).collect();
         self.tabs = vec![];
@@ -127,16 +113,65 @@ impl VMCanvas {
         self.hide_dialog();
     }
 
-    fn new_dialog(config: &VMConfigVersion4, params: VMDialogParams) -> WidgetPod<(), Flex<()>> {
-        let dialog = VMDialog::new(config, params);
+    fn new_tab(&mut self, ctx: &mut EventCtx, tab_name: String) {
+        self.tabs.push(VMTab {
+            vm: WidgetPod::new(VimMapper::new(self.config.clone())),
+            tab_name,
+        });
+        self.input_managers.push(VMInputManager::new());
+        self.active_tab = self.tabs.len() - 1;
+        ctx.children_changed();
+        ctx.request_layout();
+        ctx.set_handled();
+        self.tabs.get_mut(self.active_tab).unwrap().vm.widget_mut().set_is_focused(true);
+        let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+        self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
+    }
+
+    fn delete_current_tab(&mut self, ctx: &mut EventCtx) {
+        self.tabs.remove(self.active_tab);
+        self.input_managers.remove(self.active_tab);
+        if self.active_tab > self.tabs.len() - 1 {
+            self.active_tab = self.active_tab - 1;
+        }
+        ctx.children_changed();
+        ctx.request_layout();
+        ctx.set_handled();
+        self.tabs.get_mut(self.active_tab).unwrap().vm.widget_mut().set_is_focused(true);
+        let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+        self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
+    }
+
+    fn new_dialog(config: &VMConfigVersion4, params: VMDialogParams) -> WidgetPod<String, Flex<String>> {
+        let dialog = VMDialog::as_dialog(config, params);
+        dialog.inner
+    }
+
+    fn new_input(config: &VMConfigVersion4, params: VMInputParams) -> WidgetPod<String, Flex<String>> {
+        let dialog = VMDialog::as_input(config, params);
         dialog.inner
     }
 
     fn hide_dialog(&mut self) {
+        self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
         self.dialog_visible = false;
     }
 
-    fn set_dialog(&mut self, ctx: &mut EventCtx, params: VMDialogParams, show: bool) {
+    fn set_input_dialog(&mut self, ctx: &mut EventCtx, data: &mut AppState, params: VMInputParams, default_value: String, show: bool) {
+        data.dialog_input_text = default_value;
+        self.dialog = VMCanvas::new_input(&self.config, params);
+        ctx.children_changed();
+        ctx.request_layout();
+        ctx.request_paint();
+        ctx.set_handled();
+        self.dialog_visible = show;
+        if show {
+            self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Dialog);
+            ctx.focus_next();
+        }
+    }
+
+    fn set_dialog(&mut self, ctx: &mut EventCtx, _data: &mut AppState, params: VMDialogParams, show: bool) {
         self.dialog = VMCanvas::new_dialog(&self.config, params);
         ctx.children_changed();
         ctx.request_layout();
@@ -144,6 +179,7 @@ impl VMCanvas {
         ctx.set_handled();
         self.dialog_visible = show;
         if show {
+            self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Dialog);
             ctx.focus_next();
         }
     }
@@ -155,6 +191,8 @@ impl VMCanvas {
                     Action::CreateNewNode |
                     Action::CreateNewNodeAndEdit |
                     Action::CreateNewTab |
+                    Action::DeleteTab |
+                    Action::RenameTab |
                     Action::GoToNextTab |
                     Action::GoToPreviousTab |
                     Action::ActivateTargetedNode |
@@ -215,7 +253,7 @@ impl VMCanvas {
                             ));
                         }
                     } else {
-                        self.set_dialog(ctx, VMDialog::make_start_dialog_params(), self.dialog_visible);
+                        self.set_dialog(ctx, data, VMDialog::make_start_dialog_params(), self.dialog_visible);
                     }
                     ctx.set_focus(ctx.widget_id());
                     return Ok(());
@@ -232,10 +270,10 @@ impl VMCanvas {
                         ctx.set_handled();
                         return Ok(());
                     } else if data.save_state == VMSaveState::NoSave {
-                        self.set_dialog(ctx, VMDialog::make_save_as_and_open_dialog_params(), true);
+                        self.set_dialog(ctx, data, VMDialog::make_save_as_and_open_dialog_params(), true);
                         return Ok(());
                     } else {
-                        self.set_dialog(ctx, VMDialog::make_save_and_open_dialog_params(), true);
+                        self.set_dialog(ctx, data, VMDialog::make_save_and_open_dialog_params(), true);
                         return Ok(());
                     }
                 }
@@ -250,10 +288,10 @@ impl VMCanvas {
                         ctx.set_handled();
                         return Ok(());
                     } else if data.save_state == VMSaveState::NoSave {
-                        self.set_dialog(ctx, VMDialog::make_save_as_and_new_dialog_params(), true);
+                        self.set_dialog(ctx, data, VMDialog::make_save_as_and_new_dialog_params(), true);
                         return Ok(());
                     } else {
-                        self.set_dialog(ctx, VMDialog::make_save_and_new_dialog_params(), true);
+                        self.set_dialog(ctx, data, VMDialog::make_save_and_new_dialog_params(), true);
                         return Ok(());
                     }
                 }
@@ -268,7 +306,7 @@ impl VMCanvas {
                     return Ok(());
                 }
                 Action::CreateDialog => {
-                    self.set_dialog(ctx, payload.dialog_params.clone().unwrap(), true);
+                    self.set_dialog(ctx, data, payload.dialog_params.clone().unwrap(), true);
                     return Ok(());
                 }
                 Action::SaveSheet => { 
@@ -396,21 +434,41 @@ impl VMCanvas {
                             return Ok(());
                         }
                     },
-                    Action::CreateNewTab => {
-                        self.tabs.push(VMTab {
-                            vm: WidgetPod::new(VimMapper::new(self.config.clone())),
-                            tab_name: String::from(format!("Tab {}", self.tabs.len() + 1)),
-                        });
-                        self.input_managers.push(VMInputManager::new());
-                        self.active_tab = self.tabs.len() - 1;
-                        ctx.children_changed();
-                        ctx.request_layout();
-                        ctx.set_handled();
-                        self.tabs.get_mut(self.active_tab).unwrap().vm.widget_mut().set_is_focused(true);
+                    Action::OpenNewTabInput => {
+                        self.set_input_dialog(ctx, data, VMDialog::make_new_tab_prompt_input_params(),
+                            String::from(format!("Tab {}", self.tabs.len() + 1)), 
+                            true
+                        );
+                        return Ok(());
+                    },
+                    Action::OpenRenameTabInput => {
+                        self.set_input_dialog(ctx, data, VMDialog::make_rename_tab_prompt_input_params(),
+                            String::from(format!("Tab {}", self.active_tab + 1)), 
+                            true
+                        );
+                        return Ok(());
+                    },
+                    Action::RenameTab => {
+                        tab.tab_name = payload.string.clone().unwrap();
+                        inner.widget_mut().set_is_focused(true);
                         let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
                         self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
                         return Ok(());
                     },
+                    Action::CreateNewTab => {
+                        self.new_tab(ctx, payload.string.clone().unwrap());
+                        return Ok(());
+                    },
+                    Action::OpenDeleteTabPrompt => {
+                        if self.tabs.len() > 1 {
+                            self.set_dialog(ctx, data, VMDialog::make_delete_tab_prompt_dialog_params(), true);
+                        }
+                        return Ok(());
+                    },
+                    Action::DeleteTab => {
+                        self.delete_current_tab(ctx);
+                        return Ok(());
+                    }
                     Action::CreateNewNode => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
                             if let Some(_) = inner.widget_mut().add_node(idx, format!("New Node")) {
@@ -774,7 +832,7 @@ impl Widget<AppState> for VMCanvas {
             Event::Command(command) if command.is(druid::commands::OPEN_PANEL_CANCELLED) => {
                 match data.save_state {
                     VMSaveState::NoSheetOpened => {
-                        self.set_dialog(ctx, VMDialog::make_start_dialog_params(), true);
+                        self.set_dialog(ctx, data, VMDialog::make_start_dialog_params(), true);
                     },
                     VMSaveState::DiscardChanges => {
                         if let Some(_) = self.path {
@@ -828,10 +886,10 @@ impl Widget<AppState> for VMCanvas {
                         VMSaveState::Saved => ctx.submit_command(druid::commands::QUIT_APP),
                         VMSaveState::DiscardChanges => ctx.submit_command(druid::commands::QUIT_APP),
                         VMSaveState::NoSave => {
-                            self.set_dialog(ctx, VMDialog::make_save_as_and_quit_dialog_params(), true);
+                            self.set_dialog(ctx, data, VMDialog::make_save_as_and_quit_dialog_params(), true);
                         },
                         VMSaveState::UnsavedChanges => {
-                            self.set_dialog(ctx, VMDialog::make_save_and_quit_dialog_params(), true);
+                            self.set_dialog(ctx, data, VMDialog::make_save_and_quit_dialog_params(), true);
                         }
                         _ => ()
                     }
@@ -847,7 +905,7 @@ impl Widget<AppState> for VMCanvas {
                         let inner = &mut tab.vm;
                         inner.event(ctx, event, &mut(), env);
                     } else {
-                        self.dialog.event(ctx, event, &mut (), env);
+                        self.dialog.event(ctx, event, &mut data.dialog_input_text, env);
                     }
                 }
             }
@@ -865,7 +923,6 @@ impl Widget<AppState> for VMCanvas {
                 if let Some(tab) = tab {
                     let inner = &mut tab.vm;
                     inner.widget_mut().close_editor(ctx, true);
-                    // self.input_manager.set_keybind_mode(KeybindMode::Sheet);
                     self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
                     inner.widget_mut().invalidate_node_layouts();
                     ctx.set_handled();
@@ -903,7 +960,7 @@ impl Widget<AppState> for VMCanvas {
                                 }
                             }
                         }
-                        self.dialog.event(ctx, event, &mut (), env);
+                        self.dialog.event(ctx, event, &mut data.dialog_input_text, env);
                     } else {
                         if let Ok(_) = self.handle_action(ctx, data, payload) {
 
@@ -930,7 +987,7 @@ impl Widget<AppState> for VMCanvas {
             }
             Event::MouseDown(mouse_event) => {
                 if self.dialog_visible {
-                    self.dialog.event(ctx, event, &mut (), env);
+                    self.dialog.event(ctx, event, &mut data.dialog_input_text, env);
                 } else if self.tab_bar.layout_rect().contains(mouse_event.pos) {
                     self.tab_bar.event(ctx, event, &mut (), env);
                 } else if let Some(tab) = self.tabs.get_mut(self.active_tab) {
@@ -940,7 +997,7 @@ impl Widget<AppState> for VMCanvas {
             }
             _ => {
                 if self.dialog_visible {
-                    self.dialog.event(ctx, event, &mut (), env);
+                    self.dialog.event(ctx, event, &mut data.dialog_input_text, env);
                 } else if let Some(tab) = self.tabs.get_mut(self.active_tab) {
                     let inner = &mut tab.vm;
                     inner.event(ctx, event, &mut (), env);
@@ -952,7 +1009,7 @@ impl Widget<AppState> for VMCanvas {
 
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, _data: &AppState, env: &Env) {
         if self.dialog_visible {
-            self.dialog.lifecycle(ctx, event, &(), env);
+            self.dialog.lifecycle(ctx, event, &_data.dialog_input_text, env);
         }
         if let Some(tab) = self.tabs.get_mut(self.active_tab) {
             let inner = &mut tab.vm;
@@ -963,7 +1020,7 @@ impl Widget<AppState> for VMCanvas {
 
     fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &AppState, _data: &AppState, env: &Env) {
         if self.dialog_visible {
-            self.dialog.update(ctx, &(), env);
+            self.dialog.update(ctx, &_data.dialog_input_text, env);
         } else if let Some(tab) = self.tabs.get_mut(self.active_tab) {
             let inner = &mut tab.vm;
             inner.update(ctx, &(), env);
@@ -972,7 +1029,7 @@ impl Widget<AppState> for VMCanvas {
 
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &AppState, env: &Env) -> Size {
         if self.dialog_visible {
-            self.dialog.layout(ctx, bc, &(), env);
+            self.dialog.layout(ctx, bc, &_data.dialog_input_text, env);
             self.dialog.set_origin(ctx, Point::new(0., 0.));
         } 
         if let Some(tab) = self.tabs.get_mut(self.active_tab) {
@@ -1055,7 +1112,7 @@ impl Widget<AppState> for VMCanvas {
             ctx.fill(rect,
                  &self.config.get_color(VMColor::DialogBackgroundColor).expect("Couldn't get sheet background color from config")
                 );
-            self.dialog.paint(ctx, &(), env);
+            self.dialog.paint(ctx, &data.dialog_input_text, env);
         }
     }
 }
@@ -1064,6 +1121,7 @@ impl Widget<AppState> for VMCanvas {
 struct AppState {
     menu_visible: bool,
     save_state: VMSaveState,
+    dialog_input_text: String,
 }
 
 struct Delegate;
@@ -1180,7 +1238,8 @@ pub fn main() {
             VMSaveState::UnsavedChanges
         } else {
             VMSaveState::NoSheetOpened
-        }
+        },
+        dialog_input_text: String::from("")
     })
     .expect("launch failed");
     #[cfg(not(debug_assertions))]
