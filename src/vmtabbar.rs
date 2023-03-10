@@ -73,7 +73,17 @@ impl Widget<()> for VMTabBar {
         }
     }
 
-    fn lifecycle(&mut self, _ctx: &mut druid::LifeCycleCtx, _event: &druid::LifeCycle, _data: &(), _env: &druid::Env) {
+    fn lifecycle(&mut self, _ctx: &mut druid::LifeCycleCtx, event: &druid::LifeCycle, _data: &(), _env: &druid::Env) {
+        match event {
+            druid::LifeCycle::FocusChanged(focus) => {
+                if *focus {
+                    tracing::debug!("Tab bar has gained focus");
+                } else {
+                    tracing::debug!("Tab bar has lost focus");
+                }
+            }
+            _ => ()
+        }
     }
 
     fn update(&mut self, _ctx: &mut druid::UpdateCtx, _old_data: &(), _data: &(), _env: &druid::Env) {

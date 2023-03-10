@@ -231,7 +231,6 @@ impl VMSaveSerde {
                     tab.scale),
                 offset_x: tab.offset_x,
                 offset_y: tab.offset_y,
-                is_focused: true,
                 target_node_list: vec![],
                 target_node_idx: None,
                 node_editor: VMNodeEditor::new(),

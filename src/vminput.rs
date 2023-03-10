@@ -941,6 +941,18 @@ impl Default for VMInputManager {
                     key: Some(Key::Character(String::from("t"))),
                     modifiers: Some(Modifiers::CONTROL),
                     action_payloads: vec![Some(ActionPayload {
+                        action: Action::CreateNewTab,
+                        ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
+                    regex: None,
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("T"))),
+                    modifiers: Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                    action_payloads: vec![Some(ActionPayload {
                         action: Action::OpenNewTabInput,
                         ..Default::default()
                     })],

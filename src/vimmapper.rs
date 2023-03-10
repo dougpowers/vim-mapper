@@ -67,10 +67,6 @@ pub(crate) struct VimMapper {
     pub(crate) last_click_point: Option<Point>,
     //This is a debug vector containing all the node collision rects from the last click interaction.
     pub(crate) last_collision_rects: Vec<Rect>,
-    //This bool allows Vim-Mapper to determine if the sheet or VMNodeEditor has focus. Notifications
-    // and Commands are used to pass focus between the two.
-    pub(crate) is_focused: bool,
-
     pub(crate) target_node_list: Vec<u32>,
     pub(crate) target_node_idx: Option<usize>,
     //A struct that holds state and widgets for the modal node editor.
@@ -161,7 +157,6 @@ impl Default for VimMapper {
             offset_y: DEFAULT_OFFSET_Y,
             last_click_point: None,
             last_collision_rects: Vec::new(),
-            is_focused: true,
             node_editor: VMNodeEditor::new(),
             is_dragging: false,
             drag_point: None,
@@ -226,7 +221,6 @@ impl VimMapper {
             offset_y: DEFAULT_OFFSET_Y,
             last_click_point: None,
             last_collision_rects: Vec::new(),
-            is_focused: true,
             node_editor: VMNodeEditor::new(),
             is_dragging: false,
             drag_point: None,
@@ -247,14 +241,6 @@ impl VimMapper {
         };
         mapper.nodes.insert(0, root_node);
         mapper
-    }
-
-    pub fn get_is_focused(&self) -> bool {
-        return self.is_focused;
-    }
-
-    pub fn set_is_focused(&mut self, is_focused: bool) {
-        self.is_focused = is_focused;
     }
 
     pub fn get_nodes(&self) -> &HashMap<u32, VMNode> {
@@ -844,7 +830,6 @@ impl VimMapper {
     //Opens the editor at a given node.
     pub fn open_editor(&mut self, ctx: &mut EventCtx, idx: u32) {
         self.set_node_as_active(idx);
-        self.is_focused = false;
         self.node_editor.title_text = self.nodes.get(&idx).unwrap().label.clone();
         self.node_editor.is_visible = true;
         ctx.request_layout();
@@ -883,7 +868,6 @@ impl VimMapper {
             Target::Global
         ));
         self.node_editor.is_visible = false;
-        self.is_focused = true;
         ctx.request_layout();
     }
 
@@ -965,7 +949,7 @@ impl VimMapper {
     }
 
     fn handle_action(&mut self, ctx: &mut EventCtx, payload: &ActionPayload) -> Result<(), ()> {
-        if self.is_focused {
+        // if self.take_focus {
                 match payload.action {
                     Action::NullAction => {
                         return Ok(());
@@ -1213,18 +1197,20 @@ impl VimMapper {
                         return Ok(());
                     }
                 }
-        } else {
-            return Err(());
-        }
+        // } else {
+            // return Err(());
+        // }
     }
 }
 
 impl<'a> Widget<()> for VimMapper {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut (), _env: &Env) {
         //If VimMapper is Notified to take focus, ensure that it's requested
-        if self.is_focused {
-            ctx.request_focus();
-        }
+        // if self.take_focus {
+        //     tracing::debug!("VimMapper window asked to take focus");
+        //     ctx.request_focus();
+        //     self.take_focus = false;
+        // }
         //If the node editor is visible, pass events to it. Both events and paints must be withheld
         // for the widget to be truly hidden and uninteractable. 
         if self.node_editor.is_visible {
@@ -1259,7 +1245,6 @@ impl<'a> Widget<()> for VimMapper {
                 if self.does_point_collide(event.pos) == None {
                     self.set_dragging(true, Some(event.pos));
                     if !ctx.is_handled() {
-                        self.is_focused = true;
                         // self.node_editor.is_visible = false;
                         self.close_editor(ctx, false);
                     }
@@ -1330,7 +1315,6 @@ impl<'a> Widget<()> for VimMapper {
                 ctx.request_anim_frame();
             }
             Event::Notification(note) if note.is(TAKEN_FOCUS) => {
-                self.is_focused = false;
                 ctx.set_handled();
                 ctx.request_anim_frame();
             }
@@ -1367,11 +1351,16 @@ impl<'a> Widget<()> for VimMapper {
                 //Kick off animation and calculation
                 ctx.request_layout();
                 ctx.request_anim_frame();
-            }
+            },
             LifeCycle::HotChanged(is_hot) => {
                 //Cache is_hot values
                 self.is_hot = *is_hot;
                 self.set_dragging(false, None);
+            },
+            LifeCycle::FocusChanged(focused) => {
+                if *focused {
+                    tracing::debug!("VimMapper window focused");
+                }
             }
             _ => {
             }

@@ -380,6 +380,13 @@ impl Controller<String, TextBox<String>> for VMNodeEditorController {
         if let druid::LifeCycle::WidgetAdded = event {
             // ctx.register_text_input(child.text_mut().input_handler());
         }
+        if let druid::LifeCycle::FocusChanged(focused) = event {
+            if *focused {
+                tracing::debug!("Node input gained focus");
+            } else {
+                tracing::debug!("Node input lost focus");
+            }
+        }
 
         child.lifecycle(ctx, event, data, env);
     }

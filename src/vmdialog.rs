@@ -69,6 +69,14 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogController {
             data: &T,
             env: &druid::Env,
         ) {
+        match event {
+            druid::LifeCycle::FocusChanged(focused) => {
+                if *focused {
+                    tracing::debug!("Dialog body is focused");
+                }
+            }
+            _ => ()
+        }
         child.lifecycle(ctx, event, data, env);
     }
     fn update(&mut self, child: &mut W, ctx: &mut druid::UpdateCtx, old_data: &T, data: &T, env: &druid::Env) {
@@ -127,7 +135,7 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogInputController where T: Disp
                     )
                 }
             }
-            _ => {},
+            _ => (),
         }
     }
 
@@ -139,6 +147,16 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogInputController where T: Disp
         data: &T,
         env: &druid::Env,
     ) {
+        match event {
+            druid::LifeCycle::FocusChanged(focused) => {
+                if *focused {
+                    tracing::debug!("VMDialog input is focused");
+                }
+            }
+            _ => {
+
+            }
+        }
         child.lifecycle(ctx, event, data, env)
     }
 
@@ -578,7 +596,7 @@ impl VMDialog {
         }
     }
 
-   pub fn make_save_as_and_quit_dialog_params() -> VMDialogParams {
+    pub fn make_save_as_and_quit_dialog_params() -> VMDialogParams {
         VMDialogParams {
             prompts: vec![
                 (String::from("This sheet is unsaved, do you want to save before closing this sheet?"), None),
@@ -723,7 +741,6 @@ impl VMDialog {
         }
     }
 
-    #[allow(dead_code)]
     pub fn make_new_tab_prompt_input_params() -> VMInputParams {
         VMInputParams {
             prompts: vec![(String::from("What do you want this tab to be called?"), None)],

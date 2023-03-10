@@ -55,6 +55,7 @@ struct VMCanvas {
     config: VMConfigVersion4,
     input_managers: Vec<VMInputManager>,
     last_frame_time: u128,
+    take_focus: bool,
 }
 
 struct VMTab {
@@ -74,6 +75,7 @@ impl VMCanvas {
             config,
             input_managers: vec![VMInputManager::new()],
             last_frame_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
+            take_focus: true,
         }
     }
 
@@ -123,7 +125,6 @@ impl VMCanvas {
         ctx.children_changed();
         ctx.request_layout();
         ctx.set_handled();
-        self.tabs.get_mut(self.active_tab).unwrap().vm.widget_mut().set_is_focused(true);
         let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
         self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
     }
@@ -137,7 +138,6 @@ impl VMCanvas {
         ctx.children_changed();
         ctx.request_layout();
         ctx.set_handled();
-        self.tabs.get_mut(self.active_tab).unwrap().vm.widget_mut().set_is_focused(true);
         let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
         self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
     }
@@ -155,6 +155,7 @@ impl VMCanvas {
     fn hide_dialog(&mut self) {
         self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
         self.dialog_visible = false;
+        self.take_focus = true;
     }
 
     fn set_input_dialog(&mut self, ctx: &mut EventCtx, data: &mut AppState, params: VMInputParams, default_value: String, show: bool) {
@@ -366,13 +367,11 @@ impl VMCanvas {
                 match payload.action {
                     Action::GoToNextTab => {
                         if self.tabs.len() > 1 {
-                            if let Some(tab) = self.tabs.get_mut(self.active_tab + 1) {
-                                let inner = &mut tab.vm;
+                            if let Some(_) = self.tabs.get_mut(self.active_tab + 1) {
                                 self.active_tab = self.active_tab + 1;
                                 ctx.children_changed();
                                 ctx.request_layout();
                                 ctx.set_handled();
-                                inner.widget_mut().set_is_focused(true);
                                 let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
                                 self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
                                 return Ok(());
@@ -381,7 +380,6 @@ impl VMCanvas {
                                 ctx.children_changed();
                                 ctx.request_layout();
                                 ctx.set_handled();
-                                self.tabs.get_mut(self.active_tab).unwrap().vm.widget_mut().set_is_focused(true);
                                 let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
                                 self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
                                 return Ok(());
@@ -394,22 +392,18 @@ impl VMCanvas {
                         let tabs_len = self.tabs.len();
                         if tabs_len > 1 {
                             if self.active_tab == 0 {
-                                let inner = &mut self.tabs[tabs_len-1].vm;
                                 self.active_tab = tabs_len-1;
                                 ctx.children_changed();
                                 ctx.request_layout();
                                 ctx.set_handled();
-                                inner.widget_mut().set_is_focused(true);
                                 let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
                                 self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
                                 return Ok(());
                             } else {
-                                let inner = &mut self.tabs[self.active_tab-1].vm;
                                 self.active_tab = self.active_tab-1;
                                 ctx.children_changed();
                                 ctx.request_layout();
                                 ctx.set_handled();
-                                inner.widget_mut().set_is_focused(true);
                                 let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
                                 self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
                                 return Ok(());
@@ -420,13 +414,11 @@ impl VMCanvas {
                     },
                     Action::GoToTab => {
                         let tab_index = payload.tab_index.unwrap();
-                        if let Some(tab) = self.tabs.get_mut(tab_index) {
-                            let inner = &mut tab.vm;
+                        if let Some(_) = self.tabs.get_mut(tab_index) {
                             self.active_tab = tab_index;
                             ctx.children_changed();
                             ctx.request_layout();
                             ctx.set_handled();
-                            inner.widget_mut().set_is_focused(true);
                             let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
                             self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
                             return Ok(());
@@ -450,13 +442,17 @@ impl VMCanvas {
                     },
                     Action::RenameTab => {
                         tab.tab_name = payload.string.clone().unwrap();
-                        inner.widget_mut().set_is_focused(true);
                         let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
                         self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
                         return Ok(());
                     },
                     Action::CreateNewTab => {
-                        self.new_tab(ctx, payload.string.clone().unwrap());
+                        let name = payload.string.clone();
+                        if name.is_none() {
+                            self.new_tab(ctx, format!("Tab {}", self.tabs.len() + 1))
+                        } else {
+                            self.new_tab(ctx, payload.string.clone().unwrap());
+                        }
                         return Ok(());
                     },
                     Action::OpenDeleteTabPrompt => {
@@ -713,12 +709,9 @@ impl Widget<AppState> for VMCanvas {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut AppState, env: &Env) {
         ctx.request_layout();
         ctx.request_paint();
-        let tab = &mut self.tabs.get_mut(self.active_tab);
-        if tab.is_some() {
-        } else if !self.dialog_visible {
-            // if ctx.is_hot() {
-                ctx.request_focus();
-            // }
+        if self.take_focus {
+            ctx.request_focus();
+            self.take_focus = false;
         }
         match event {
             Event::Command(command) if command.is(druid::commands::NEW_FILE) => {
@@ -911,11 +904,11 @@ impl Widget<AppState> for VMCanvas {
             }
             Event::Command(command) if command.is(DIALOG_EXECUTE_ACTIONS) && !ctx.is_handled() => {
                 let payloads = command.get_unchecked(DIALOG_EXECUTE_ACTIONS);
-                for payload in payloads {
-                    self.handle_action(ctx, data, &Some((*payload).clone()));
-                }
                 if data.save_state != VMSaveState::NoSheetOpened {
                     self.hide_dialog();
+                }
+                for payload in payloads {
+                    self.handle_action(ctx, data, &Some((*payload).clone()));
                 }
             }
             Event::Notification(note) if note.is(SUBMIT_CHANGES) => {
@@ -928,6 +921,7 @@ impl Widget<AppState> for VMCanvas {
                     ctx.set_handled();
                     inner.widget_mut().restart_simulation();
                     ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                    ctx.request_focus();
                 }
             }
             Event::Notification(note) if note.is(CANCEL_CHANGES) => {
@@ -947,7 +941,8 @@ impl Widget<AppState> for VMCanvas {
                     if self.dialog_visible 
                         && (key_event.key == druid::keyboard_types::Key::Tab ||
                         key_event.key == druid::keyboard_types::Key::Enter ||
-                        key_event.key == druid::keyboard_types::Key::Character(String::from(" ")))
+                        key_event.key == druid::keyboard_types::Key::Character(String::from(" "))) ||
+                        key_event.key == druid::keyboard_types::Key::Escape
                         {
                         if key_event.key == druid::keyboard_types::Key::Tab {
                             ctx.focus_next();
@@ -1008,6 +1003,15 @@ impl Widget<AppState> for VMCanvas {
     }
 
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, _data: &AppState, env: &Env) {
+        if let LifeCycle::FocusChanged(focused) = event {
+            if *focused {
+                tracing::debug!("Main window gained focus");
+            } else {
+                tracing::debug!("Main window lost focus");
+            }
+        } else if let LifeCycle::BuildFocusChain = event {
+            ctx.register_for_focus();
+        }
         if self.dialog_visible {
             self.dialog.lifecycle(ctx, event, &_data.dialog_input_text, env);
         }
