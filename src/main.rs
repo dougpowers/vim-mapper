@@ -933,6 +933,7 @@ impl Widget<AppState> for VMCanvas {
                     ctx.set_handled();
                     ctx.request_anim_frame();
                     ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
+                    ctx.request_focus();
                 }
             }
             Event::KeyDown(key_event) => {
@@ -1267,7 +1268,8 @@ pub fn main() {
             VMSaveState::UnsavedChanges
         } else {
             VMSaveState::NoSheetOpened
-        }
+        },
+        dialog_input_text: String::from("")
     })
     .expect("launch failed");
     }

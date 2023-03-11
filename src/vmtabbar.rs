@@ -132,7 +132,8 @@ impl Widget<()> for VMTabBar {
                     ctx.fill(Rect::new(x+cell_width, 0.0, x+cell_width+TAB_DIVIDER_WIDTH, size.height), &color);
                 });
             }
-            self.tabs[index].1.as_mut().unwrap().draw(Point::new(x + TAB_BAR_LABEL_PADDING_X, TAB_BAR_LABEL_PADDING_Y), ctx);
+            let layout = &self.tabs[index].1.as_mut().unwrap();
+            ctx.draw_text(layout, Point::new(x+TAB_BAR_LABEL_PADDING_X, TAB_BAR_LABEL_PADDING_Y));
             x += cell_width;
         }
     }
