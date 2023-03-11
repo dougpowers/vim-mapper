@@ -9,4 +9,7 @@
     - [x] Implement tab deletion via VMDialog
 - [x] Implement saving multiple sheets per file
     - [x] Implement importing VMSaveVersion4 into single-tab VMSaveVersion5
+- [ ] Implement cross-tab cut/paste registers 
+- [ ] Implement context menu for node operations via mouse
+    - [ ] Implement mouse node dragging
 - [ ] Implement custom text entry with vim-like bindings
