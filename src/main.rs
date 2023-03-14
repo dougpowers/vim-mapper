@@ -45,6 +45,8 @@ mod vmbutton;
 
 mod vmtabbar;
 
+mod vmtextinput;
+
 struct VMCanvas {
     tabs: Vec<VMTab>,
     active_tab: usize,
@@ -53,9 +55,10 @@ struct VMCanvas {
     dialog_visible: bool,
     path: Option<PathBuf>,
     config: VMConfigVersion4,
-    input_managers: Vec<VMInputManager>,
+    // input_managers: Vec<VMInputManager>,
     last_frame_time: u128,
     take_focus: bool,
+    start_input_manager: VMInputManager,
 }
 
 struct VMTab {
@@ -73,9 +76,10 @@ impl VMCanvas {
             dialog_visible: true,
             path: None,
             config,
-            input_managers: vec![VMInputManager::new()],
+            // input_managers: vec![VMInputManager::new()],
             last_frame_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
             take_focus: true,
+            start_input_manager: VMInputManager::new(),
         }
     }
 
@@ -101,10 +105,10 @@ impl VMCanvas {
     pub fn load_new_tabs(&mut self, tabs: Vec<VMTab>, active_tab: usize) {
         let tab_names = &tabs.iter().map(|v| {return v.tab_name.clone();}).collect();
         self.tabs = vec![];
-        self.input_managers = vec![];
+        // self.input_managers = vec![];
         for tab in tabs {
             self.tabs.push(tab);
-            self.input_managers.push(VMInputManager::new());
+            // self.input_managers.push(VMInputManager::new());
         }
         self.active_tab = active_tab; 
         self.tab_bar.widget_mut().update_tabs(
@@ -120,7 +124,7 @@ impl VMCanvas {
             vm: WidgetPod::new(VimMapper::new(self.config.clone())),
             tab_name,
         });
-        self.input_managers.push(VMInputManager::new());
+        // self.input_managers.push(VMInputManager::new());
         self.active_tab = self.tabs.len() - 1;
         ctx.children_changed();
         ctx.request_layout();
@@ -131,7 +135,7 @@ impl VMCanvas {
 
     fn delete_current_tab(&mut self, ctx: &mut EventCtx) {
         self.tabs.remove(self.active_tab);
-        self.input_managers.remove(self.active_tab);
+        // self.input_managers.remove(self.active_tab);
         if self.active_tab > self.tabs.len() - 1 {
             self.active_tab = self.active_tab - 1;
         }
@@ -153,7 +157,8 @@ impl VMCanvas {
     }
 
     fn hide_dialog(&mut self) {
-        self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+        // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+        self.tabs[self.active_tab].vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
         self.dialog_visible = false;
         self.take_focus = true;
     }
@@ -167,7 +172,8 @@ impl VMCanvas {
         ctx.set_handled();
         self.dialog_visible = show;
         if show {
-            self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Dialog);
+            // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Dialog);
+            self.tabs[self.active_tab].vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Dialog);
             ctx.focus_next();
         }
     }
@@ -180,7 +186,8 @@ impl VMCanvas {
         ctx.set_handled();
         self.dialog_visible = show;
         if show {
-            self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Dialog);
+            // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Dialog);
+            self.tabs[self.active_tab].vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Dialog);
             ctx.focus_next();
         }
     }
@@ -362,7 +369,8 @@ impl VMCanvas {
             let inner = &mut tab.vm;
             if let Some(payload) = payload {
                 if payload.action != Action::ChangeModeWithTimeoutRevert {
-                    self.input_managers[self.active_tab].clear_timeout();
+                    // self.input_managers[self.active_tab].clear_timeout();
+                    inner.widget_mut().input_manager.clear_timeout();
                 }
                 match payload.action {
                     Action::GoToNextTab => {
@@ -476,7 +484,8 @@ impl VMCanvas {
                     Action::CreateNewNodeAndEdit => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
                             if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New Node")) {
-                                self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
+                                // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
+                                inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                                 inner.widget_mut().open_editor(ctx, new_idx);
                                 ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                                 ctx.submit_command(Command::new(TAKE_FOCUS_SELECT_ALL, (), Target::Widget(inner.id())));
@@ -504,7 +513,8 @@ impl VMCanvas {
                     },
                     Action::EditActiveNodeSelectAll => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
+                            // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
+                            inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().open_editor(ctx, idx);
                             ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             ctx.submit_command(Command::new(TAKE_FOCUS_SELECT_ALL, (), Target::Widget(inner.id())));
@@ -513,7 +523,8 @@ impl VMCanvas {
                     },
                     Action::EditActiveNodeInsert => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
+                            // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
+                            inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().open_editor(ctx, idx);
                             ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             ctx.submit_command(Command::new(TAKE_FOCUS_INSERT, (), Target::Widget(inner.id())));
@@ -522,7 +533,8 @@ impl VMCanvas {
                     },
                     Action::EditActiveNodeAppend => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
+                            // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
+                            inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().open_editor(ctx, idx);
                             ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             ctx.submit_command(Command::new(TAKE_FOCUS_APPEND, (), Target::Widget(inner.id())));
@@ -530,9 +542,12 @@ impl VMCanvas {
                         return Ok(());
                     },
                     Action::ChangeModeWithTimeoutRevert => {
-                        let current_mode = Some(self.input_managers[self.active_tab].get_keybind_mode());
-                        self.input_managers[self.active_tab].set_timeout_revert_mode(current_mode);
-                        self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                        // let current_mode = Some(self.input_managers[self.active_tab].get_keybind_mode());
+                        let current_mode = Some(inner.widget_mut().input_manager.get_keybind_mode());
+                        // self.input_managers[self.active_tab].set_timeout_revert_mode(current_mode);
+                        inner.widget_mut().input_manager.set_timeout_revert_mode(current_mode);
+                        inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                        // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
                         match payload.mode {
                             Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
                                 inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
@@ -545,22 +560,26 @@ impl VMCanvas {
                         return Ok(());
                     },
                     Action::ChangeMode => {
+                        tracing::debug!("{:?}", payload);
                         match payload.mode {
                             Some(KeybindMode::Move) => {
                                 if let Some(active_idx) = inner.widget().get_active_node_idx() {
                                     if active_idx == 0 {
                                         ()
                                     } else {
-                                        self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                                        // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                                        inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
                                     }
                                 }
                             }
                             Some(KeybindMode::SearchBuild) => {
-                                self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                                // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                                inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
                                 inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                             },
                             Some(KeybindMode::SearchedSheet) => {
-                                self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                                // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                                inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
                                 if inner.widget().get_target_list_length() == 1 {
                                     ctx.submit_command(EXECUTE_ACTION.with(
                                         ActionPayload {
@@ -568,24 +587,25 @@ impl VMCanvas {
                                             ..Default::default()
                                         }
                                     ));
-                                    self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+                                    // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+                                    inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
                                 } else if inner.widget().get_target_list_length() == 0 {
                                     let idx = if let Some(idx) = inner.widget().get_active_node_idx() {
                                             idx
                                         } else {
                                             0
                                         };
-                                    self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+                                    // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+                                    inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
                                     inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
                                     inner.widget_mut().build_target_list_from_neighbors(idx);
                                     inner.widget_mut().cycle_target_forward();
                                 }
                             }
                             _ => {
-                                self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
-                                // if let Some(inner) = &mut self.inner {
-                                    inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
-                                // }
+                                // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                                inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                                inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
                             }
                         }
                         ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
@@ -595,9 +615,7 @@ impl VMCanvas {
                         let tab = &mut self.tabs.get_mut(self.active_tab);
                         if let Some(tab) = tab {
                             let inner = &mut tab.vm;
-                            if !inner.widget().is_editor_open() {
-                                ctx.submit_command(Command::new(EXECUTE_ACTION, payload.clone(), Target::Widget(inner.id())));
-                            }
+                            ctx.submit_command(Command::new(EXECUTE_ACTION, payload.clone(), Target::Widget(inner.id())));
                         }
                         return Ok(());
                     }
@@ -723,7 +741,6 @@ impl Widget<AppState> for VMCanvas {
                 if let Ok((save, path)) = VMSaveSerde::load(payload.path().to_str().unwrap().to_string()) {
                     let (tabs, active_tab) = VMSaveSerde::from_save(save, self.config.clone());
                     self.path = Some(path);
-                    // self.load_new_mapper(vm);
                     self.load_new_tabs(tabs, active_tab);
                     data.save_state = VMSaveState::Saved;
                     ctx.children_changed();
@@ -916,7 +933,8 @@ impl Widget<AppState> for VMCanvas {
                 if let Some(tab) = tab {
                     let inner = &mut tab.vm;
                     inner.widget_mut().close_editor(ctx, true);
-                    self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+                    // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+                    inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
                     inner.widget_mut().invalidate_node_layouts();
                     ctx.set_handled();
                     inner.widget_mut().restart_simulation();
@@ -929,7 +947,8 @@ impl Widget<AppState> for VMCanvas {
                 if let Some(tab) = tab {
                     let inner = &mut tab.vm;
                     inner.widget_mut().close_editor(ctx, false);
-                    self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+                    // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+                    self.tabs[self.active_tab].vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
                     ctx.set_handled();
                     ctx.request_anim_frame();
                     ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
@@ -937,13 +956,19 @@ impl Widget<AppState> for VMCanvas {
                 }
             }
             Event::KeyDown(key_event) => {
-                let payloads = self.input_managers[self.active_tab].accept_key(key_event.clone(), ctx);
+                // let payloads = self.input_managers[self.active_tab].accept_key(key_event.clone(), ctx);
+                let mut im = &mut self.start_input_manager;
+                if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+                    im = &mut tab.vm.widget_mut().input_manager;
+                }
+                // let payloads = self.tabs[self.active_tab].vm.widget_mut().input_manager.accept_key(key_event.clone(), ctx);
+                let payloads = im.accept_key(key_event.clone(), ctx);
                 for payload in &payloads {
                     if self.dialog_visible 
-                        && (key_event.key == druid::keyboard_types::Key::Tab ||
+                        && ((key_event.key == druid::keyboard_types::Key::Tab ||
                         key_event.key == druid::keyboard_types::Key::Enter ||
                         key_event.key == druid::keyboard_types::Key::Character(String::from(" "))) ||
-                        key_event.key == druid::keyboard_types::Key::Escape
+                        key_event.key == druid::keyboard_types::Key::Escape)
                         {
                         if key_event.key == druid::keyboard_types::Key::Tab {
                             ctx.focus_next();
@@ -971,8 +996,10 @@ impl Widget<AppState> for VMCanvas {
                 }
             }
             Event::Timer(token) => {
-                if Some(*token) == self.input_managers[self.active_tab].get_timout_token() {
-                    self.input_managers[self.active_tab].timeout();
+                // if Some(*token) == self.input_managers[self.active_tab].get_timout_token() {
+                if Some(*token) == self.tabs[self.active_tab].vm.widget().input_manager.get_timout_token() {
+                    // self.input_managers[self.active_tab].timeout();
+                    self.tabs[self.active_tab].vm.widget_mut().input_manager.timeout();
                 } 
             }
             Event::WindowConnected => {
@@ -1081,7 +1108,11 @@ impl Widget<AppState> for VMCanvas {
         if let Some(tab) = self.tabs.get_mut(self.active_tab) {
             let inner = &mut tab.vm;
             inner.paint(ctx, &(), env);
-            let layout = ctx.text().new_text_layout(self.input_managers[self.active_tab].get_string())
+            let layout = ctx.text()
+                .new_text_layout(
+                    // self.input_managers[self.active_tab].get_string()
+                    inner.widget().input_manager.get_string()
+                )
                 .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
                 .text_color( self.config.get_color(VMColor::ComposeIndicatorTextColor).ok().expect("compose indicator text color not found in config"))
                 .build().unwrap();

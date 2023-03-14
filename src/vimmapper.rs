@@ -29,6 +29,7 @@ use crate::vmnode::{VMNode, VMNodeEditor};
 use crate::constants::*;
 
 use crate::vmconfig::*;
+use crate::vmtextinput::VMTextInput;
 
 //VimMapper is the controller class for the graph implementation and UI. 
 
@@ -114,6 +115,10 @@ pub(crate) struct VimMapper {
     pub(crate) disabled_layouts: HashMap<DefaultNodeIdx, PietTextLayout>,
 
     pub(crate) root_nodes: HashMap<usize, DefaultNodeIdx>,
+
+    pub(crate) text_input: VMTextInput,
+
+    pub(crate) input_manager: VMInputManager,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -126,7 +131,7 @@ impl Default for VimMapper {
     fn default() -> Self {
         let config = VMConfigVersion4::default();
         let mut graph = <ForceGraph<u32, u32>>::new(
-            DEFAULT_SIMULATION_PARAMTERS
+            DEFAULT_SIMULATION_PARAMETERS
         );
         //The default node. Is always at index 0 and position (0.0, 0.0).
         let mut root_node = VMNode {
@@ -177,6 +182,8 @@ impl Default for VimMapper {
             enabled_layouts: HashMap::new(),
             disabled_layouts: HashMap::new(),
             root_nodes: HashMap::new(),
+            text_input: VMTextInput::new(),
+            input_manager: VMInputManager::new(),
         };
         let root_fg_index = root_node.fg_index.unwrap();
         mapper.nodes.insert(0, root_node);
@@ -189,7 +196,7 @@ impl Default for VimMapper {
 impl VimMapper {
     pub fn new(config: VMConfigVersion4) -> VimMapper {
         let mut graph = <ForceGraph<u32, u32>>::new(
-            DEFAULT_SIMULATION_PARAMTERS
+            DEFAULT_SIMULATION_PARAMETERS
         );
         //The default node. Is always at index 0 and position (0.0, 0.0).
         let mut root_node = VMNode {
@@ -1176,23 +1183,28 @@ impl VimMapper {
                         self.scale = self.scale.clone()*TranslateScale::scale(payload.float.unwrap());
                         return Ok(());
                     }
-                    Action::DeleteWordWithWhitespace => todo!(),
-                    Action::DeleteWord => todo!(),
-                    Action::DeleteToEndOfWord => todo!(),
-                    Action::DeleteToNthCharacter => todo!(),
-                    Action::DeleteWithNthCharacter => todo!(),
-                    Action::ChangeWordWithWhitespace => todo!(),
-                    Action::ChangeWord => todo!(),
-                    Action::ChangeToEndOfWord => todo!(),
-                    Action::ChangeToNthCharacter => todo!(),
-                    Action::ChangeWithNthCharacter => todo!(),
-                    Action::CursorForward => todo!(),
-                    Action::CursorBackward => todo!(),
-                    Action::CursorForwardToEndOfWord => todo!(),
-                    Action::CursorForwardToBeginningOfWord => todo!(),
-                    Action::CursorBackwardToEndOfWord => todo!(),
-                    Action::CursorBackwardToBeginningOfWord => todo!(),
-                    Action::CursorToNthCharacter => todo!(),
+                    Action::DeleteWordWithWhitespace  |
+                    Action::DeleteWord |
+                    Action::DeleteToEndOfWord |
+                    Action::DeleteToNthCharacter |
+                    Action::DeleteWithNthCharacter |
+                    Action::ChangeWordWithWhitespace |
+                    Action::ChangeWord |
+                    Action::ChangeToEndOfWord |
+                    Action::ChangeToNthCharacter |
+                    Action::ChangeWithNthCharacter |
+                    Action::CursorForward |
+                    Action::CursorBackward |
+                    Action::CursorForwardToEndOfWord |
+                    Action::CursorForwardToBeginningOfWord |
+                    Action::CursorBackwardToEndOfWord |
+                    Action::CursorBackwardToBeginningOfWord |
+                    Action::CursorToNthCharacter |
+                    Action::DeleteBackspace |
+                    Action::DeleteForward |
+                    Action::InsertCharacter => {
+                        return self.text_input.handle_action(ctx, payload);
+                    },
                     _ => {
                         return Ok(());
                     }
@@ -1205,16 +1217,10 @@ impl VimMapper {
 
 impl<'a> Widget<()> for VimMapper {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut (), _env: &Env) {
-        //If VimMapper is Notified to take focus, ensure that it's requested
-        // if self.take_focus {
-        //     tracing::debug!("VimMapper window asked to take focus");
-        //     ctx.request_focus();
-        //     self.take_focus = false;
-        // }
         //If the node editor is visible, pass events to it. Both events and paints must be withheld
         // for the widget to be truly hidden and uninteractable. 
         if self.node_editor.is_visible {
-            self.node_editor.container.event(ctx, event, &mut self.node_editor.title_text, _env);
+            // self.node_editor.container.event(ctx, event, &mut self.node_editor.title_text, _env);
         }
         match event {
             Event::AnimFrame(_interval) => {
@@ -1421,6 +1427,8 @@ impl<'a> Widget<()> for VimMapper {
         }
         self.node_editor.editor_rect = Some(self.node_editor.container.layout_rect());
 
+        self.text_input.layout(ctx, &self.config);
+
         return bc.max();
     }
 
@@ -1563,12 +1571,15 @@ impl<'a> Widget<()> for VimMapper {
         }
 
         //Paint editor dialog
-        if self.node_editor.is_visible {
-            if let Some(_idx) = self.get_active_node_idx() {
-                self.node_editor.container.paint(ctx, &self.node_editor.title_text, &_env);
-            }
-        }
+        // if self.node_editor.is_visible {
+        //     if let Some(_idx) = self.get_active_node_idx() {
+        //         self.node_editor.container.paint(ctx, &self.node_editor.title_text, &_env);
+        //     }
+        // }
 
+        if let Some(layout) = &self.text_input.text_layout {
+            ctx.draw_text(layout, Point { x: 100., y: 100. });
+        }
         //Paint debug dump
         if self.debug_data {
             if let Some(idx) = self.get_active_node_idx() {

@@ -114,6 +114,9 @@ pub enum Action {
     PanRight,
     ZoomOut,
     ZoomIn,
+    InsertCharacter,
+    DeleteBackspace,
+    DeleteForward,
     DeleteWordWithWhitespace,
     DeleteWord,
     DeleteToEndOfWord,
@@ -1210,9 +1213,58 @@ impl VMInputManager {
                 }
             },
             KeybindMode::Edit => {
-                return vec![None];
+                match key_event.key {
+                    Key::Character(character) => {
+                        return vec![Some(ActionPayload {
+                            action: Action::InsertCharacter,
+                            string: Some(character),
+                            ..Default::default() 
+                        })]
+                    },
+                    Key::Backspace => {
+                        return vec![Some(ActionPayload {
+                            action: Action::DeleteBackspace,
+                            ..Default::default()
+                        })]
+                    },
+                    Key::Delete => {
+                        return vec![Some(ActionPayload {
+                            action: Action::DeleteForward,
+                            ..Default::default()
+                        })]
+                    },
+                    Key::Enter => {
+                        return vec![Some(ActionPayload {
+                            action: Action::InsertCharacter,
+                            string: Some(String::from("\n")),
+                            ..Default::default() 
+                        })]
+                    }
+                    Key::Escape => {
+                        return vec![Some(ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::EditBrowse),
+                            ..Default::default()
+                        })]
+                    },
+                    _ => {
+                        return vec![None];
+                    }
+                }
             },
             KeybindMode::EditBrowse => {
+                match key_event.key {
+                    Key::Escape => {
+                        return vec![
+                            Some(ActionPayload {
+                                action: Action::ChangeMode,
+                                mode: Some(KeybindMode::Sheet),
+                                ..Default::default()
+                            })
+                        ]
+                    }
+                    _ => ()
+                }
                 return vec![None];
             },
             KeybindMode::SearchedSheet => {

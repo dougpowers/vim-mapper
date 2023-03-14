@@ -120,7 +120,7 @@ pub struct VMSaveNoVersion {
 
 impl From<VMSaveNoVersion> for VMSaveVersion4 {
     fn from(save: VMSaveNoVersion) -> Self {
-        let mut graph: ForceGraph<u32, u32> = ForceGraph::new(DEFAULT_SIMULATION_PARAMTERS);
+        let mut graph: ForceGraph<u32, u32> = ForceGraph::new(DEFAULT_SIMULATION_PARAMETERS);
         let mut nodes: HashMap<u32, VMNode> = HashMap::with_capacity(50);
         for (_k ,v) in &save.nodes {
             let fg_index: Option<DefaultNodeIdx>;
