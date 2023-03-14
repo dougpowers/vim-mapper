@@ -335,10 +335,6 @@ impl Default for VMInputManager {
                     key: Some(Key::Character(String::from("c"))),
                     modifiers: None, 
                     action_payloads: vec![Some(
-                        // ActionPayload {
-                        //     action: Action::EditActiveNode,
-                        //     ..Default::default()
-                        // }
                         ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::EditBrowse),
@@ -1355,6 +1351,15 @@ impl VMInputManager {
                 }
                 match key_event.key {
                     Key::Escape => {
+                        return vec![
+                            Some(ActionPayload {
+                                action: Action::ChangeMode,
+                                mode: Some(KeybindMode::Sheet),
+                                ..Default::default()
+                            })
+                        ]
+                    },
+                    Key::Enter => {
                         return vec![
                             Some(ActionPayload {
                                 action: Action::ChangeMode,

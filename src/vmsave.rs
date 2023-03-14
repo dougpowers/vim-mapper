@@ -233,7 +233,6 @@ impl VMSaveSerde {
                 offset_y: tab.offset_y,
                 target_node_list: vec![],
                 target_node_idx: None,
-                node_editor: VMNodeEditor::new(),
                 is_hot: true,
                 config: config.clone(),
                 node_render_mode: NodeRenderMode::AllEnabled,
