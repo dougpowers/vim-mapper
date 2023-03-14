@@ -956,262 +956,335 @@ impl VimMapper {
     }
 
     fn handle_action(&mut self, ctx: &mut EventCtx, payload: &ActionPayload) -> Result<(), ()> {
-        // if self.take_focus {
-                match payload.action {
-                    Action::NullAction => {
-                        return Ok(());
+        if payload.action != Action::ChangeModeWithTimeoutRevert {
+            self.input_manager.clear_timeout();
+        }
+        match payload.action {
+            Action::ChangeModeWithTimeoutRevert => {
+                let current_mode = Some(self.input_manager.get_keybind_mode());
+                self.input_manager.set_timeout_revert_mode(current_mode);
+                self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+
+                match payload.mode {
+                    Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
+                        self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                     },
-                    Action::CycleNodeForward => {
-                        if let Some(_) = self.get_active_node_idx() {
-                            self.cycle_target_forward();
-                            if let Some(idx) = self.get_target_node_idx() {
-                                self.scroll_node_into_view(idx)
-                            }
-                        } else {
-                            self.set_node_as_active(0);
-                            self.scroll_node_into_view(0);
-                        }
-                        return Ok(());
-                    }
-                    Action::CycleNodeBackward => {
-                        if let Some(_) = self.get_active_node_idx() {
-                            self.cycle_target_backward();
-                            if let Some(idx) = self.get_target_node_idx() {
-                                self.scroll_node_into_view(idx)
-                            }
-                        } else {
-                            self.set_node_as_active(0);
-                            self.scroll_node_into_view(0);
-                        }
-                        return Ok(());
-                    }
-                    Action::ActivateTargetedNode => {
+                    _ => {
                         self.set_render_mode(NodeRenderMode::AllEnabled);
-                        if let Some(idx) = self.target_node_idx {
-                            let node_idx = self.target_node_list[idx];
-                            self.scroll_node_into_view(node_idx);
-                            self.invalidate_node_layouts();
-                            self.set_node_as_active(node_idx);
-                            ctx.set_handled();
+                    }
+                }
+                return Ok(());
+            },
+            Action::ChangeMode => {
+                match payload.mode {
+                    Some(KeybindMode::Move) => {
+                        if let Some(active_idx) = self.get_active_node_idx() {
+                            if active_idx == 0 {
+                                ()
+                            } else {
+                                self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                            }
                         }
-                        return Ok(());
+                    }
+                    Some(KeybindMode::SearchBuild) => {
+                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                        self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                     },
-                    Action::DeleteNodeTree => {
-                        let idx = payload.index.unwrap();
-                        if let Ok(idx) = self.delete_node(idx) {
+                    Some(KeybindMode::SearchedSheet) => {
+                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                        if self.get_target_list_length() == 1 {
+                            ctx.submit_command(EXECUTE_ACTION.with(
+                                ActionPayload {
+                                    action: Action::ActivateTargetedNode,
+                                    ..Default::default()
+                                }
+                            ));
+                            self.input_manager.set_keybind_mode(KeybindMode::Sheet);
+                        } else if self.get_target_list_length() == 0 {
+                            let idx = if let Some(idx) = self.get_active_node_idx() {
+                                    idx
+                                } else {
+                                    0
+                                };
+                            self.input_manager.set_keybind_mode(KeybindMode::Sheet);
+                            self.set_render_mode(NodeRenderMode::AllEnabled);
+                            self.build_target_list_from_neighbors(idx);
+                            self.cycle_target_forward();
+                        }
+                    }
+                    _ => {
+                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                        self.set_render_mode(NodeRenderMode::AllEnabled);
+                    }
+                }
+                return Ok(());
+            }
+            Action::NullAction => {
+                return Ok(());
+            },
+            Action::CycleNodeForward => {
+                if let Some(_) = self.get_active_node_idx() {
+                    self.cycle_target_forward();
+                    if let Some(idx) = self.get_target_node_idx() {
+                        self.scroll_node_into_view(idx)
+                    }
+                } else {
+                    self.set_node_as_active(0);
+                    self.scroll_node_into_view(0);
+                }
+                return Ok(());
+            }
+            Action::CycleNodeBackward => {
+                if let Some(_) = self.get_active_node_idx() {
+                    self.cycle_target_backward();
+                    if let Some(idx) = self.get_target_node_idx() {
+                        self.scroll_node_into_view(idx)
+                    }
+                } else {
+                    self.set_node_as_active(0);
+                    self.scroll_node_into_view(0);
+                }
+                return Ok(());
+            }
+            Action::ActivateTargetedNode => {
+                self.set_render_mode(NodeRenderMode::AllEnabled);
+                if let Some(idx) = self.target_node_idx {
+                    let node_idx = self.target_node_list[idx];
+                    self.scroll_node_into_view(node_idx);
+                    self.invalidate_node_layouts();
+                    self.set_node_as_active(node_idx);
+                    ctx.set_handled();
+                }
+                return Ok(());
+            },
+            Action::DeleteNodeTree => {
+                let idx = payload.index.unwrap();
+                if let Ok(idx) = self.delete_node(idx) {
+                    self.set_node_as_active(idx);
+                    self.scroll_node_into_view(idx);
+                }
+                return Ok(());
+            },
+            Action::SnipActiveNode => {
+                if let Some(active_idx) = self.get_active_node_idx() {
+                    let neighbor_count = self.graph.get_graph().neighbors(self.nodes.get(&active_idx).unwrap().fg_index.unwrap()).count();
+                    if neighbor_count > 2 {
+                        return Err(());
+                    } else if neighbor_count == 2 {
+                        if let Ok(idx) = self.snip_node(active_idx) {
                             self.set_node_as_active(idx);
                             self.scroll_node_into_view(idx);
                         }
-                        return Ok(());
-                    },
-                    Action::SnipActiveNode => {
-                        if let Some(active_idx) = self.get_active_node_idx() {
-                            let neighbor_count = self.graph.get_graph().neighbors(self.nodes.get(&active_idx).unwrap().fg_index.unwrap()).count();
-                            if neighbor_count > 2 {
-                                return Err(());
-                            } else if neighbor_count == 2 {
-                                if let Ok(idx) = self.snip_node(active_idx) {
-                                    self.set_node_as_active(idx);
-                                    self.scroll_node_into_view(idx);
-                                }
-                            } else {
-                                if let Ok(idx) = self.delete_node(active_idx) {
-                                    self.set_node_as_active(idx);
-                                    self.scroll_node_into_view(idx);
-                                }
-                            }
+                    } else {
+                        if let Ok(idx) = self.delete_node(active_idx) {
+                            self.set_node_as_active(idx);
+                            self.scroll_node_into_view(idx);
                         }
-                        return Ok(());
-                    }
-                    Action::DeleteActiveNode => {
-                        if let Some(remove_idx) = self.get_active_node_idx() {
-                            let count = self.get_node_deletion_count(remove_idx);
-                            if count == 0 {
-                                return Ok(());
-                            }
-                            if count <= 1 {
-                                if let Ok(idx) = self.delete_node(remove_idx) {
-                                    self.set_node_as_active(idx);
-                                    self.scroll_node_into_view(idx);
-                                }
-                            } else if remove_idx == 0 {
-                                
-                            } else {
-                                ctx.submit_command(Command::new(
-                                    EXECUTE_ACTION,
-                                    ActionPayload {
-                                        action: Action::CreateDialog,
-                                        dialog_params: Some(VMDialog::make_delete_node_prompt_dialog_params(count, remove_idx)),
-                                        ..Default::default()
-                                    },
-                                    Target::Global
-                                ));
-                            }
-                        }
-                        return Ok(());
-                    }
-                    Action::DeleteTargetNode => {
-                        return Ok(());
-                    }
-                    Action::IncreaseActiveNodeMass => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.increase_node_mass(idx);
-                        }
-                        return Ok(());
-                    }
-                    Action::DecreaseActiveNodeMass => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.decrease_node_mass(idx);
-                        }
-                        return Ok(());
-                    }
-                    Action::ResetActiveNodeMass => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.reset_node_mass(idx);
-                        }
-                        return Ok(());
-                    }
-                    Action::ToggleAnchorActiveNode => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.toggle_node_anchor(idx);
-                        }
-                        return Ok(());
-                    }
-                    Action::MoveActiveNodeDown => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.move_node(idx, Vec2::new(0., payload.float.expect("Expected a float value for node movement.")))
-                        }
-                        return Ok(());
-                    }
-                    Action::MoveActiveNodeUp => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.move_node(idx, Vec2::new(0., -1.*payload.float.expect("Expected a float value for node movement.")))
-                        }
-                        return Ok(());
-                    }
-                    Action::MoveActiveNodeLeft => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.move_node(idx, Vec2::new(-1.*payload.float.expect("Expected a float value for node movement."), 0.))
-                        }
-                        return Ok(());
-                    }
-                    Action::MoveActiveNodeRight => {
-                        if let Some(idx) = self.get_active_node_idx() {
-                            self.move_node(idx, Vec2::new(payload.float.expect("Expected a float value for node movement."), 0.))
-                        }
-                        return Ok(());
-                    }
-                    Action::MarkActiveNode => {
-                        if let Some(active_idx) = self.get_active_node_idx() {
-                            //Check that the chosen node isn't a root. Do nothing and return immediately if so.
-                            if self.is_node_root(active_idx) {return Ok(());}
-                            //Check that a node doesn't already have this mark. Clear if that's the case.
-                            if let Some(holder) = self.get_node_by_mark(payload.string.clone().unwrap()) {
-                                self.set_node_mark(holder, " ".to_string());
-                                // self.nodes.get_mut(&holder).unwrap().set_mark(" ".to_string());
-                            }
-                            // self.nodes.get_mut(&active_idx).unwrap().set_mark(payload.string.clone().unwrap());
-                            self.set_node_mark(active_idx, payload.string.clone().unwrap());
-                        }
-                        return Ok(());
-                    },
-                    Action::JumpToMarkedNode => {
-                        if let Some(marked_idx) = self.get_node_by_mark(payload.string.clone().unwrap()) {
-                            self.set_node_as_active(marked_idx);
-                            self.scroll_node_into_view(marked_idx);
-                        }
-                        return Ok(());
-                    },
-                    Action::TargetNode => todo!(),
-                    Action::CenterNode => {
-                        let node = self.nodes.get(&payload.index.unwrap()).expect("Tried to center a non-existent node.");
-                        let node_pos = self.get_node_pos(node.index) * self.scale.as_tuple().1;
-                        self.offset_x = node_pos.x;
-                        self.offset_y = node_pos.y;
-                        return Ok(());
-                    }
-                    Action::CenterActiveNode => {
-                        if let Some(active_idx) = self.get_active_node_idx() {
-                            let node = self.nodes.get(&active_idx).expect("Tried to get non-existent active node.");
-                            let node_pos = self.get_node_pos(node.index) * self.scale.as_tuple().1;
-                            self.offset_x = -1. * node_pos.x;
-                            self.offset_y = -1. * node_pos.y;
-                        }
-                        return Ok(());
-                    }
-                    Action::SearchNodes => {
-                        if let Some(string) = payload.string.clone() {
-                            if let Ok(_) = self.build_target_list_from_string(string) {
-
-                            }
-                            // self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
-                        }
-                        return Ok(());
-                    },
-                    Action::ToggleDebug => {
-                        #[cfg(debug_assertions)]
-                        {
-                            self.debug_data = !self.debug_data;
-                            return Ok(());
-                        }
-                        #[cfg(not(debug_assertions))]
-                        {
-                            return Ok(());
-                        }
-                    }
-                    Action::PanUp => {
-                        self.offset_y += payload.float.unwrap();
-                        return Ok(());
-                    }
-                    Action::PanDown => {
-                        self.offset_y -= payload.float.unwrap();
-                        return Ok(());
-                    }
-                    Action::PanLeft => {
-                        self.offset_x += payload.float.unwrap();
-                        return Ok(());
-                    }
-                    Action::PanRight => {
-                        self.offset_x -= payload.float.unwrap();
-                        return Ok(());
-                    }
-                    Action::ZoomOut => {
-                        self.scale = self.scale.clone()*TranslateScale::scale(payload.float.unwrap());
-                        return Ok(());
-                    }
-                    Action::ZoomIn => {
-                        self.scale = self.scale.clone()*TranslateScale::scale(payload.float.unwrap());
-                        return Ok(());
-                    }
-                    Action::DeleteWordWithWhitespace  |
-                    Action::DeleteWord |
-                    Action::DeleteToEndOfWord |
-                    Action::DeleteToNthCharacter |
-                    Action::DeleteWithNthCharacter |
-                    Action::ChangeWordWithWhitespace |
-                    Action::ChangeWord |
-                    Action::ChangeToEndOfWord |
-                    Action::ChangeToNthCharacter |
-                    Action::ChangeWithNthCharacter |
-                    Action::CursorForward |
-                    Action::CursorBackward |
-                    Action::CursorForwardToEndOfWord |
-                    Action::CursorForwardToBeginningOfWord |
-                    Action::CursorBackwardToEndOfWord |
-                    Action::CursorBackwardToBeginningOfWord |
-                    Action::CursorToNthCharacter |
-                    Action::DeleteBackspace |
-                    Action::DeleteForward |
-                    Action::InsertCharacter => {
-                        return self.text_input.handle_action(ctx, payload);
-                    },
-                    _ => {
-                        return Ok(());
                     }
                 }
-        // } else {
-            // return Err(());
-        // }
+                return Ok(());
+            }
+            Action::DeleteActiveNode => {
+                if let Some(remove_idx) = self.get_active_node_idx() {
+                    let count = self.get_node_deletion_count(remove_idx);
+                    if count == 0 {
+                        return Ok(());
+                    }
+                    if count <= 1 {
+                        if let Ok(idx) = self.delete_node(remove_idx) {
+                            self.set_node_as_active(idx);
+                            self.scroll_node_into_view(idx);
+                        }
+                    } else if remove_idx == 0 {
+                        
+                    } else {
+                        ctx.submit_command(Command::new(
+                            EXECUTE_ACTION,
+                            ActionPayload {
+                                action: Action::CreateDialog,
+                                dialog_params: Some(VMDialog::make_delete_node_prompt_dialog_params(count, remove_idx)),
+                                ..Default::default()
+                            },
+                            Target::Global
+                        ));
+                    }
+                }
+                return Ok(());
+            }
+            Action::DeleteTargetNode => {
+                return Ok(());
+            }
+            Action::IncreaseActiveNodeMass => {
+                if let Some(idx) = self.get_active_node_idx() {
+                    self.increase_node_mass(idx);
+                }
+                return Ok(());
+            }
+            Action::DecreaseActiveNodeMass => {
+                if let Some(idx) = self.get_active_node_idx() {
+                    self.decrease_node_mass(idx);
+                }
+                return Ok(());
+            }
+            Action::ResetActiveNodeMass => {
+                if let Some(idx) = self.get_active_node_idx() {
+                    self.reset_node_mass(idx);
+                }
+                return Ok(());
+            }
+            Action::ToggleAnchorActiveNode => {
+                if let Some(idx) = self.get_active_node_idx() {
+                    self.toggle_node_anchor(idx);
+                }
+                return Ok(());
+            }
+            Action::MoveActiveNodeDown => {
+                if let Some(idx) = self.get_active_node_idx() {
+                    self.move_node(idx, Vec2::new(0., payload.float.expect("Expected a float value for node movement.")))
+                }
+                return Ok(());
+            }
+            Action::MoveActiveNodeUp => {
+                if let Some(idx) = self.get_active_node_idx() {
+                    self.move_node(idx, Vec2::new(0., -1.*payload.float.expect("Expected a float value for node movement.")))
+                }
+                return Ok(());
+            }
+            Action::MoveActiveNodeLeft => {
+                if let Some(idx) = self.get_active_node_idx() {
+                    self.move_node(idx, Vec2::new(-1.*payload.float.expect("Expected a float value for node movement."), 0.))
+                }
+                return Ok(());
+            }
+            Action::MoveActiveNodeRight => {
+                if let Some(idx) = self.get_active_node_idx() {
+                    self.move_node(idx, Vec2::new(payload.float.expect("Expected a float value for node movement."), 0.))
+                }
+                return Ok(());
+            }
+            Action::MarkActiveNode => {
+                if let Some(active_idx) = self.get_active_node_idx() {
+                    //Check that the chosen node isn't a root. Do nothing and return immediately if so.
+                    if self.is_node_root(active_idx) {return Ok(());}
+                    //Check that a node doesn't already have this mark. Clear if that's the case.
+                    if let Some(holder) = self.get_node_by_mark(payload.string.clone().unwrap()) {
+                        self.set_node_mark(holder, " ".to_string());
+                        // self.nodes.get_mut(&holder).unwrap().set_mark(" ".to_string());
+                    }
+                    // self.nodes.get_mut(&active_idx).unwrap().set_mark(payload.string.clone().unwrap());
+                    self.set_node_mark(active_idx, payload.string.clone().unwrap());
+                }
+                return Ok(());
+            },
+            Action::JumpToMarkedNode => {
+                if let Some(marked_idx) = self.get_node_by_mark(payload.string.clone().unwrap()) {
+                    self.set_node_as_active(marked_idx);
+                    self.scroll_node_into_view(marked_idx);
+                }
+                return Ok(());
+            },
+            Action::TargetNode => todo!(),
+            Action::CenterNode => {
+                let node = self.nodes.get(&payload.index.unwrap()).expect("Tried to center a non-existent node.");
+                let node_pos = self.get_node_pos(node.index) * self.scale.as_tuple().1;
+                self.offset_x = node_pos.x;
+                self.offset_y = node_pos.y;
+                return Ok(());
+            }
+            Action::CenterActiveNode => {
+                if let Some(active_idx) = self.get_active_node_idx() {
+                    let node = self.nodes.get(&active_idx).expect("Tried to get non-existent active node.");
+                    let node_pos = self.get_node_pos(node.index) * self.scale.as_tuple().1;
+                    self.offset_x = -1. * node_pos.x;
+                    self.offset_y = -1. * node_pos.y;
+                }
+                return Ok(());
+            }
+            Action::SearchNodes => {
+                if let Some(string) = payload.string.clone() {
+                    if let Ok(_) = self.build_target_list_from_string(string) {
+
+                    }
+                    // self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
+                }
+                return Ok(());
+            },
+            Action::ToggleDebug => {
+                #[cfg(debug_assertions)]
+                {
+                    self.debug_data = !self.debug_data;
+                    return Ok(());
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    return Ok(());
+                }
+            }
+            Action::PanUp => {
+                self.offset_y += payload.float.unwrap();
+                return Ok(());
+            }
+            Action::PanDown => {
+                self.offset_y -= payload.float.unwrap();
+                return Ok(());
+            }
+            Action::PanLeft => {
+                self.offset_x += payload.float.unwrap();
+                return Ok(());
+            }
+            Action::PanRight => {
+                self.offset_x -= payload.float.unwrap();
+                return Ok(());
+            }
+            Action::ZoomOut => {
+                self.scale = self.scale.clone()*TranslateScale::scale(payload.float.unwrap());
+                return Ok(());
+            }
+            Action::ZoomIn => {
+                self.scale = self.scale.clone()*TranslateScale::scale(payload.float.unwrap());
+                return Ok(());
+            },
+            Action::AcceptNodeText => {
+                if let Some(idx) = self.get_active_node_idx() {
+                    self.nodes.get_mut(&idx).unwrap().label = self.text_input.text_buffer.clone();
+                }
+                return Ok(());
+            },
+            Action::CursorForward |
+            Action::CursorBackward |
+            Action::CursorForwardToEndOfWord |
+            Action::CursorForwardToBeginningOfWord |
+            Action::CursorBackwardToEndOfWord |
+            Action::CursorBackwardToBeginningOfWord |
+            Action::CursorToNthCharacter => {
+                let ret = self.text_input.handle_action(ctx, payload);
+                return ret;
+            },
+            Action::DeleteWordWithWhitespace  |
+            Action::DeleteWord |
+            Action::DeleteToEndOfWord |
+            Action::DeleteToNthCharacter |
+            Action::DeleteWithNthCharacter |
+            Action::ChangeWordWithWhitespace |
+            Action::ChangeWord |
+            Action::ChangeToEndOfWord |
+            Action::ChangeToNthCharacter |
+            Action::ChangeWithNthCharacter |
+            Action::DeleteBackspace |
+            Action::DeleteForward |
+            Action::InsertCharacter => {
+                let ret = self.text_input.handle_action(ctx, payload);
+                if let Some(active_idx) = self.get_active_node_idx() {
+                    self.nodes.get_mut(&active_idx).unwrap().label = self.text_input.text_buffer.clone();
+                    self.invalidate_node_layouts();
+                    self.animating = true;
+                }
+                return ret;
+            },
+            _ => {
+                return Ok(());
+            }
+        }
     }
 }
 
@@ -1522,6 +1595,7 @@ impl<'a> Widget<()> for VimMapper {
                     false
                 }
             };
+
             let active_node_pos = self.get_node_pos(active_idx);
             let node =self.nodes.get_mut(&active_idx).unwrap();
             node.paint_node(
@@ -1529,14 +1603,31 @@ impl<'a> Widget<()> for VimMapper {
                         0,
                         &self.graph,
                         enabled,
-                        if enabled {&self.enabled_layouts[&node.fg_index.unwrap()]} else {&self.disabled_layouts[&node.fg_index.unwrap()]},
+                        if self.input_manager.get_keybind_mode() != KeybindMode::Edit && self.input_manager.get_keybind_mode() != KeybindMode::EditBrowse {
+                            if enabled {&self.enabled_layouts[&node.fg_index.unwrap()]} else {&self.disabled_layouts[&node.fg_index.unwrap()]}
+                        } else {
+                            &self.text_input.text_layout.as_ref().unwrap()
+                        },
                         &self.config, 
                         target_node, 
                         active_node_pos,
                         &self.translate, 
                         &self.scale, 
                         self.debug_data); 
+            
+            if self.input_manager.get_keybind_mode() == KeybindMode::Edit || self.input_manager.get_keybind_mode() == KeybindMode::EditBrowse {
+                ctx.with_save(|ctx| {
+                    let label_size = self.text_input.text_layout.as_ref().unwrap().size();
+                    ctx.transform(Affine::from(self.translate));
+                    ctx.transform(Affine::from(self.scale));
+                    ctx.transform(Affine::from(TranslateScale::new(-1.0*(label_size.to_vec2())/2.0, 1.0)));
+                    ctx.transform(Affine::from(TranslateScale::new(active_node_pos, 1.0)));
+                    ctx.fill(label_size.to_rect(), &self.config.get_color(VMColor::NodeBackgroundColor).unwrap());
+                    self.text_input.paint(ctx, self.input_manager.get_keybind_mode(), &self.config);
+                });
+            }
         }
+
 
         if let Some(target_idx) = target_node {
             let mut enabled = true;
@@ -1577,9 +1668,9 @@ impl<'a> Widget<()> for VimMapper {
         //     }
         // }
 
-        if let Some(layout) = &self.text_input.text_layout {
-            ctx.draw_text(layout, Point { x: 100., y: 100. });
-        }
+        // if let Some(layout) = &self.text_input.text_layout {
+        //     ctx.draw_text(layout, Point { x: 100., y: 100. });
+        // }
         //Paint debug dump
         if self.debug_data {
             if let Some(idx) = self.get_active_node_idx() {

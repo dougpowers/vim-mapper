@@ -369,7 +369,6 @@ impl VMCanvas {
             let inner = &mut tab.vm;
             if let Some(payload) = payload {
                 if payload.action != Action::ChangeModeWithTimeoutRevert {
-                    // self.input_managers[self.active_tab].clear_timeout();
                     inner.widget_mut().input_manager.clear_timeout();
                 }
                 match payload.action {
@@ -475,7 +474,7 @@ impl VMCanvas {
                     }
                     Action::CreateNewNode => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            if let Some(_) = inner.widget_mut().add_node(idx, format!("New Node")) {
+                            if let Some(_) = inner.widget_mut().add_node(idx, format!("")) {
                                 ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             }
                         }
@@ -483,10 +482,12 @@ impl VMCanvas {
                     },
                     Action::CreateNewNodeAndEdit => {
                         if let Some(idx) = inner.widget().get_active_node_idx() {
-                            if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("New Node")) {
+                            if let Some(new_idx) = inner.widget_mut().add_node(idx, format!("")) {
                                 // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
                                 inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                                 inner.widget_mut().open_editor(ctx, new_idx);
+                                inner.widget_mut().text_input.text_buffer = inner.widget().nodes.get(&new_idx).unwrap().label.clone();
+                                inner.widget_mut().text_input.curosr_to_start();
                                 ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                                 ctx.submit_command(Command::new(TAKE_FOCUS_SELECT_ALL, (), Target::Widget(inner.id())));
                             }
@@ -516,6 +517,8 @@ impl VMCanvas {
                             // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().open_editor(ctx, idx);
+                            inner.widget_mut().text_input.text_buffer = inner.widget().nodes.get(&idx).unwrap().label.clone();
+                            inner.widget_mut().text_input.cursor_to_end();
                             ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             ctx.submit_command(Command::new(TAKE_FOCUS_SELECT_ALL, (), Target::Widget(inner.id())));
                         }
@@ -526,6 +529,8 @@ impl VMCanvas {
                             // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().open_editor(ctx, idx);
+                            inner.widget_mut().text_input.text_buffer = inner.widget().nodes.get(&idx).unwrap().label.clone();
+                            inner.widget_mut().text_input.curosr_to_start();
                             ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             ctx.submit_command(Command::new(TAKE_FOCUS_INSERT, (), Target::Widget(inner.id())));
                         }
@@ -536,81 +541,82 @@ impl VMCanvas {
                             // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::EditBrowse);
                             inner.widget_mut().open_editor(ctx, idx);
+                            inner.widget_mut().text_input.text_buffer = inner.widget().nodes.get(&idx).unwrap().label.clone();
+                            inner.widget_mut().text_input.cursor_to_end();
                             ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
                             ctx.submit_command(Command::new(TAKE_FOCUS_APPEND, (), Target::Widget(inner.id())));
                         }
                         return Ok(());
                     },
-                    Action::ChangeModeWithTimeoutRevert => {
-                        // let current_mode = Some(self.input_managers[self.active_tab].get_keybind_mode());
-                        let current_mode = Some(inner.widget_mut().input_manager.get_keybind_mode());
-                        // self.input_managers[self.active_tab].set_timeout_revert_mode(current_mode);
-                        inner.widget_mut().input_manager.set_timeout_revert_mode(current_mode);
-                        inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
-                        // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
-                        match payload.mode {
-                            Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
-                                inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
-                            }
-                            _ => {
-                                inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
-                            }
-                        }
-                        ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
-                        return Ok(());
-                    },
-                    Action::ChangeMode => {
-                        tracing::debug!("{:?}", payload);
-                        match payload.mode {
-                            Some(KeybindMode::Move) => {
-                                if let Some(active_idx) = inner.widget().get_active_node_idx() {
-                                    if active_idx == 0 {
-                                        ()
-                                    } else {
-                                        // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
-                                        inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
-                                    }
-                                }
-                            }
-                            Some(KeybindMode::SearchBuild) => {
-                                // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
-                                inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
-                                inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
-                            },
-                            Some(KeybindMode::SearchedSheet) => {
-                                // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
-                                inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
-                                if inner.widget().get_target_list_length() == 1 {
-                                    ctx.submit_command(EXECUTE_ACTION.with(
-                                        ActionPayload {
-                                            action: Action::ActivateTargetedNode,
-                                            ..Default::default()
-                                        }
-                                    ));
-                                    // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
-                                    inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
-                                } else if inner.widget().get_target_list_length() == 0 {
-                                    let idx = if let Some(idx) = inner.widget().get_active_node_idx() {
-                                            idx
-                                        } else {
-                                            0
-                                        };
-                                    // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
-                                    inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
-                                    inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
-                                    inner.widget_mut().build_target_list_from_neighbors(idx);
-                                    inner.widget_mut().cycle_target_forward();
-                                }
-                            }
-                            _ => {
-                                // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
-                                inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
-                                inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
-                            }
-                        }
-                        ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
-                        return Ok(());
-                    }
+                    // Action::ChangeModeWithTimeoutRevert => {
+                    //     // let current_mode = Some(self.input_managers[self.active_tab].get_keybind_mode());
+                    //     let current_mode = Some(inner.widget_mut().input_manager.get_keybind_mode());
+                    //     // self.input_managers[self.active_tab].set_timeout_revert_mode(current_mode);
+                    //     inner.widget_mut().input_manager.set_timeout_revert_mode(current_mode);
+                    //     inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                    //     // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                    //     match payload.mode {
+                    //         Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
+                    //             inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
+                    //         }
+                    //         _ => {
+                    //             inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
+                    //         }
+                    //     }
+                    //     ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
+                    //     return Ok(());
+                    // },
+                    // Action::ChangeMode => {
+                    //     match payload.mode {
+                    //         Some(KeybindMode::Move) => {
+                    //             if let Some(active_idx) = inner.widget().get_active_node_idx() {
+                    //                 if active_idx == 0 {
+                    //                     ()
+                    //                 } else {
+                    //                     // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                    //                     inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                    //                 }
+                    //             }
+                    //         }
+                    //         Some(KeybindMode::SearchBuild) => {
+                    //             // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                    //             inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                    //             inner.widget_mut().set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
+                    //         },
+                    //         Some(KeybindMode::SearchedSheet) => {
+                    //             // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                    //             inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                    //             if inner.widget().get_target_list_length() == 1 {
+                    //                 ctx.submit_command(EXECUTE_ACTION.with(
+                    //                     ActionPayload {
+                    //                         action: Action::ActivateTargetedNode,
+                    //                         ..Default::default()
+                    //                     }
+                    //                 ));
+                    //                 // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+                    //                 inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
+                    //             } else if inner.widget().get_target_list_length() == 0 {
+                    //                 let idx = if let Some(idx) = inner.widget().get_active_node_idx() {
+                    //                         idx
+                    //                     } else {
+                    //                         0
+                    //                     };
+                    //                 // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
+                    //                 inner.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
+                    //                 inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
+                    //                 inner.widget_mut().build_target_list_from_neighbors(idx);
+                    //                 inner.widget_mut().cycle_target_forward();
+                    //             }
+                    //         }
+                    //         _ => {
+                    //             // self.input_managers[self.active_tab].set_keybind_mode(payload.mode.clone().unwrap());
+                    //             inner.widget_mut().input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                    //             inner.widget_mut().set_render_mode(NodeRenderMode::AllEnabled);
+                    //         }
+                    //     }
+                    //     ctx.submit_command(Command::new(REFRESH, (), Target::Widget(inner.id())));
+                    //     return Ok(());
+                    // }
                     _ => {
                         let tab = &mut self.tabs.get_mut(self.active_tab);
                         if let Some(tab) = tab {
@@ -997,9 +1003,13 @@ impl Widget<AppState> for VMCanvas {
             }
             Event::Timer(token) => {
                 // if Some(*token) == self.input_managers[self.active_tab].get_timout_token() {
-                if Some(*token) == self.tabs[self.active_tab].vm.widget().input_manager.get_timout_token() {
+                let mut im = &mut self.start_input_manager;
+                if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+                    im = &mut tab.vm.widget_mut().input_manager;
+                }
+                if Some(*token) == im.get_timout_token() {
                     // self.input_managers[self.active_tab].timeout();
-                    self.tabs[self.active_tab].vm.widget_mut().input_manager.timeout();
+                    im.timeout();
                 } 
             }
             Event::WindowConnected => {

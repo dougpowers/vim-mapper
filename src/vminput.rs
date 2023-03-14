@@ -134,6 +134,10 @@ pub enum Action {
     CursorBackwardToEndOfWord,
     CursorBackwardToBeginningOfWord,
     CursorToNthCharacter,
+    SetCursortStyleBlock,
+    SetCursortStyleLine,
+    SetCursortStyleNone,
+    AcceptNodeText,
     ToggleColorScheme,
     ToggleDebug,
     ToggleMenuVisible,
@@ -331,10 +335,16 @@ impl Default for VMInputManager {
                     key: Some(Key::Character(String::from("c"))),
                     modifiers: None, 
                     action_payloads: vec![Some(
+                        // ActionPayload {
+                        //     action: Action::EditActiveNode,
+                        //     ..Default::default()
+                        // }
                         ActionPayload {
-                            action: Action::EditActiveNodeSelectAll,
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::EditBrowse),
                             ..Default::default()
-                    })],
+                        }
+                    )],
                     mode: KeybindMode::Sheet,
                 },
                 Keybind { 
@@ -362,6 +372,66 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("a"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Edit),
+                            ..Default::default()
+                    }),
+                    Some(
+                        ActionPayload {
+                            action: Action::CursorForward,
+                            ..Default::default()
+                        }
+                    )],
+                    mode: KeybindMode::EditBrowse,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("i"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Edit),
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::EditBrowse,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("l"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::CursorForward,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::EditBrowse,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("h"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::CursorBackward,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::EditBrowse,
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -1235,15 +1305,34 @@ impl VMInputManager {
                     },
                     Key::Enter => {
                         return vec![Some(ActionPayload {
-                            action: Action::InsertCharacter,
-                            string: Some(String::from("\n")),
+                            action: Action::AcceptNodeText,
                             ..Default::default() 
+                        }), Some(ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Sheet),
+                            ..Default::default()
                         })]
-                    }
+                    },
                     Key::Escape => {
                         return vec![Some(ActionPayload {
+                            action: Action::AcceptNodeText,
+                            ..Default::default()    
+                        }), 
+                            Some(ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::EditBrowse),
+                            ..Default::default()
+                        })]
+                    },
+                    Key::ArrowRight => {
+                        return vec![Some(ActionPayload {
+                            action: Action::CursorForward,
+                            ..Default::default()
+                        })]
+                    },
+                    Key::ArrowLeft => {
+                        return vec![Some(ActionPayload {
+                            action: Action::CursorBackward,
                             ..Default::default()
                         })]
                     },
@@ -1253,6 +1342,17 @@ impl VMInputManager {
                 }
             },
             KeybindMode::EditBrowse => {
+                for keybind in &self.keybinds {
+                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                        if let Some(mods) = keybind.modifiers {
+                            if key_event.mods == mods {
+                                return keybind.action_payloads.clone();
+                            }
+                        } else if key_event.mods == RawMods::None || key_event.mods == RawMods::Shift {
+                            return keybind.action_payloads.clone();
+                        }
+                    }
+                }
                 match key_event.key {
                     Key::Escape => {
                         return vec![
