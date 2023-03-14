@@ -13,15 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, Text, TextLayoutBuilder, TextLayout}, Color, FontFamily, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size};
+use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size};
 
-use crate::{vminput::{ActionPayload, Action, KeybindMode}, vmconfig::{VMConfigVersion4, VMColor}, constants::{DEFAULT_LABEL_FONT_SIZE, NODE_LABEL_MAX_CONSTRAINTS}, vimmapper::VimMapper};
+use crate::{vminput::{ActionPayload, Action, KeybindMode}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS}, vimmapper::VimMapper};
 
+#[allow(dead_code)]
 pub enum CursorStyle {
     None,
     Line,
     Block
 }
+#[allow(unused)]
 pub struct VMTextInput {
     pub(crate) text_buffer: String,
     pub(crate) index: usize,

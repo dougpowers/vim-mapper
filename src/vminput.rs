@@ -1083,6 +1083,9 @@ impl VMInputManager {
         {
             return vec![None];
         } 
+        if key_event.is_composing {
+            return vec![None];
+        }
 
         match self.mode {
             KeybindMode::Start => {

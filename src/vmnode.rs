@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use druid::{Widget, WidgetExt, Vec2, WidgetPod, widget::{Container, Controller, TextBox}, EventCtx, Event, Env, keyboard_types::Key, text::{Selection}, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
+use druid::{Vec2, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
 use serde::{Serialize, Deserialize};
 use vm_force_graph_rs::{DefaultNodeIdx, ForceGraph};
 
@@ -45,15 +45,11 @@ pub struct VMNode {
     pub label: String,
     pub index: u32,
     pub fg_index: Option<DefaultNodeIdx>,
-    // pub enabled_layout: Option<PietTextLayout>,
-    // pub disabled_layout: Option<PietTextLayout>,
     pub is_active: bool,
     pub mark: Option<String>,
     //Cached rect of the node, transformed to screen coords. Used to scroll node into view.
     #[serde(with = "RectDef")]
     pub node_rect: Rect,
-    // pub anchored: bool,
-    // pub mass: f64,
 }
 
 impl Default for VMNode {
@@ -63,27 +59,15 @@ impl Default for VMNode {
             label,
             index: 0,
             fg_index: None,
-            // enabled_layout: None,
-            // disabled_layout: None,
             is_active: false,
             mark: None,
             node_rect: Rect::new(0.,0.,0.,0.),
-            // anchored: false,
-            // mass: DEFAULT_NODE_MASS,
         };
         node
     }
 }
 
 impl VMNode {
-    // pub fn set_mark(&mut self, mark: String) {
-    //     if mark == " ".to_string() {
-    //         self.mark = None;
-    //     } else {
-    //         self.mark = Some(mark);
-    //     }
-    // }
-
     pub fn paint_node(
         &mut self, 
         ctx: &mut PaintCtx, 
@@ -252,148 +236,5 @@ impl VMNode {
                 ctx.draw_text(&layout, mark_point.to_point());
             // });
         });
-    }
-}
-
-// #[derive(Debug, Serialize, Deserialize)]
-// pub struct VMEdge {
-//     pub label: Option<String>,
-//     pub from: u32,
-//     pub to: u32,
-//     pub index: u32,
-// }
-
-pub struct VMNodeEditor {
-    pub container: WidgetPod<String, Container<String>>,
-    pub is_visible: bool,
-    pub title_text: String,
-    //Cached rect of the editor, transformed to screen coordinates. Used to scroll editor into view.
-    pub editor_rect: Option<Rect>,
-    pub is_focused: bool,
-}
-
-impl VMNodeEditor {
-    pub fn new() -> VMNodeEditor {
-        let textbox = TextBox::<String>::multiline().with_text_size(DEFAULT_LABEL_FONT_SIZE)
-        .controller(
-            VMNodeEditorController::new()
-        ).expand_width();
-        let widget = Container::new(
-            textbox
-        );
-            
-        let nodeeditor = VMNodeEditor {
-            container: WidgetPod::new(widget),
-            is_visible: false,
-            title_text: "".to_string(),
-            editor_rect: None,
-            is_focused: false,
-        };
-        nodeeditor
-    }
-}
-
-pub struct VMNodeEditorController {}
-
-impl VMNodeEditorController {
-    pub fn new() -> VMNodeEditorController {
-        VMNodeEditorController {}
-    }
-}
-
-impl Controller<String, TextBox<String>> for VMNodeEditorController {
-    fn event(&mut self, child: &mut TextBox<String>, ctx: &mut EventCtx, event: &Event, data: &mut String, env: &Env) {
-        match event {
-            Event::KeyDown(event) if event.key == Key::Enter => {
-                ctx.submit_notification(SUBMIT_CHANGES);
-                ctx.resign_focus();
-                ctx.set_handled();
-            }
-            Event::KeyDown(event) if event.key == Key::Escape => {
-                ctx.submit_notification(CANCEL_CHANGES);
-                ctx.resign_focus();
-                ctx.set_handled();
-            }
-            Event::Command(command) if command.is(TAKE_FOCUS_SELECT_ALL) => {
-                ctx.request_focus();
-                ctx.set_handled();
-                child.event(ctx, event, data, env);
-                let selection = Selection::new(0, data.len());
-                loop {
-                    if child.text_mut().can_write() {
-                        if let Some(ime) = child.text_mut().borrow_mut().set_selection(selection) {
-                            ctx.invalidate_text_input(ime);
-                        }
-                        child.set_text_alignment(druid::TextAlignment::Start);
-                        break;
-                    }
-                }
-            }
-            Event::Command(command) if command.is(TAKE_FOCUS_INSERT) => {
-                ctx.request_focus();
-                ctx.set_handled();
-                child.event(ctx, event, data, env);
-                let selection = Selection::caret(0);
-                loop {
-                    if child.text_mut().can_write() {
-                        if let Some(ime) = child.text_mut().borrow_mut().set_selection(selection) {
-                            ctx.invalidate_text_input(ime);
-                        }
-                        child.set_text_alignment(druid::TextAlignment::Start);
-                        break;
-                    }
-                }
-            }
-            Event::Command(command) if command.is(TAKE_FOCUS_APPEND) => {
-                ctx.request_focus();
-                ctx.set_handled();
-                child.event(ctx, event, data, env);
-                let selection = Selection::caret(data.len());
-                loop {
-                    if child.text_mut().can_write() {
-                        if let Some(ime) = child.text_mut().borrow_mut().set_selection(selection) {
-                            ctx.invalidate_text_input(ime);
-                        }
-                        child.set_text_alignment(druid::TextAlignment::Start);
-                        break;
-                    }
-                }
-            }
-            Event::MouseDown(_event) => {
-                ctx.submit_notification(TAKEN_FOCUS);
-                child.event(ctx, event, data, env);
-                ctx.set_handled();
-            }
-            _ => {
-                child.event(ctx, event, data, env);
-            }
-        }
-    }
-    fn lifecycle(
-            &mut self,
-            child: &mut TextBox<String>,
-            ctx: &mut druid::LifeCycleCtx,
-            event: &druid::LifeCycle,
-            data: &String,
-            env: &Env,
-        ) {
-        if let druid::LifeCycle::WidgetAdded = event {
-            // ctx.register_text_input(child.text_mut().input_handler());
-        }
-        if let druid::LifeCycle::FocusChanged(focused) = event {
-            if *focused {
-                tracing::debug!("Node input gained focus");
-            } else {
-                tracing::debug!("Node input lost focus");
-            }
-        }
-
-        child.lifecycle(ctx, event, data, env);
-    }
-    fn update(&mut self, child: &mut TextBox<String>, ctx: &mut druid::UpdateCtx, old_data: &String, data: &String, env: &Env) {
-        child.update(ctx, old_data, data, env);
-        if let Some(e) = child.text_mut().borrow_mut().pending_ime_invalidation() {
-            ctx.invalidate_text_input(e);
-        }
     }
 }

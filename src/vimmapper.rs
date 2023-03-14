@@ -24,7 +24,7 @@ use std::f64::consts::*;
 
 use crate::vmdialog::VMDialog;
 use crate::vminput::*;
-use crate::vmnode::{VMNode, VMNodeEditor};
+use crate::vmnode::VMNode;
 
 use crate::constants::*;
 
@@ -1436,11 +1436,6 @@ impl<'a> Widget<()> for VimMapper {
                 if Some(*event) == self.double_click_timer {
                     ctx.set_handled();
                     if self.double_click {
-                        if let Some(point) = self.last_click_point {
-                            if let Some(idx) = self.does_point_collide(point) {
-                                // self.open_editor(ctx, idx);
-                            }
-                        }
                     } else if !self.is_dragging {
                         if let Some(point) = self.last_click_point {
                             if let Some(idx) = self.does_point_collide(point) {
@@ -1516,9 +1511,7 @@ impl<'a> Widget<()> for VimMapper {
             }
         }
     }
-    fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &(), _data: &(), _env: &Env) {
-        //Pass any updates to children
-        // self.node_editor.container.update(ctx, &self.node_editor.title_text, _env);
+    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &(), _data: &(), _env: &Env) {
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &(), _env: &Env) -> Size {
         if let Some(rect) = self.canvas_rect {

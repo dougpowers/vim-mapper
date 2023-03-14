@@ -84,8 +84,6 @@ pub const DEFAULT_COMPOSE_TIMEOUT: Duration = Duration::from_millis(1150);
 pub const DEFAULT_ANIMATION_TIMEOUT: Duration = Duration::from_millis(2000);
 
 pub const TAKE_FOCUS_SELECT_ALL: Selector = Selector::new("take-focus-select-all");
-pub const TAKE_FOCUS_INSERT: Selector = Selector::new("take-focus-insert");
-pub const TAKE_FOCUS_APPEND: Selector = Selector::new("take-focus-append");
 
 pub const TAKEN_FOCUS: Selector = Selector::new("taken-focus");
 

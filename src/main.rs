@@ -805,9 +805,7 @@ impl Widget<AppState> for VMCanvas {
             Event::Notification(note) if note.is(CANCEL_CHANGES) => {
                 let tab = &mut self.tabs.get_mut(self.active_tab);
                 if let Some(tab) = tab {
-                    let inner = &mut tab.vm;
-                    // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
-                    self.tabs[self.active_tab].vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
+                    tab.vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
                     ctx.set_handled();
                     ctx.request_anim_frame();
                     ctx.submit_command(Command::new(REFRESH, (), Target::Auto));
@@ -832,10 +830,6 @@ impl Widget<AppState> for VMCanvas {
                         if key_event.key == druid::keyboard_types::Key::Tab {
                             ctx.focus_next();
                             ctx.set_handled();
-                            let tab = &mut self.tabs.get_mut(self.active_tab);
-                            if let Some(tab) = tab {
-                                let inner = &mut tab.vm;
-                            }
                         }
                         self.dialog.event(ctx, event, &mut data.dialog_input_text, env);
                     } else {

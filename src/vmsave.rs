@@ -24,7 +24,7 @@ use serde::{Serialize, Deserialize};
 use crate::{constants::*, VMTab};
 
 use crate::vimmapper::NodeRenderMode;
-use crate::vmnode::{VMNode, VMNodeEditor};
+use crate::vmnode::VMNode;
 use crate::{vmconfig::VMConfigVersion4, vimmapper::VimMapper};
 
 
