@@ -187,7 +187,11 @@ impl VMCanvas {
         self.dialog_visible = show;
         if show {
             // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Dialog);
-            self.tabs[self.active_tab].vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Dialog);
+            if let Some(tab)  = self.tabs.get_mut(self.active_tab) {
+                tab.vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Dialog);
+            } else {
+                self.start_input_manager.set_keybind_mode(KeybindMode::Dialog);
+            }
             ctx.focus_next();
         }
     }
