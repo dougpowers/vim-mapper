@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size, text::{EditableText, EditableTextCursor, StringCursor}};
+use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size, text::{EditableText}};
 
 use crate::{vminput::{ActionPayload, Action, KeybindMode}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH}, vimmapper::VimMapper};
 
@@ -47,6 +47,7 @@ impl BackwardTextSearch for String {
     }
 }
 
+#[allow(unused_must_use)]
 impl<'a> VMTextInput {
     pub fn new() -> Self {
         let text = String::new();
@@ -269,6 +270,7 @@ impl<'a> VMTextInput {
         self.mode = mode;
     }
 
+    #[allow(dead_code)]
     pub fn get_keybind_mode(&self) -> KeybindMode {
         return self.mode;
     }
