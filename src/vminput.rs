@@ -20,15 +20,16 @@ use common_macros::hash_map;
 use crate::{constants::*, vmsave::VMSaveState, vmdialog::VMDialogParams};
 
 #[allow(dead_code)]
-#[derive(Data, Clone, PartialEq, Debug)]
+#[derive(Data, Clone, Copy, PartialEq, Debug)]
 pub enum KeybindMode {
     Start,
     Dialog,
     Sheet,
     EditBrowse,
+    EditVisual,
+    Edit,
     Jump,
     Mark,
-    Edit,
     Move,
     SearchedSheet,
     SearchBuild,
@@ -68,7 +69,7 @@ impl Default for ActionPayload {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Action {
     NullAction,
     CreateNewSheet,
@@ -154,7 +155,7 @@ pub enum Action {
     GoToTab,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum KeybindType {
     Key,
     String,
@@ -347,6 +348,21 @@ impl Default for VMInputManager {
                     kb_type: KeybindType::Key, 
                     regex: None, 
                     group_actions: None,
+                    key: Some(Key::Character(String::from("v"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::EditVisual),
+                            ..Default::default()
+                        }
+                    )],
+                    mode: KeybindMode::EditBrowse,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
                     key: Some(Key::Character(String::from("a"))),
                     modifiers: None, 
                     action_payloads: vec![Some(
@@ -407,6 +423,19 @@ impl Default for VMInputManager {
                     kb_type: KeybindType::Key, 
                     regex: None, 
                     group_actions: None,
+                    key: Some(Key::Character(String::from("x"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::DeleteForward,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::EditBrowse,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
                     key: Some(Key::Character(String::from("l"))),
                     modifiers: None, 
                     action_payloads: vec![Some(
@@ -425,6 +454,45 @@ impl Default for VMInputManager {
                     action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::CursorBackward,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::EditBrowse,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("w"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::CursorForwardToBeginningOfWord,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::EditBrowse,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("e"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::CursorForwardToEndOfWord,
+                            ..Default::default()
+                    })],
+                    mode: KeybindMode::EditBrowse,
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    regex: None, 
+                    group_actions: None,
+                    key: Some(Key::Character(String::from("b"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::CursorBackwardToBeginningOfWord,
                             ..Default::default()
                     })],
                     mode: KeybindMode::EditBrowse,
@@ -1375,6 +1443,41 @@ impl VMInputManager {
                 }
                 return vec![None];
             },
+            KeybindMode::EditVisual => {
+                for keybind in &self.keybinds {
+                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                        if let Some(mods) = keybind.modifiers {
+                            if key_event.mods == mods {
+                                return keybind.action_payloads.clone();
+                            }
+                        } else if key_event.mods == RawMods::None || key_event.mods == RawMods::Shift {
+                            return keybind.action_payloads.clone();
+                        }
+                    }
+                }
+                match key_event.key {
+                    Key::Escape => {
+                        return vec![
+                            Some(ActionPayload {
+                                action: Action::ChangeMode,
+                                mode: Some(KeybindMode::Edit),
+                                ..Default::default()
+                            })
+                        ]
+                    },
+                    Key::Enter => {
+                        return vec![
+                            Some(ActionPayload {
+                                action: Action::ChangeMode,
+                                mode: Some(KeybindMode::Edit),
+                                ..Default::default()
+                            })
+                        ]
+                    }
+                    _ => ()
+                }
+                return vec![None];
+            },
             KeybindMode::SearchedSheet => {
                 self.clear_timeout();
                 for keybind in &self.keybinds {
@@ -1545,6 +1648,9 @@ impl VMInputManager {
             KeybindMode::EditBrowse => {
                 self.string = String::from("<edit>");
             },
+            KeybindMode::EditVisual => {
+                self.string = String::from("<visual>");
+            }
             KeybindMode::Jump => {
                 self.string = String::from("'");
             },

@@ -85,7 +85,10 @@ impl VMNode {
         ctx.with_save(|ctx| {
             // let label_size = self.enabled_layout.as_mut()
             // .expect("Node layout container was empty.").size();
-            let label_size = layout.size();
+            let mut label_size = layout.size();
+            if label_size.width < DEFAULT_MIN_NODE_WIDTH_DATA {
+                label_size.width = DEFAULT_MIN_NODE_WIDTH_DATA;
+            }
             ctx.transform(Affine::from(*translate));
             ctx.transform(Affine::from(*scale));
             ctx.transform(Affine::from(TranslateScale::new(-1.0*(label_size.to_vec2())/2.0, 1.0)));

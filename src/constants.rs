@@ -45,6 +45,9 @@ pub const DEFAULT_SIMULATION_PARAMETERS: SimulationParameters = SimulationParame
     min_attract_distance: 180.,
 };
 
+pub const DEFAULT_MIN_NODE_WIDTH_DATA: f64 = 40.;
+pub const DEFUALT_TEXT_CURSOR_WIDTH: f64 = 2.;
+
 pub const DEFAULT_MASS_INCREASE_AMOUNT: f64 = 2.;
 pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 0.1;
 

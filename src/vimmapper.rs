@@ -127,7 +127,7 @@ pub enum NodeRenderMode {
     AllEnabled,
 }
 
-impl Default for VimMapper {
+impl<'a> Default for VimMapper {
     fn default() -> Self {
         let config = VMConfigVersion4::default();
         let mut graph = <ForceGraph<u32, u32>>::new(
@@ -193,7 +193,7 @@ impl Default for VimMapper {
 }
 
 #[allow(dead_code)]
-impl VimMapper {
+impl<'a> VimMapper {
     pub fn new(config: VMConfigVersion4) -> VimMapper {
         let mut graph = <ForceGraph<u32, u32>>::new(
             DEFAULT_SIMULATION_PARAMETERS
@@ -570,6 +570,8 @@ impl VimMapper {
                     }
                     self.nodes.remove(&self.graph.get_graph()[fg_idx].data.user_data);
                     self.graph.remove_node(fg_idx);
+                    self.enabled_layouts.remove(&fg_idx);
+                    self.disabled_layouts.remove(&fg_idx);
                 }
                 self.rebuild_root_nodes();
                 return Ok(0);
@@ -583,9 +585,11 @@ impl VimMapper {
                 if removal_would_unanchor_component {
                     return Err(String::from("Removal of node tree would unanchor component!"));
                 } else {
-                    for idx in removal_list {
-                        self.nodes.remove(&self.graph.get_graph()[idx].data.user_data);
-                        self.graph.remove_node(idx);
+                    for fg_idx in removal_list {
+                        self.nodes.remove(&self.graph.get_graph()[fg_idx].data.user_data);
+                        self.graph.remove_node(fg_idx);
+                        self.enabled_layouts.remove(&fg_idx);
+                        self.disabled_layouts.remove(&fg_idx);
                     }
                     return Ok(0);
                 }
@@ -834,54 +838,6 @@ impl VimMapper {
         }
     }
 
-    //Opens the editor at a given node.
-    // pub fn open_editor(&mut self, ctx: &mut EventCtx, idx: u32) {
-    //     self.set_node_as_active(idx);
-    //     self.node_editor.title_text = self.nodes.get(&idx).unwrap().label.clone();
-    //     self.node_editor.is_visible = true;
-    //     ctx.request_layout();
-    //     ctx.request_update();
-    //     if let Some(rect) = self.node_editor.editor_rect {
-    //         self.scroll_rect_into_view(rect);
-    //     }
-    //     ctx.submit_command(Command::new(TAKE_FOCUS_SELECT_ALL, (), Target::Auto));
-    //     ctx.submit_command(Command::new(
-    //         EXECUTE_ACTION,
-    //         ActionPayload {
-    //             action: Action::ChangeMode,
-    //             mode: Some(KeybindMode::Edit),
-    //             ..Default::default()
-    //         },
-    //         Target::Global
-    //     ));
-    // }
-
-    //Closes the editor. Allows the value to be applied or discarded.
-    // pub fn close_editor(&mut self, ctx: &mut EventCtx, save: bool) {
-    //     if save {
-    //         //Submit changes
-    //         let idx = self.get_active_node_idx();
-    //         self.nodes.get_mut(&idx.unwrap()).unwrap().label = self.node_editor.title_text.clone();
-    //     } else {
-    //         //Cancel changes
-    //     }
-    //     ctx.submit_command(Command::new(
-    //         EXECUTE_ACTION,
-    //         ActionPayload {
-    //             action: Action::ChangeMode,
-    //             mode: Some(KeybindMode::Sheet),
-    //             ..Default::default()
-    //         },
-    //         Target::Global
-    //     ));
-    //     self.node_editor.is_visible = false;
-    //     ctx.request_layout();
-    // }
-
-    // pub fn is_editor_open(&self) -> bool {
-    //     return self.node_editor.is_visible;
-    // }
-
     //Loop over node label generation until it fits within a set of BoxConstraints. Wraps the contents
     // once and then, if it still doesn't fit, reduce the font until it does.
     pub fn build_label_layout_for_constraints(factory: &mut PietText, text: String, bc: BoxConstraints, color: &Color) -> Result<PietTextLayout, String> {
@@ -982,16 +938,16 @@ impl VimMapper {
                             if active_idx == 0 {
                                 ()
                             } else {
-                                self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                                self.input_manager.set_keybind_mode(payload.mode.unwrap());
                             }
                         }
                     }
                     Some(KeybindMode::SearchBuild) => {
-                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                        self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                     },
                     Some(KeybindMode::SearchedSheet) => {
-                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                        self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         if self.get_target_list_length() == 1 {
                             ctx.submit_command(EXECUTE_ACTION.with(
                                 ActionPayload {
@@ -1012,20 +968,21 @@ impl VimMapper {
                             self.cycle_target_forward();
                         }
                     },
-                    Some(KeybindMode::EditBrowse) | Some(KeybindMode::Edit) => {
+                    Some(KeybindMode::EditBrowse) | Some(KeybindMode::Edit) | Some(KeybindMode::EditVisual) => {
                         if let Some(active_node) = self.nodes.get(&self.get_active_node_idx().unwrap()) {
-                            self.text_input.text_buffer = active_node.label.clone();
+                            self.text_input.text = active_node.label.clone();
                         }
-                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                        self.input_manager.set_keybind_mode(payload.mode.unwrap());
+                        self.text_input.set_keybind_mode(payload.mode.unwrap());
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                     },
                     Some(KeybindMode::Sheet) => {
                         self.text_input.index = 0;
-                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                        self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                     },
                     _ => {
-                        self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
+                        self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                     }
                 }
@@ -1046,7 +1003,8 @@ impl VimMapper {
                     if let Some(new_idx) = self.add_node(idx, format!("")) {
                         self.set_node_as_active(new_idx);
                         self.input_manager.set_keybind_mode(KeybindMode::Edit);
-                        self.text_input.text_buffer = self.nodes.get(&new_idx).unwrap().label.clone();
+                        self.text_input.set_keybind_mode(KeybindMode::Edit);
+                        self.text_input.text = self.nodes.get(&new_idx).unwrap().label.clone();
                         self.text_input.curosr_to_start();
                     }
                 }
@@ -1073,7 +1031,8 @@ impl VimMapper {
                 if let Some(idx) = self.get_active_node_idx() {
                     // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
                     self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
-                    self.text_input.text_buffer = self.nodes.get(&idx).unwrap().label.clone();
+                    self.text_input.set_keybind_mode(KeybindMode::EditBrowse);
+                    self.text_input.text = self.nodes.get(&idx).unwrap().label.clone();
                     self.text_input.cursor_to_end();
                 }
                 return Ok(());
@@ -1082,7 +1041,8 @@ impl VimMapper {
                 if let Some(idx) = self.get_active_node_idx() {
                     // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
                     self.input_manager.set_keybind_mode(KeybindMode::Edit);
-                    self.text_input.text_buffer = self.nodes.get(&idx).unwrap().label.clone();
+                    self.text_input.set_keybind_mode(KeybindMode::Edit);
+                    self.text_input.text = self.nodes.get(&idx).unwrap().label.clone();
                     self.text_input.curosr_to_start();
                 }
                 return Ok(());
@@ -1091,7 +1051,8 @@ impl VimMapper {
                 if let Some(idx) = self.get_active_node_idx() {
                     // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::EditBrowse);
                     self.input_manager.set_keybind_mode(KeybindMode::Edit);
-                    self.text_input.text_buffer = self.nodes.get(&idx).unwrap().label.clone();
+                    self.text_input.set_keybind_mode(KeybindMode::Edit);
+                    self.text_input.text = self.nodes.get(&idx).unwrap().label.clone();
                     self.text_input.cursor_to_end();
                 }
                 return Ok(());
@@ -1320,7 +1281,7 @@ impl VimMapper {
             },
             Action::AcceptNodeText => {
                 if let Some(idx) = self.get_active_node_idx() {
-                    self.nodes.get_mut(&idx).unwrap().label = self.text_input.text_buffer.clone();
+                    self.nodes.get_mut(&idx).unwrap().label = self.text_input.text.clone();
                 }
                 return Ok(());
             },
@@ -1349,7 +1310,7 @@ impl VimMapper {
             Action::InsertCharacter => {
                 let ret = self.text_input.handle_action(ctx, payload);
                 if let Some(active_idx) = self.get_active_node_idx() {
-                    self.nodes.get_mut(&active_idx).unwrap().label = self.text_input.text_buffer.clone();
+                    self.nodes.get_mut(&active_idx).unwrap().label = self.text_input.text.clone();
                     self.invalidate_node_layouts();
                     self.animating = true;
                 }
@@ -1362,7 +1323,7 @@ impl VimMapper {
     }
 }
 
-impl<'a> Widget<()> for VimMapper {
+impl Widget<()> for VimMapper {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut (), _env: &Env) {
         //If the node editor is visible, pass events to it. Both events and paints must be withheld
         // for the widget to be truly hidden and uninteractable. 
@@ -1529,9 +1490,12 @@ impl<'a> Widget<()> for VimMapper {
                     ),
                     &self.config.get_color(VMColor::LabelTextColor).ok().expect("Couldn't find label text color in config."),
                 ) {
-                    // node.enabled_layout = Some(layout.clone());
                     self.enabled_layouts.insert(fg_node.index(), layout.clone());
-                    fg_node.data.repel_distance = layout.size().width;
+                    if layout.size().width < DEFAULT_MIN_NODE_WIDTH_DATA {
+                        fg_node.data.repel_distance = DEFAULT_MIN_NODE_WIDTH_DATA;
+                    } else {
+                        fg_node.data.repel_distance = layout.size().width;
+                    }
                 } 
             }
             if let None = self.disabled_layouts.get(&fg_node.index()) {
@@ -1542,27 +1506,10 @@ impl<'a> Widget<()> for VimMapper {
                     ),
                         &self.config.get_color(VMColor::DisabledLabelTextColor).ok().expect("Couldn't find disabled label text color in config."),
                 ) {
-                    // node.enabled_layout = Some(layout.clone());
                     self.disabled_layouts.insert(fg_node.index(), layout.clone());
                 } 
             }
         });
-
-        //Layout editor
-        // let ne_bc = BoxConstraints::new(Size::new(0., 0.), Size::new(200., 200.));
-        // self.node_editor.container.layout(ctx, &ne_bc, &self.node_editor.title_text, _env);
-        // if let Some(idx) = self.get_active_node_idx() {
-        //     let node = self.nodes.get(&idx).unwrap();
-        //     // let size = node.enabled_layout.as_ref().unwrap().size().clone();
-        //     let size = self.enabled_layouts[&node.fg_index.unwrap()].size();
-        //     let node_pos = self.get_node_pos(node.index);
-        //     let bottom_left = Point::new(node_pos.x-(size.width/2.), node_pos.y+(size.height/2.)+DEFAULT_BORDER_WIDTH);
-        //     // self.node_editor.container.set_origin(ctx, &self.node_editor.title_text, _env, self.translate*self.scale*bottom_left);
-        //     self.node_editor.container.set_origin(ctx, self.translate*self.scale*bottom_left);
-        // } else {
-        //     self.node_editor.container.set_origin(ctx, Point::new(0., 0.));
-        // }
-        // self.node_editor.editor_rect = Some(self.node_editor.container.layout_rect());
 
         self.text_input.layout(ctx, &self.config);
 
@@ -1679,15 +1626,22 @@ impl<'a> Widget<()> for VimMapper {
                         &self.scale, 
                         self.debug_data); 
             
-            if self.input_manager.get_keybind_mode() == KeybindMode::Edit || self.input_manager.get_keybind_mode() == KeybindMode::EditBrowse {
+
+            //Render input label and cursor boxes if necessary
+            if self.input_manager.get_keybind_mode() == KeybindMode::Edit || 
+                self.input_manager.get_keybind_mode() == KeybindMode::EditBrowse || 
+                self.input_manager.get_keybind_mode() == KeybindMode::EditVisual {
                 ctx.with_save(|ctx| {
-                    let label_size = self.text_input.text_layout.as_ref().unwrap().size();
+                    let mut label_size = self.text_input.text_layout.as_ref().unwrap().size();
+                    if label_size.width < DEFAULT_MIN_NODE_WIDTH_DATA {
+                        label_size.width = DEFAULT_MIN_NODE_WIDTH_DATA;
+                    }
                     ctx.transform(Affine::from(self.translate));
                     ctx.transform(Affine::from(self.scale));
                     ctx.transform(Affine::from(TranslateScale::new(-1.0*(label_size.to_vec2())/2.0, 1.0)));
                     ctx.transform(Affine::from(TranslateScale::new(active_node_pos, 1.0)));
                     ctx.fill(label_size.to_rect(), &self.config.get_color(VMColor::NodeBackgroundColor).unwrap());
-                    self.text_input.paint(ctx, self.input_manager.get_keybind_mode(), &self.config);
+                    self.text_input.paint(ctx, &self.config);
                 });
             }
         }
@@ -1725,16 +1679,6 @@ impl<'a> Widget<()> for VimMapper {
                         self.debug_data); 
         }
 
-        //Paint editor dialog
-        // if self.node_editor.is_visible {
-        //     if let Some(_idx) = self.get_active_node_idx() {
-        //         self.node_editor.container.paint(ctx, &self.node_editor.title_text, &_env);
-        //     }
-        // }
-
-        // if let Some(layout) = &self.text_input.text_layout {
-        //     ctx.draw_text(layout, Point { x: 100., y: 100. });
-        // }
         //Paint debug dump
         if self.debug_data {
             if let Some(idx) = self.get_active_node_idx() {
