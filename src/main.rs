@@ -222,6 +222,7 @@ impl VMCanvas {
                     Action::MoveActiveNodeUp |
                     Action::MoveActiveNodeLeft |
                     Action::MoveActiveNodeRight |
+                    Action::AcceptNodeText |
                     Action::PanUp |
                     Action::PanDown |
                     Action::PanLeft |
@@ -855,7 +856,7 @@ impl Widget<AppState> for VMCanvas {
                 if let Some(tab) = self.tabs.get_mut(self.active_tab) {
                     im = &mut tab.vm.widget_mut().input_manager;
                 }
-                if Some(*token) == im.get_timout_token() {
+                if Some(*token) == im.get_timeout_token() {
                     // self.input_managers[self.active_tab].timeout();
                     im.timeout();
                 } 
@@ -889,7 +890,9 @@ impl Widget<AppState> for VMCanvas {
     }
 
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, _data: &AppState, env: &Env) {
-        if let LifeCycle::FocusChanged(focused) = event {
+        if let LifeCycle::WidgetAdded = event{
+            VMInputManager::validate_keybinds();
+        } else if let LifeCycle::FocusChanged(focused) = event {
             if *focused {
                 tracing::debug!("Main window gained focus");
             } else {
@@ -1115,6 +1118,7 @@ pub fn main() {
             }
         }
     }
+
 
     let window = WindowDesc::<AppState>::new(canvas)
     .title("Vim-Mapper")

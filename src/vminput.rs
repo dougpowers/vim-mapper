@@ -17,59 +17,10 @@ use std::{collections::{HashMap}, path::PathBuf};
 use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, RawMods, Data};
 use regex::Regex;
 use common_macros::hash_map;
-use crate::{constants::*, vmsave::VMSaveState, vmdialog::VMDialogParams};
+use crate::{constants::*, vmsave::VMSaveState, vmdialog::VMDialogParams, vmtextinput::VMTextInput};
 
 #[allow(dead_code)]
 #[derive(Data, Clone, Copy, PartialEq, Debug)]
-pub enum KeybindMode {
-    Start,
-    Dialog,
-    Sheet,
-    EditBrowse,
-    EditVisual,
-    Edit,
-    Jump,
-    Mark,
-    Move,
-    SearchedSheet,
-    SearchBuild,
-    KeybindBuild,
-    Global,
-}
-
-
-//The action payload allows regex keybinds to define custom parameters associated with the action.
-#[derive(Clone, Debug)]
-pub struct ActionPayload {
-    pub action: Action,
-    pub float: Option<f64>,
-    pub index: Option<u32>,
-    pub tab_index: Option<usize>,
-    pub string: Option<String>,
-    pub mode: Option<KeybindMode>,
-    pub save_state: Option<VMSaveState>,
-    pub dialog_params: Option<VMDialogParams>,
-    pub path: Option<PathBuf>,
-}
-
-impl Default for ActionPayload {
-    fn default() -> Self {
-        ActionPayload {
-            action: Action::NullAction,
-            float: None,
-            index: None,
-            tab_index: None,
-            string: None,
-            mode: None,
-            save_state: None,
-            dialog_params: None,
-            path: None,
-        }
-    }
-}
-
-#[allow(dead_code)]
-#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Action {
     NullAction,
     CreateNewSheet,
@@ -116,16 +67,16 @@ pub enum Action {
     ZoomOut,
     ZoomIn,
     InsertCharacter,
+    Highlight,
+    Delete,
     DeleteBackspace,
     DeleteForward,
-    DeleteWordWithWhitespace,
     DeleteWord,
-    DeleteToEndOfWord,
     DeleteToNthCharacter,
     DeleteWithNthCharacter,
     ChangeWordWithWhitespace,
+    Change,
     ChangeWord,
-    ChangeToEndOfWord,
     ChangeToNthCharacter,
     ChangeWithNthCharacter,
     CursorForward,
@@ -155,15 +106,126 @@ pub enum Action {
     GoToTab,
 }
 
+#[allow(dead_code)]
+#[derive(Data, Clone, PartialEq, Debug)]
+pub enum TextObj {
+    InnerWord,
+    OuterWord,
+    Inner(String),
+    Outer(String),
+    Sentence,
+}
+
+
+#[allow(dead_code)]
+#[derive(Data, Clone, PartialEq, Debug)]
+pub enum TextMotion {
+    ForwardWord,
+    BackwardWord,
+    ForwardToN((usize, String)),
+    BackwardToN((usize, String)),
+    ForwardWithN((usize, String)),
+    BackwardWithN((usize, String)),
+}
+
+#[allow(dead_code)]
+#[derive(Data, Clone, Copy, PartialEq, Debug)]
+pub enum TextOperation {
+    DeleteText,
+    ChangeText,
+}
+
+#[allow(dead_code)]
+#[derive(Data, Clone, PartialEq, Debug)]
+pub struct TextKeybind {
+    operation: TextOperation,
+    count: Option<usize>,
+    text_obj: Option<TextObj>,
+    text_motion: Option<TextMotion>,
+}
+
+#[allow(dead_code)]
+#[derive(Data, Clone, Copy, PartialEq, Debug)]
+pub enum KeybindMode {
+    Start,
+    Dialog,
+    Sheet,
+    EditBrowse,
+    EditVisual,
+    Edit,
+    Jump,
+    Mark,
+    Move,
+    SearchedSheet,
+    SearchBuild,
+    KeybindBuild,
+    Global,
+}
+
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum KeybindType {
     Key,
     String,
 }
 
+#[allow(dead_code)]
+#[derive(Data, Clone, PartialEq, Debug)]
+pub enum TextMovement {
+    ForwardToEndOfWord,
+    ForwardToNthChar((usize, String)),
+    BackwardToNthChar((usize, String)),
+    WholeWord,
+    WholeWordWithWhitespace,
+    ForwardN(usize),
+    BackwardN(usize),
+}
+
+#[allow(dead_code)]
+#[derive(Data, Clone, PartialEq, Debug)]
+pub enum TextSurrounds {
+    Inner(String),
+    Outer(String),
+}
+
+//The action payload allows regex keybinds to define custom parameters associated with the action.
+#[derive(Clone, Debug)]
+pub struct ActionPayload {
+    pub action: Action,
+    pub float: Option<f64>,
+    pub index: Option<u32>,
+    pub tab_index: Option<usize>,
+    pub movement: Option<TextMovement>,
+    pub surrounds: Option<TextSurrounds>,
+    pub string: Option<String>,
+    pub mode: Option<KeybindMode>,
+    pub save_state: Option<VMSaveState>,
+    pub dialog_params: Option<VMDialogParams>,
+    pub path: Option<PathBuf>,
+}
+
+impl Default for ActionPayload {
+    fn default() -> Self {
+        ActionPayload {
+            action: Action::NullAction,
+            float: None,
+            index: None,
+            tab_index: None,
+            movement: None,
+            surrounds: None,
+            string: None,
+            mode: None,
+            save_state: None,
+            dialog_params: None,
+            path: None,
+        }
+    }
+}
+
+
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 struct Keybind {
-    #[allow(dead_code)]
     kb_type: KeybindType,
     regex: Option<Regex>,
     group_actions: Option<HashMap<String, HashMap<String, Vec<Option<ActionPayload>>>>>,
@@ -175,6 +237,7 @@ struct Keybind {
 
 pub struct VMInputManager {
     mode: KeybindMode,
+    pub(crate) text_input: VMTextInput,
     keybinds: Vec<Keybind>,
     string: String,
     timeout_token: Option<TimerToken>,
@@ -185,6 +248,7 @@ impl Default for VMInputManager {
     fn default() -> Self {
         VMInputManager {
             mode: KeybindMode::Start,
+            text_input: VMTextInput::new(),
             keybinds: vec![
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -1030,10 +1094,10 @@ impl Default for VMInputManager {
                 },
                 Keybind { 
                     kb_type: KeybindType::String, 
-                    regex: Some(Regex::new(r"^(?x)
-                    g(?P<n>.{1})
-                    $
-                    ").ok().expect("Keybind regex failed to compile.")),
+                    regex: 
+                        Some(Regex::new(
+                            r"^(?x)g(?P<n>.{1})$"
+                        ).ok().expect("Keybind regex failed to compile.")),
                     group_actions: Some(hash_map!{
                         String::from("n") => hash_map!{
                             String::from("g") => vec![Some(ActionPayload {
@@ -1135,6 +1199,31 @@ impl VMInputManager {
         }
     }
 
+    pub fn validate_keybinds() {
+        tracing::debug!("Validating keybinds");
+        for i in 0..VMInputManager::default().keybinds.len() {
+            for j in 0..VMInputManager::default().keybinds.len() {
+                if i != j {
+                    let keybind = &VMInputManager::default().keybinds[i];
+                    let check = &VMInputManager::default().keybinds[j];
+                    if keybind.kb_type == KeybindType::Key &&
+                    keybind.key == check.key && 
+                    keybind.modifiers == check.modifiers && 
+                    keybind.mode == check.mode
+                    {
+                        tracing::warn!("Key-type keybind {:?}::{:?}({:?}) at index {:?} has a duplicate at index {:?}",
+                            keybind.mode,
+                            keybind.key,
+                            keybind.modifiers,
+                            i,
+                            j,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     pub fn accept_key(&mut self, event: KeyEvent, ctx: &mut EventCtx) -> Vec<Option<ActionPayload>> {
         let mut key_event = event.clone();
         key_event.mods.set(Modifiers::NUM_LOCK, false);
@@ -1199,9 +1288,7 @@ impl VMInputManager {
                         return vec![None];
                     } else {
                         self.set_timeout_revert_mode(Some(self.mode.clone()));
-                        // self.set_keybind_mode(KeybindMode::KeybindBuild);
                         self.string += &character;
-                        // return vec![None];
                         return vec![Some(
                             ActionPayload {
                                 action: Action::ChangeModeWithTimeoutRevert,
@@ -1460,7 +1547,7 @@ impl VMInputManager {
                         return vec![
                             Some(ActionPayload {
                                 action: Action::ChangeMode,
-                                mode: Some(KeybindMode::Edit),
+                                mode: Some(KeybindMode::EditBrowse),
                                 ..Default::default()
                             })
                         ]
@@ -1469,7 +1556,7 @@ impl VMInputManager {
                         return vec![
                             Some(ActionPayload {
                                 action: Action::ChangeMode,
-                                mode: Some(KeybindMode::Edit),
+                                mode: Some(KeybindMode::EditBrowse),
                                 ..Default::default()
                             })
                         ]
@@ -1646,9 +1733,11 @@ impl VMInputManager {
                 self.string = String::from("<move>");
             },
             KeybindMode::EditBrowse => {
+                self.text_input.set_keybind_mode(mode);
                 self.string = String::from("<edit>");
             },
             KeybindMode::EditVisual => {
+                self.text_input.set_keybind_mode(mode);
                 self.string = String::from("<visual>");
             }
             KeybindMode::Jump => {
@@ -1658,6 +1747,7 @@ impl VMInputManager {
                 self.string = String::from("m");
             },
             KeybindMode::Edit => {
+                self.text_input.set_keybind_mode(mode);
                 self.string = String::from("<insert>");
             },
             KeybindMode::SearchedSheet => {
@@ -1678,7 +1768,7 @@ impl VMInputManager {
         return self.string.clone();
     }
 
-    pub fn get_timout_token(&self) -> Option<TimerToken> {
+    pub fn get_timeout_token(&self) -> Option<TimerToken> {
         return self.timeout_token;
     }
 }

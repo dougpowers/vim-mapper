@@ -8,10 +8,12 @@
     - [x] Implement tab renaming via VMDialog
     - [x] Implement tab deletion via VMDialog
 - [x] Implement saving multiple sheets per file
-    - [x] Implement importing VMSaveVersion4 into single-tab VMSaveVersion5
+    - [x] Implement importing VMSaveVersion into single-tab VMSaveVersion5
 - [ ] Implement custom text entry with vim-like bindings
-    - [ ] Implement UnicodeSegmentation-based iteration
+    - [x] Implement UnicodeSegmentation-based iteration
+- [ ] Move VMTextInput from VimMapper member to VMInputManager member
 - [ ] Implement cross-tab cut/paste registers 
+- [ ] Implement :commands
 - [ ] Remove and replace mouse logic
 - [ ] Implement context menu for node operations via mouse
     - [ ] Implement mouse node dragging

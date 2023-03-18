@@ -100,17 +100,13 @@ impl<'a> VMTextInput {
                     self.set_cursor(self.text.prev_word_offset(self.index));
                 }
             },
-            Action::CursorToNthCharacter |
-            Action::DeleteWordWithWhitespace  |
             Action::DeleteWord |
-            Action::DeleteToEndOfWord |
             Action::DeleteToNthCharacter |
             Action::DeleteWithNthCharacter |
-            Action::ChangeWordWithWhitespace |
             Action::ChangeWord |
-            Action::ChangeToEndOfWord |
             Action::ChangeToNthCharacter |
             Action::ChangeWithNthCharacter |
+            Action::CursorToNthCharacter |
             Action::CursorBackwardToEndOfWord |
             _ => ()
         }

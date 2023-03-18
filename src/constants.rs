@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![allow(dead_code)]
 
 use std::time::Duration;
 
@@ -41,7 +42,6 @@ pub const DEFAULT_SIMULATION_PARAMETERS: SimulationParameters = SimulationParame
     force_max: 280.,
     node_speed: 3000.,
     damping_factor: 0.5,
-    // min_attract_distance: 0.,
     min_attract_distance: 180.,
 };
 
@@ -59,6 +59,15 @@ pub const DEFAULT_NODE_MOVE_AMOUNT_LARGE: f64 = 100.;
 
 pub const NODE_LABEL_MAX_CONSTRAINTS: (f64, f64) = (200., 115.);
 pub const BADGE_BORDER_INFLATION_AMOUNT: f64 = 3.;
+
+const ACCEPTED_DELIMITERS: [(&'static str, &'static str); 6] = [
+    (r#"""#, r#"""#), 
+    (r"'", r"'"), 
+    (r"[", r"]"), 
+    (r"(", r")"), 
+    (r"<",">"), 
+    (r"{",r"}")
+];
 
 pub const DEFAULT_TAB_LABEL_FONT_SIZE: f64 = 16.;
 pub const TAB_BAR_HEIGHT: f64 = DEFAULT_TAB_LABEL_FONT_SIZE*2.;
