@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size, text::{EditableText}};
+use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size, text::{EditableText}, Color};
 
 use crate::{vminput::{ActionPayload, Action, KeybindMode}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH}, vimmapper::VimMapper};
 
@@ -22,24 +22,47 @@ use unicode_segmentation::*;
 #[allow(unused)]
 pub struct VMTextInput {
     pub(crate) text: String,
-    pub(crate) index: usize,
+    index: usize,
+    visual_anchor: Option<usize>,
     pub(crate) text_layout: Option<PietTextLayout>,
     pub(crate) mode: KeybindMode,
 }
 
 pub trait BackwardTextSearch {
-    fn end_word_offset(&self, index: usize) -> Option<usize>;
+    fn next_word_start_offset(&self, index: usize) -> Option<usize>;
+    fn prev_word_start_offset(&self, index: usize) -> Option<usize>;
+    fn next_word_end_offset(&self, index: usize) -> Option<usize>;
 }
 
 impl BackwardTextSearch for String {
-    fn end_word_offset(&self, index: usize) -> Option<usize> {
+    fn prev_word_start_offset(&self, index: usize) -> Option<usize> {
+        let mut words = self.split_word_bound_indices().collect::<Vec<(usize, &str)>>();
+        words.reverse();
+        let mut iter = words.into_iter();
+        while let Some((i, word)) = iter.next() {
+            if i < index && !word.contains(char::is_whitespace) {
+                return Some(i);
+            }
+        }
+        return None;
+    }
+
+    fn next_word_start_offset(&self, index: usize) -> Option<usize> {
+        let mut words = self.split_word_bound_indices();
+        while let Some((i, word)) = words.next() {
+            if i > index && !word.contains(char::is_whitespace) {
+                return Some(i);
+            }
+        }
+        return None;
+    }
+
+    fn next_word_end_offset(&self, index: usize) -> Option<usize> {
         if let Some(next_index) = self.next_grapheme_offset(index) {
-            if let Some(remainder) = self.slice(next_index..self.len()) {
-                let words = remainder.split_word_bound_indices();
-                for (i, w) in words {
-                    if !w.contains(char::is_whitespace) {
-                        return Some(index+i+w.len())
-                    }
+            let mut words = self.split_word_bound_indices();
+            while let Some((i, word)) = words.next() {
+                if i+word.len() > next_index && !word.contains(char::is_whitespace) {
+                    return self.prev_grapheme_offset(i+word.len());
                 }
             }
         }
@@ -54,6 +77,7 @@ impl<'a> VMTextInput {
         VMTextInput {
             text,
             index: 0,
+            visual_anchor: None,
             text_layout: None,
             mode: KeybindMode::EditBrowse,
         }
@@ -79,26 +103,13 @@ impl<'a> VMTextInput {
                 self.cursor_backward();
             },
             Action::CursorForwardToEndOfWord => {
-                self.set_cursor(self.text.end_word_offset(self.index));
+                self.set_cursor(self.text.next_word_end_offset(self.index));
             },
             Action::CursorForwardToBeginningOfWord => {
-                if let Some(index) = self.text.next_word_offset(self.index) {
-                    if index == self.text.len() {
-
-                    } else {
-                        self.set_cursor(self.text.next_word_offset(self.index));
-                        self.cursor_forward();
-                    }
-                }
+                self.set_cursor(self.text.next_word_start_offset(self.index));
             },
             Action::CursorBackwardToBeginningOfWord => {
-                if let None = self.text.prev_word_offset(self.index) {
-                    if self.index != 0 {
-                        self.set_cursor(Some(0));
-                    }
-                } else {
-                    self.set_cursor(self.text.prev_word_offset(self.index));
-                }
+                self.set_cursor(self.text.prev_word_start_offset(self.index));
             },
             Action::DeleteWord |
             Action::DeleteToNthCharacter |
@@ -175,7 +186,7 @@ impl<'a> VMTextInput {
         self.index = self.text.next_grapheme_offset(self.index).unwrap();
     }
 
-    pub fn get_block_cursor_bounds(&self) -> Vec<Rect> {
+    pub fn get_block_cursor_bounds(&self, index: usize) -> Vec<Rect> {
         if let Some(layout) = &self.text_layout {
             if self.text.is_empty() {
                 let metric = layout.line_metric(0).unwrap();
@@ -187,11 +198,11 @@ impl<'a> VMTextInput {
                         metric.height,
                     )
                 ]
-            } else if let Some(next_index) = self.text.next_grapheme_offset(self.index) {
-                let rects = layout.rects_for_range(self.index..next_index);
+            } else if let Some(next_index) = self.text.next_grapheme_offset(index) {
+                let rects = layout.rects_for_range(index..next_index);
                 return rects;
             } else {
-                let rects = layout.rects_for_range(self.text.prev_grapheme_offset(self.index).unwrap()..self.index);
+                let rects = layout.rects_for_range(self.text.prev_grapheme_offset(index).unwrap()..index);
                 return vec![
                     Rect::new(
                         rects[0].x1,
@@ -206,7 +217,7 @@ impl<'a> VMTextInput {
         }
     }
 
-    pub fn get_line_cursor_bounds(&self) -> Vec<Rect> {
+    pub fn get_line_cursor_bounds(&self, index: usize) -> Vec<Rect> {
         if let Some(layout) = &self.text_layout {
             if self.text.is_empty() {
                 let metric = layout.line_metric(0).unwrap();
@@ -218,8 +229,8 @@ impl<'a> VMTextInput {
                         metric.height,
                     )
                 ]
-            } else if let Some(next_index) = self.text.next_grapheme_offset(self.index) {
-                let rects = layout.rects_for_range(self.index..next_index);
+            } else if let Some(next_index) = self.text.next_grapheme_offset(index) {
+                let rects = layout.rects_for_range(index..next_index);
                 return vec![
                     Rect::new(
                         rects[0].x0,
@@ -229,7 +240,7 @@ impl<'a> VMTextInput {
                     ),
                 ]
             } else {
-                let rects = layout.rects_for_range(self.text.prev_grapheme_offset(self.index).unwrap()..self.index);
+                let rects = layout.rects_for_range(self.text.prev_grapheme_offset(index).unwrap()..index);
                 return vec![
                     Rect::new(
                         rects[0].x1,
@@ -254,13 +265,19 @@ impl<'a> VMTextInput {
 
     pub fn set_keybind_mode(&mut self, mode: KeybindMode) {
         match mode {
+            KeybindMode::Edit => {
+                self.visual_anchor = None;
+            }
             KeybindMode::EditBrowse => {
+                self.visual_anchor = None;
                 if let Some(_) = self.text.next_grapheme_offset(self.index) {
-
                 } else {
                     self.cursor_backward();
                 }
             },
+            KeybindMode::EditVisual => {
+                self.visual_anchor = Some(self.index);
+            }
             _ => ()
         }
         self.mode = mode;
@@ -284,19 +301,39 @@ impl<'a> VMTextInput {
         self.text_layout = Some(layout);
     }
 
-    pub fn paint(&mut self, ctx: &mut PaintCtx, config: &VMConfigVersion4) {
+    pub fn paint(&mut self, ctx: &mut PaintCtx, config: &VMConfigVersion4, debug: bool) {
         if let Some(layout) = &self.text_layout {
             for rect in 
                 match self.mode {
-                    KeybindMode::Edit => { self.get_line_cursor_bounds() },
-                    KeybindMode::EditBrowse => { self.get_block_cursor_bounds() },
-                    KeybindMode::EditVisual => { self.get_block_cursor_bounds() },
+                    KeybindMode::Edit => { self.get_line_cursor_bounds(self.index) },
+                    KeybindMode::EditBrowse => { self.get_block_cursor_bounds(self.index) },
+                    KeybindMode::EditVisual => { self.get_block_cursor_bounds(self.index) },
                     _ => { vec![] },
                 } {
                 ctx.fill(
                     rect,
                     &config.get_color(VMColor::TextCursorColor).unwrap()
                 )
+            }
+            if debug {
+                let mut index: usize = 0;
+                loop {
+                    if let Some(next_index) = self.text.next_word_offset(index) {
+                        index = next_index;
+                    } else {
+                        break;
+                    }
+                    for rect in self.get_line_cursor_bounds(index) {
+                        ctx.fill(
+                            rect,
+                            &Color::RED
+                        );
+                    }
+                    if index == self.text.len() {
+                        break;
+                    }
+                }
+
             }
             ctx.draw_text(layout, Point {x: 0., y: 0.});
         }

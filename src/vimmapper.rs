@@ -971,7 +971,7 @@ impl<'a> VimMapper {
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                     },
                     Some(KeybindMode::Sheet) => {
-                        self.input_manager.text_input.index = 0;
+                        self.input_manager.text_input.curosr_to_start();
                         self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                     },
@@ -1626,7 +1626,7 @@ impl Widget<()> for VimMapper {
                     ctx.transform(Affine::from(TranslateScale::new(-1.0*(label_size.to_vec2())/2.0, 1.0)));
                     ctx.transform(Affine::from(TranslateScale::new(active_node_pos, 1.0)));
                     ctx.fill(label_size.to_rect(), &self.config.get_color(VMColor::NodeBackgroundColor).unwrap());
-                    self.input_manager.text_input.paint(ctx, &self.config);
+                    self.input_manager.text_input.paint(ctx, &self.config, self.debug_data);
                 });
             }
         }

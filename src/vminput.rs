@@ -171,18 +171,6 @@ pub enum KeybindType {
 
 #[allow(dead_code)]
 #[derive(Data, Clone, PartialEq, Debug)]
-pub enum TextMovement {
-    ForwardToEndOfWord,
-    ForwardToNthChar((usize, String)),
-    BackwardToNthChar((usize, String)),
-    WholeWord,
-    WholeWordWithWhitespace,
-    ForwardN(usize),
-    BackwardN(usize),
-}
-
-#[allow(dead_code)]
-#[derive(Data, Clone, PartialEq, Debug)]
 pub enum TextSurrounds {
     Inner(String),
     Outer(String),
@@ -195,7 +183,7 @@ pub struct ActionPayload {
     pub float: Option<f64>,
     pub index: Option<u32>,
     pub tab_index: Option<usize>,
-    pub movement: Option<TextMovement>,
+    pub motion: Option<TextMotion>,
     pub surrounds: Option<TextSurrounds>,
     pub string: Option<String>,
     pub mode: Option<KeybindMode>,
@@ -211,7 +199,7 @@ impl Default for ActionPayload {
             float: None,
             index: None,
             tab_index: None,
-            movement: None,
+            motion: None,
             surrounds: None,
             string: None,
             mode: None,
@@ -233,6 +221,20 @@ struct Keybind {
     modifiers: Option<Modifiers>,
     action_payloads: Vec<Option<ActionPayload>>,
     mode: KeybindMode,
+}
+
+impl Default for Keybind {
+    fn default() -> Self {
+        Keybind {
+            kb_type: KeybindType::Key,
+            regex: None,
+            group_actions: None,
+            key: None,
+            modifiers: None,
+            action_payloads: vec![None],
+            mode: KeybindMode::Global,
+        }
+    }
 }
 
 pub struct VMInputManager {
@@ -262,6 +264,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                         })],
                     mode: KeybindMode::Global,
+                    ..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -275,6 +278,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                         })],
                     mode: KeybindMode::Global,
+                    ..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -288,6 +292,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                         })],
                     mode: KeybindMode::Global,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -301,6 +306,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                         })],
                     mode: KeybindMode::Global,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -314,6 +320,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                         })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -327,6 +334,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -340,6 +348,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                         })],
                     mode: KeybindMode::SearchedSheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -353,6 +362,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::SearchedSheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -366,6 +376,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -379,6 +390,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -392,6 +404,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -407,6 +420,7 @@ impl Default for VMInputManager {
                         }
                     )],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -422,6 +436,7 @@ impl Default for VMInputManager {
                         }
                     )],
                     mode: KeybindMode::EditBrowse,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -435,6 +450,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -448,6 +464,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -468,6 +485,7 @@ impl Default for VMInputManager {
                         }
                     )],
                     mode: KeybindMode::EditBrowse,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -482,6 +500,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::EditBrowse,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -495,6 +514,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::EditBrowse,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -508,6 +528,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::EditBrowse,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -521,6 +542,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::EditBrowse,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -534,6 +556,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::EditBrowse,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -547,6 +570,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::EditBrowse,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -560,6 +584,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::EditBrowse,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -573,6 +598,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -586,6 +612,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -599,6 +626,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -613,6 +641,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -627,6 +656,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -641,6 +671,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -655,6 +686,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -669,6 +701,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -683,6 +716,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -697,6 +731,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -711,6 +746,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -725,6 +761,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -739,6 +776,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -752,6 +790,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -765,6 +804,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -778,6 +818,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -791,6 +832,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -804,6 +846,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Start,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -817,6 +860,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Start,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -831,6 +875,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -845,6 +890,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -867,6 +913,7 @@ impl Default for VMInputManager {
                             }
                         )],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -881,6 +928,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -894,6 +942,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -907,6 +956,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -920,6 +970,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -933,6 +984,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -947,6 +999,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -961,6 +1014,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Move,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -979,6 +1033,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Move,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -993,6 +1048,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Move,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -1007,6 +1063,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Move,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -1021,6 +1078,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Move,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -1035,6 +1093,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Move,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -1049,6 +1108,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Move,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -1063,6 +1123,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Move,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -1077,6 +1138,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Move,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
@@ -1091,6 +1153,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                     })],
                     mode: KeybindMode::Move,
+					..Default::default()
                 },
                 Keybind { 
                     kb_type: KeybindType::String, 
@@ -1110,6 +1173,7 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![None],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
@@ -1122,6 +1186,7 @@ impl Default for VMInputManager {
                         ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
@@ -1134,6 +1199,7 @@ impl Default for VMInputManager {
                         ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
@@ -1146,6 +1212,7 @@ impl Default for VMInputManager {
                         ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
@@ -1158,6 +1225,7 @@ impl Default for VMInputManager {
                         ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
@@ -1170,6 +1238,7 @@ impl Default for VMInputManager {
                         ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
@@ -1182,6 +1251,7 @@ impl Default for VMInputManager {
                         ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
+					..Default::default()
                 },
             ],
             string: String::new(),
