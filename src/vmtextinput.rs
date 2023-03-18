@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::ops::Range;
+
 use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size, text::{EditableText}, Color};
 
 use crate::{vminput::{ActionPayload, Action, KeybindMode}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH}, vimmapper::VimMapper};
@@ -28,13 +30,14 @@ pub struct VMTextInput {
     pub(crate) mode: KeybindMode,
 }
 
-pub trait BackwardTextSearch {
+pub trait VMTextSearch {
     fn next_word_start_offset(&self, index: usize) -> Option<usize>;
     fn prev_word_start_offset(&self, index: usize) -> Option<usize>;
     fn next_word_end_offset(&self, index: usize) -> Option<usize>;
+    fn current_word_bounds(&self, index: usize) -> Range<usize>;
 }
 
-impl BackwardTextSearch for String {
+impl VMTextSearch for String {
     fn prev_word_start_offset(&self, index: usize) -> Option<usize> {
         let mut words = self.split_word_bound_indices().collect::<Vec<(usize, &str)>>();
         words.reverse();
@@ -68,6 +71,20 @@ impl BackwardTextSearch for String {
         }
         return None;
     }
+
+    fn current_word_bounds(&self, index: usize) -> Range<usize> {
+        let mut words = self.split_word_bound_indices().peekable();
+        while let Some((i, word)) = words.next() {
+            if let Some((next, _)) = words.peek() {
+                if i <= index && *next > index {
+                    return i..*next;
+                }
+            } else {
+                return i..self.len();
+            }
+        }
+        return index..index;
+    }
 }
 
 #[allow(unused_must_use)]
@@ -84,6 +101,7 @@ impl<'a> VMTextInput {
     }
 
     pub fn handle_action(&mut self, ctx: &mut EventCtx, payload: &ActionPayload) -> Result<(), ()> {
+        // Some text to test vim actions
         match payload.action {
             Action::InsertCharacter => {
                 self.insert_character(payload.string.clone().unwrap());
@@ -111,10 +129,14 @@ impl<'a> VMTextInput {
             Action::CursorBackwardToBeginningOfWord => {
                 self.set_cursor(self.text.prev_word_start_offset(self.index));
             },
-            Action::DeleteWord |
+            Action::DeleteWord => {
+                let range = self.text.current_word_bounds(self.index);
+                self.text.edit(range.clone(), "");
+                self.index = range.start;
+            },
+            Action::ChangeWord |
             Action::DeleteToNthCharacter |
             Action::DeleteWithNthCharacter |
-            Action::ChangeWord |
             Action::ChangeToNthCharacter |
             Action::ChangeWithNthCharacter |
             Action::CursorToNthCharacter |

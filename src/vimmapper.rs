@@ -907,7 +907,7 @@ impl<'a> VimMapper {
 
     fn handle_action(&mut self, ctx: &mut EventCtx, payload: &ActionPayload) -> Result<(), ()> {
         if payload.action != Action::ChangeModeWithTimeoutRevert {
-            self.input_manager.clear_timeout();
+            // self.input_manager.clear_timeout();
         }
         match payload.action {
             Action::ChangeModeWithTimeoutRevert => {

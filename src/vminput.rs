@@ -1253,6 +1253,29 @@ impl Default for VMInputManager {
                     mode: KeybindMode::Sheet,
 					..Default::default()
                 },
+                Keybind { 
+                    kb_type: KeybindType::String, 
+                    regex: 
+                        Some(Regex::new(
+                            r"ciw"
+                        ).ok().expect("Keybind regex failed to compile.")),
+                    group_actions: None,
+                    key: None,
+                    modifiers: None, 
+                    action_payloads: vec![Some(ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Edit),
+                            ..Default::default()
+                        }),
+                        Some(ActionPayload {
+                            action: Action::DeleteWord,
+                            ..Default::default()
+                        }),
+
+                    ],
+                    mode: KeybindMode::EditBrowse,
+					..Default::default()
+                },
             ],
             string: String::new(),
             timeout_token: None,
@@ -1272,23 +1295,21 @@ impl VMInputManager {
     pub fn validate_keybinds() {
         tracing::debug!("Validating keybinds");
         for i in 0..VMInputManager::default().keybinds.len() {
-            for j in 0..VMInputManager::default().keybinds.len() {
-                if i != j {
-                    let keybind = &VMInputManager::default().keybinds[i];
-                    let check = &VMInputManager::default().keybinds[j];
-                    if keybind.kb_type == KeybindType::Key &&
-                    keybind.key == check.key && 
-                    keybind.modifiers == check.modifiers && 
-                    keybind.mode == check.mode
-                    {
-                        tracing::warn!("Key-type keybind {:?}::{:?}({:?}) at index {:?} has a duplicate at index {:?}",
-                            keybind.mode,
-                            keybind.key,
-                            keybind.modifiers,
-                            i,
-                            j,
-                        )
-                    }
+            for j in i+1..VMInputManager::default().keybinds.len() {
+                let keybind = &VMInputManager::default().keybinds[i];
+                let check = &VMInputManager::default().keybinds[j];
+                if keybind.kb_type == KeybindType::Key &&
+                keybind.key == check.key && 
+                keybind.modifiers == check.modifiers && 
+                keybind.mode == check.mode
+                {
+                    tracing::warn!("Key-type keybind {:?}::{:?}({:?}) at index {:?} has a duplicate at index {:?}",
+                        keybind.mode,
+                        keybind.key,
+                        keybind.modifiers,
+                        i,
+                        j,
+                    )
                 }
             }
         }
@@ -1351,9 +1372,6 @@ impl VMInputManager {
                     }
                 }
                 if let Key::Character(character) = key_event.key {
-                    if key_event.mods.alt() || key_event.mods.ctrl() {
-                        return vec![None];
-                    }
                     if character == String::from(" ") {
                         return vec![None];
                     } else {
@@ -1486,10 +1504,14 @@ impl VMInputManager {
                                 if let Some(regex) = &keybind.regex {
                                     if regex.is_match(&self.string) {
                                         let matched = self.string.clone();
-                                        self.clear_build();
-                                        self.clear_timeout();
-                                        self.revert_mode();
-                                        return VMInputManager::process_regex_keybind(keybind.clone(), matched);
+                                        tracing::debug!("captured {:?}", matched);
+                                        if keybind.mode == self.timeout_revert_mode.unwrap() {
+                                            let matched = self.string.clone();
+                                            self.clear_build();
+                                            self.clear_timeout();
+                                            self.revert_mode();
+                                            return VMInputManager::process_regex_keybind(keybind.clone(), matched);
+                                        }
                                     }
                                 }
                             }
@@ -1541,7 +1563,11 @@ impl VMInputManager {
                         return vec![Some(ActionPayload {
                             action: Action::AcceptNodeText,
                             ..Default::default()    
-                        }), 
+                            }),
+                            Some(ActionPayload {
+                            action: Action::CursorBackward,
+                            ..Default::default()
+                            }) ,
                             Some(ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::EditBrowse),
@@ -1578,6 +1604,22 @@ impl VMInputManager {
                     }
                 }
                 match key_event.key {
+                    Key::Character(character) => {
+                        if character == String::from(" ") {
+                            return vec![None];
+                        } else {
+                            self.set_new_timeout(ctx);
+                            self.set_timeout_revert_mode(Some(self.mode.clone()));
+                            self.string += &character;
+                            return vec![Some(
+                                ActionPayload {
+                                    action: Action::ChangeModeWithTimeoutRevert,
+                                    mode: Some(KeybindMode::KeybindBuild),
+                                    ..Default::default()
+                                }
+                            )];
+                        }
+                    }
                     Key::Escape => {
                         return vec![
                             Some(ActionPayload {
@@ -1736,14 +1778,18 @@ impl VMInputManager {
 
     fn process_regex_keybind(keybind: Keybind, string: String) -> Vec<Option<ActionPayload>> {
         let cap = keybind.clone().regex.unwrap().captures(&string).unwrap();
-        for name in keybind.clone().regex.unwrap().capture_names() {
-            if let Some(string) = name {
-                if let Some(map) = keybind.group_actions.as_ref().unwrap().get(string) {
-                    if let Some(payload) = map.get(&cap.name(string).unwrap().as_str().to_string()) {
-                        return (*payload).clone();
-                    }
+        if let Some(outer_map) = &keybind.group_actions {
+            for name in keybind.clone().regex.unwrap().capture_names() {
+                if let Some(string) = name {
+                    if let Some(map) = outer_map.get(string) {
+                        if let Some(payload) = map.get(&cap.name(string).unwrap().as_str().to_string()) {
+                            return (*payload).clone();
+                        }
+                    } 
                 }
             }
+        } else if keybind.action_payloads.len() > 0 {
+            return keybind.action_payloads;
         }
         return vec![Some(ActionPayload {
             ..Default::default()

@@ -891,7 +891,7 @@ impl Widget<AppState> for VMCanvas {
 
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, _data: &AppState, env: &Env) {
         if let LifeCycle::WidgetAdded = event{
-            VMInputManager::validate_keybinds();
+            // VMInputManager::validate_keybinds();
         } else if let LifeCycle::FocusChanged(focused) = event {
             if *focused {
                 tracing::debug!("Main window gained focus");
