@@ -374,7 +374,7 @@ impl VMCanvas {
             let inner = &mut tab.vm;
             if let Some(payload) = payload {
                 if payload.action != Action::ChangeModeWithTimeoutRevert {
-                    inner.widget_mut().input_manager.clear_timeout();
+                    // inner.widget_mut().input_manager.clear_timeout();
                 }
                 match payload.action {
                     Action::GoToNextTab => {
@@ -851,15 +851,15 @@ impl Widget<AppState> for VMCanvas {
                 }
             }
             Event::Timer(token) => {
-                // if Some(*token) == self.input_managers[self.active_tab].get_timout_token() {
                 let mut im = &mut self.start_input_manager;
                 if let Some(tab) = self.tabs.get_mut(self.active_tab) {
                     im = &mut tab.vm.widget_mut().input_manager;
                 }
-                if Some(*token) == im.get_timeout_token() {
-                    // self.input_managers[self.active_tab].timeout();
-                    im.timeout();
-                } 
+                if Some(*token) == im.get_timeout_revert_token() {
+                    im.revert_timeout();
+                } else if Some(*token) == im.get_timeout_build_token() {
+                    im.build_timeout();
+                }
             }
             Event::WindowConnected => {
                 ctx.request_focus();

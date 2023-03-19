@@ -916,7 +916,7 @@ impl<'a> VimMapper {
                 self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
 
                 match payload.mode {
-                    Some(KeybindMode::SearchBuild) | Some(KeybindMode::SearchedSheet) => {
+                    Some(KeybindMode::SearchEnter) | Some(KeybindMode::SearchedSheet) => {
                         self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                     },
                     _ => {
@@ -936,7 +936,7 @@ impl<'a> VimMapper {
                             }
                         }
                     }
-                    Some(KeybindMode::SearchBuild) => {
+                    Some(KeybindMode::SearchEnter) => {
                         self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                     },
@@ -1280,7 +1280,10 @@ impl<'a> VimMapper {
             Action::CursorBackwardToBeginningOfWord |
             Action::CursorToNthCharacter => {
                 let ret = self.input_manager.text_input.handle_action(ctx, payload);
-                return ret;
+                if let Some(mode) = ret {
+                    self.input_manager.set_keybind_mode(mode);
+                }
+                return Ok(());
             },
             Action::Delete |
             Action::DeleteWord |
@@ -1291,6 +1294,7 @@ impl<'a> VimMapper {
             Action::ChangeToNthCharacter |
             Action::ChangeWithNthCharacter |
             Action::DeleteBackspace |
+            Action::ExecuteTextAction |
             Action::DeleteForward |
             Action::InsertCharacter => {
                 let ret = self.input_manager.text_input.handle_action(ctx, payload);
@@ -1299,7 +1303,10 @@ impl<'a> VimMapper {
                     self.invalidate_node_layouts();
                     self.animating = true;
                 }
-                return ret;
+                if let Some(mode) = ret {
+                    self.input_manager.set_keybind_mode(mode);
+                }
+                return Ok(());
             },
             _ => {
                 return Ok(());
@@ -1534,17 +1541,12 @@ impl Widget<()> for VimMapper {
         //Determine target node for painting
         let target_node: Option<u32> = self.get_target_node_idx();
 
-        // let mut active_node: Option<u32> = None;
-        // if let Some(active_idx) = self.get_active_node_idx() {
-        //     active_node = Some(active_idx);
-        // }
         let active_node = self.get_active_node_idx();
 
         //Draw nodes
         self.graph.visit_nodes(|fg_node| {
             let node = self.nodes.get_mut(&fg_node.data.user_data)
             .expect("Expected non-option node in paint loop.");
-            // let node_pos = self.get_node_pos(node.index).clone();
             let node_pos = Vec2::new(self.graph.get_graph()[node.fg_index.unwrap()].x(), self.graph.get_graph()[node.fg_index.unwrap()].y());
             let mut enabled = true;
             if self.node_render_mode == NodeRenderMode::OnlyTargetsEnabled {
@@ -1692,7 +1694,6 @@ impl Widget<()> for VimMapper {
                         "Is Animating: {:?}\nLarget Node Movement: {:?}\nRoots: {:?}\nRemoval List: {:?}\nCurrent Component:{:?}", 
                         self.animating,
                         self.largest_node_movement,
-                        // self.nodes.get(&self.get_active_node_idx().unwrap()),
                         self.root_nodes,
                         self.graph.get_node_removal_tree(active_fg_index, *current_root),
                         component,

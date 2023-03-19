@@ -17,7 +17,7 @@ use std::ops::Range;
 
 use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size, text::{EditableText}, Color};
 
-use crate::{vminput::{ActionPayload, Action, KeybindMode}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH}, vimmapper::VimMapper};
+use crate::{vminput::{ActionPayload, Action, KeybindMode, TextAction, TextOperation, TextObj}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH}, vimmapper::VimMapper};
 
 use unicode_segmentation::*;
 
@@ -100,9 +100,32 @@ impl<'a> VMTextInput {
         }
     }
 
-    pub fn handle_action(&mut self, ctx: &mut EventCtx, payload: &ActionPayload) -> Result<(), ()> {
+    pub fn handle_action(&mut self, ctx: &mut EventCtx, payload: &ActionPayload) -> Option<KeybindMode> {
         // Some text to test vim actions
+        let mut change_mode = None;
         match payload.action {
+            Action::ExecuteTextAction => {
+                if let Some(text_action) = &payload.text_action {
+                    match &text_action.operation {
+                        TextOperation::ChangeText => {
+                            if let Some(obj) = &text_action.text_obj {
+                                match obj {
+                                    TextObj::InnerWord => {
+                                        let range = self.text.current_word_bounds(self.index);
+                                        self.text.edit(range.clone(), "");
+                                        self.index = range.start;
+                                        change_mode = Some(KeybindMode::Edit);
+                                    },
+                                    _ => ()
+                                }
+                            }
+                        },
+                        TextOperation::DeleteText => {
+
+                        }
+                    }
+                }
+            },
             Action::InsertCharacter => {
                 self.insert_character(payload.string.clone().unwrap());
             },
@@ -149,7 +172,7 @@ impl<'a> VMTextInput {
             } 
         ctx.request_layout();
         ctx.request_paint();
-        return Ok(());
+        return change_mode;
     }
 
     pub fn cursor_forward(&mut self) -> Result<(), ()> {

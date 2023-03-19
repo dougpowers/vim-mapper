@@ -11,8 +11,9 @@
     - [x] Implement importing VMSaveVersion into single-tab VMSaveVersion5
 - [ ] Implement custom text entry with vim-like bindings
     - [x] Implement UnicodeSegmentation-based iteration
-    - [ ] Change insert carat from beginning of block to end of block
 - [x] Move VMTextInput from VimMapper member to VMInputManager member
+- [x] Change regex keybinds to straight string rebinds
+- [ ] Add string keybind functionality to KeybindMode::Edit
 - [ ] Implement cross-tab cut/paste registers 
 - [ ] Implement :commands
 - [ ] Remove and replace mouse logic
