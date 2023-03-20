@@ -116,8 +116,8 @@ impl VMTextSearch for String {
     }
 
     fn prev_occurrence(&self, index: usize, grapheme: String) -> Option<usize> {
-        if let Some(prev_index) = self.next_grapheme_offset(index) {
-            if let Some(slice) = self.slice(0..prev_index) {
+        // if let Some(prev_index) = self.prev_grapheme_offset(index) {
+            if let Some(slice) = self.slice(0..index) {
                 let mut graphemes = slice.grapheme_indices(true);
                 while let Some((i, graph)) = graphemes.next_back() {
                     if graph == grapheme { 
@@ -125,7 +125,7 @@ impl VMTextSearch for String {
                     }
                 }
             }
-        }
+        // }
         return None;
     }
 }
@@ -226,7 +226,7 @@ impl<'a> VMTextInput {
                         },
                         TextOperation::None => {
                             if let Some(motion) = &text_action.text_motion {
-                                tracing::debug!("{:?}", motion);
+                                // tracing::debug!("{:?}", motion);
                                 match motion {
                                     TextMotion::ForwardCharacter => {
                                         self.cursor_forward();
@@ -248,16 +248,28 @@ impl<'a> VMTextInput {
                                     },
                                     TextMotion::ForwardToN => {
                                         if let Some(grapheme) = text_action.target_string.clone() {
-                                            self.set_cursor(self.text.next_occurrence(self.index, grapheme));
+                                            if let Some(occurrence) = self.text.next_occurrence(self.index, grapheme) {
+                                                self.set_cursor(self.text.prev_grapheme_offset(occurrence));
+                                            }
                                         }
                                     },
                                     TextMotion::BackwardToN => {
                                         if let Some(grapheme) = text_action.target_string.clone() {
+                                            if let Some(occurrence) = self.text.prev_occurrence(self.index, grapheme) {
+                                                self.set_cursor(self.text.next_grapheme_offset(occurrence));
+                                            }
+                                        }
+                                    },
+                                    TextMotion::ForwardWithN => {
+                                        if let Some(grapheme) = text_action.target_string.clone() {
+                                            self.set_cursor(self.text.next_occurrence(self.index, grapheme));
+                                        }
+                                    },
+                                    TextMotion::BackwardWithN => {
+                                        if let Some(grapheme) = text_action.target_string.clone() {
                                             self.set_cursor(self.text.prev_occurrence(self.index, grapheme));
                                         }
                                     },
-                                    TextMotion::ForwardWithN => todo!(),
-                                    TextMotion::BackwardWithN => todo!(),
                                 }
                             }
                         }

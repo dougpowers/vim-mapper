@@ -190,7 +190,6 @@ impl VMCanvas {
         ctx.set_handled();
         self.dialog_visible = show;
         if show {
-            // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Dialog);
             if let Some(tab)  = self.tabs.get_mut(self.active_tab) {
                 if data.save_state != VMSaveState::NoSheetOpened {
                     tab.vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Dialog);
@@ -838,7 +837,6 @@ impl Widget<AppState> for VMCanvas {
                 let mode = im.get_keybind_mode();
                 let payloads = im.accept_key(key_event.clone(), ctx);
                 for payload in &payloads {
-                    tracing::debug!("{:?} {:?}", mode, payloads);
                     if self.dialog_visible 
                         && ((key_event.key == druid::keyboard_types::Key::Tab ||
                         key_event.key == druid::keyboard_types::Key::Enter ||
@@ -907,9 +905,9 @@ impl Widget<AppState> for VMCanvas {
             // VMInputManager::validate_keybinds();
         } else if let LifeCycle::FocusChanged(focused) = event {
             if *focused {
-                tracing::debug!("Main window gained focus");
+                // tracing::debug!("Main window gained focus");
             } else {
-                tracing::debug!("Main window lost focus");
+                // tracing::debug!("Main window lost focus");
             }
         } else if let LifeCycle::BuildFocusChain = event {
             ctx.register_for_focus();

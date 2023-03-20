@@ -1443,9 +1443,6 @@ impl Widget<()> for VimMapper {
                 self.set_dragging(false, None);
             },
             LifeCycle::FocusChanged(focused) => {
-                if *focused {
-                    tracing::debug!("VimMapper window focused");
-                }
             }
             _ => {
             }

@@ -77,9 +77,9 @@ impl Widget<()> for VMTabBar {
         match event {
             druid::LifeCycle::FocusChanged(focus) => {
                 if *focus {
-                    tracing::debug!("Tab bar has gained focus");
+                    // tracing::debug!("Tab bar has gained focus");
                 } else {
-                    tracing::debug!("Tab bar has lost focus");
+                    // tracing::debug!("Tab bar has lost focus");
                 }
             }
             _ => ()

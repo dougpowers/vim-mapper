@@ -72,7 +72,7 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogController {
         match event {
             druid::LifeCycle::FocusChanged(focused) => {
                 if *focused {
-                    tracing::debug!("Dialog body is focused");
+                    // tracing::debug!("Dialog body is focused");
                 }
             }
             _ => ()
@@ -150,7 +150,7 @@ impl<T, W: Widget<T>> Controller<T, W> for VMDialogInputController where T: Disp
         match event {
             druid::LifeCycle::FocusChanged(focused) => {
                 if *focused {
-                    tracing::debug!("VMDialog input is focused");
+                    // tracing::debug!("VMDialog input is focused");
                 }
             }
             _ => {
