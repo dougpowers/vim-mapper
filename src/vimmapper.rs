@@ -1272,19 +1272,6 @@ impl<'a> VimMapper {
                 }
                 return Ok(());
             },
-            Action::CursorForward |
-            Action::CursorBackward |
-            Action::CursorForwardToEndOfWord |
-            Action::CursorForwardToBeginningOfWord |
-            Action::CursorBackwardToEndOfWord |
-            Action::CursorBackwardToBeginningOfWord |
-            Action::CursorToNthCharacter => {
-                let ret = self.input_manager.text_input.handle_action(ctx, payload);
-                if let Some(mode) = ret {
-                    self.input_manager.set_keybind_mode(mode);
-                }
-                return Ok(());
-            },
             Action::Delete |
             Action::DeleteWord |
             Action::DeleteToNthCharacter |

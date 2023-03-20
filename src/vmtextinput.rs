@@ -17,7 +17,7 @@ use std::ops::Range;
 
 use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size, text::{EditableText}, Color};
 
-use crate::{vminput::{ActionPayload, Action, KeybindMode, TextAction, TextOperation, TextObj}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH}, vimmapper::VimMapper};
+use crate::{vminput::{ActionPayload, Action, KeybindMode, TextAction, TextOperation, TextObj, TextMotion}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH}, vimmapper::VimMapper};
 
 use unicode_segmentation::*;
 
@@ -34,7 +34,10 @@ pub trait VMTextSearch {
     fn next_word_start_offset(&self, index: usize) -> Option<usize>;
     fn prev_word_start_offset(&self, index: usize) -> Option<usize>;
     fn next_word_end_offset(&self, index: usize) -> Option<usize>;
+    fn prev_word_end_offset(&self, index: usize) -> Option<usize>;
     fn current_word_bounds(&self, index: usize) -> Range<usize>;
+    fn next_occurrence(&self, index: usize, grapheme: String) -> Option<usize>;
+    fn prev_occurrence(&self, index: usize, grapheme: String) -> Option<usize>;
 }
 
 impl VMTextSearch for String {
@@ -72,9 +75,21 @@ impl VMTextSearch for String {
         return None;
     }
 
+    fn prev_word_end_offset(&self, index: usize) -> Option<usize> {
+        if let Some(next_index) = self.next_grapheme_offset(index) {
+            let mut words = self.split_word_bound_indices();
+            while let Some((i, word)) = words.next_back() {
+                if i+word.len() > next_index && !word.contains(char::is_whitespace) {
+                    return self.prev_grapheme_offset(i);
+                }
+            }
+        }
+        return None;
+    }
+
     fn current_word_bounds(&self, index: usize) -> Range<usize> {
         let mut words = self.split_word_bound_indices().peekable();
-        while let Some((i, word)) = words.next() {
+        while let Some((i, _)) = words.next() {
             if let Some((next, _)) = words.peek() {
                 if i <= index && *next > index {
                     return i..*next;
@@ -84,6 +99,34 @@ impl VMTextSearch for String {
             }
         }
         return index..index;
+    }
+
+    fn next_occurrence(&self, index: usize, grapheme: String) -> Option<usize> {
+        if let Some(next_index) = self.next_grapheme_offset(index) {
+            if let Some(slice) = self.slice(next_index..self.len()) {
+                let mut graphemes = slice.grapheme_indices(true);
+                while let Some((i, graph)) = graphemes.next() {
+                    if graph == grapheme { 
+                        return Some(i+next_index); 
+                    }
+                }
+            }
+        }
+        return None;
+    }
+
+    fn prev_occurrence(&self, index: usize, grapheme: String) -> Option<usize> {
+        if let Some(prev_index) = self.next_grapheme_offset(index) {
+            if let Some(slice) = self.slice(0..prev_index) {
+                let mut graphemes = slice.grapheme_indices(true);
+                while let Some((i, graph)) = graphemes.next_back() {
+                    if graph == grapheme { 
+                        return Some(i); 
+                    }
+                }
+            }
+        }
+        return None;
     }
 }
 
@@ -116,12 +159,107 @@ impl<'a> VMTextInput {
                                         self.index = range.start;
                                         change_mode = Some(KeybindMode::Edit);
                                     },
+                                    TextObj::OuterWord => {
+                                        let mut range = self.text.current_word_bounds(self.index);
+                                        let mut range_modified = false;
+                                        if let Some(next_graph_index) = self.text.next_grapheme_offset(range.end) {
+                                            if let Some(next_graph) = self.text.slice(range.end..next_graph_index) {
+                                                if next_graph.contains(char::is_whitespace) {
+                                                    range.end = next_graph_index;
+                                                    range_modified = true;
+                                                }
+                                            }
+                                        }
+                                        if !range_modified {
+                                            if let Some(prev_graph_index) = self.text.prev_grapheme_offset(range.start) {
+                                                if let Some(prev_graph) = self.text.slice(prev_graph_index..range.start) {
+                                                    if prev_graph.contains(char::is_whitespace) {
+                                                        range.start = prev_graph_index;
+                                                        range_modified = true;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        self.text.edit(range.clone(), "");
+                                        self.index = range.start;
+                                        change_mode = Some(KeybindMode::Edit);
+                                    }
                                     _ => ()
                                 }
                             }
                         },
                         TextOperation::DeleteText => {
-
+                            if let Some(obj) = &text_action.text_obj {
+                                match obj {
+                                    TextObj::InnerWord => {
+                                        let range = self.text.current_word_bounds(self.index);
+                                        self.text.edit(range.clone(), "");
+                                        self.index = range.start;
+                                    },
+                                    TextObj::OuterWord => {
+                                        let mut range = self.text.current_word_bounds(self.index);
+                                        let mut range_modified = false;
+                                        if let Some(next_graph_index) = self.text.next_grapheme_offset(range.end) {
+                                            if let Some(next_graph) = self.text.slice(range.end..next_graph_index) {
+                                                if next_graph.contains(char::is_whitespace) {
+                                                    range.end = next_graph_index;
+                                                    range_modified = true;
+                                                }
+                                            }
+                                        }
+                                        if !range_modified {
+                                            if let Some(prev_graph_index) = self.text.prev_grapheme_offset(range.start) {
+                                                if let Some(prev_graph) = self.text.slice(prev_graph_index..range.start) {
+                                                    if prev_graph.contains(char::is_whitespace) {
+                                                        range.start = prev_graph_index;
+                                                        range_modified = true;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        self.text.edit(range.clone(), "");
+                                        self.index = range.start;
+                                    }
+                                    _ => ()
+                                }
+                            }
+                        },
+                        TextOperation::None => {
+                            if let Some(motion) = &text_action.text_motion {
+                                tracing::debug!("{:?}", motion);
+                                match motion {
+                                    TextMotion::ForwardCharacter => {
+                                        self.cursor_forward();
+                                    },
+                                    TextMotion::BackwardCharacter => {
+                                        self.cursor_backward();
+                                    },
+                                    TextMotion::ForwardWordStart => {
+                                        self.set_cursor(self.text.next_word_start_offset(self.index));
+                                    },
+                                    TextMotion::BackwardWordStart => {
+                                        self.set_cursor(self.text.prev_word_start_offset(self.index));
+                                    },
+                                    TextMotion::ForwardWordEnd => {
+                                        self.set_cursor(self.text.next_word_end_offset(self.index));
+                                    },
+                                    TextMotion::BackwardWordEnd => {
+                                        self.set_cursor(self.text.prev_word_end_offset(self.index));
+                                    },
+                                    TextMotion::ForwardToN => {
+                                        if let Some(grapheme) = text_action.target_string.clone() {
+                                            self.set_cursor(self.text.next_occurrence(self.index, grapheme));
+                                        }
+                                    },
+                                    TextMotion::BackwardToN => {
+                                        if let Some(grapheme) = text_action.target_string.clone() {
+                                            self.set_cursor(self.text.prev_occurrence(self.index, grapheme));
+                                        }
+                                    },
+                                    TextMotion::ForwardWithN => todo!(),
+                                    TextMotion::BackwardWithN => todo!(),
+                                }
+                            }
                         }
                     }
                 }
@@ -137,21 +275,6 @@ impl<'a> VMTextInput {
             Action::DeleteForward => {
                 self.delete_character();
             },
-            Action::CursorForward => {
-                self.cursor_forward();
-            },
-            Action::CursorBackward => {
-                self.cursor_backward();
-            },
-            Action::CursorForwardToEndOfWord => {
-                self.set_cursor(self.text.next_word_end_offset(self.index));
-            },
-            Action::CursorForwardToBeginningOfWord => {
-                self.set_cursor(self.text.next_word_start_offset(self.index));
-            },
-            Action::CursorBackwardToBeginningOfWord => {
-                self.set_cursor(self.text.prev_word_start_offset(self.index));
-            },
             Action::DeleteWord => {
                 let range = self.text.current_word_bounds(self.index);
                 self.text.edit(range.clone(), "");
@@ -162,8 +285,6 @@ impl<'a> VMTextInput {
             Action::DeleteWithNthCharacter |
             Action::ChangeToNthCharacter |
             Action::ChangeWithNthCharacter |
-            Action::CursorToNthCharacter |
-            Action::CursorBackwardToEndOfWord |
             _ => ()
         }
         if (self.mode == KeybindMode::EditBrowse ||

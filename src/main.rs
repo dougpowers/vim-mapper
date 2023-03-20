@@ -173,12 +173,16 @@ impl VMCanvas {
         self.dialog_visible = show;
         if show {
             // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Dialog);
-            self.tabs[self.active_tab].vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Dialog);
+            if data.save_state != VMSaveState::NoSheetOpened {
+                self.tabs[self.active_tab].vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Dialog);
+            } else {
+                self.tabs[self.active_tab].vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
+            }
             ctx.focus_next();
         }
     }
 
-    fn set_dialog(&mut self, ctx: &mut EventCtx, _data: &mut AppState, params: VMDialogParams, show: bool) {
+    fn set_dialog(&mut self, ctx: &mut EventCtx, data: &mut AppState, params: VMDialogParams, show: bool) {
         self.dialog = VMCanvas::new_dialog(&self.config, params);
         ctx.children_changed();
         ctx.request_layout();
@@ -188,9 +192,17 @@ impl VMCanvas {
         if show {
             // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Dialog);
             if let Some(tab)  = self.tabs.get_mut(self.active_tab) {
-                tab.vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Dialog);
+                if data.save_state != VMSaveState::NoSheetOpened {
+                    tab.vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Dialog);
+                } else {
+                    tab.vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
+                }
             } else {
-                self.start_input_manager.set_keybind_mode(KeybindMode::Dialog);
+                if data.save_state != VMSaveState::NoSheetOpened {
+                    self.start_input_manager.set_keybind_mode(KeybindMode::Dialog);
+                } else {
+                    self.start_input_manager.set_keybind_mode(KeybindMode::Sheet);
+                }
             }
             ctx.focus_next();
         }
@@ -708,6 +720,7 @@ impl Widget<AppState> for VMCanvas {
             Event::Command(command) if command.is(druid::commands::OPEN_PANEL_CANCELLED) => {
                 match data.save_state {
                     VMSaveState::NoSheetOpened => {
+                        self.take_focus = true;
                         self.set_dialog(ctx, data, VMDialog::make_start_dialog_params(), true);
                     },
                     VMSaveState::DiscardChanges => {
@@ -818,14 +831,14 @@ impl Widget<AppState> for VMCanvas {
                 }
             }
             Event::KeyDown(key_event) => {
-                // let payloads = self.input_managers[self.active_tab].accept_key(key_event.clone(), ctx);
                 let mut im = &mut self.start_input_manager;
                 if let Some(tab) = self.tabs.get_mut(self.active_tab) {
                     im = &mut tab.vm.widget_mut().input_manager;
                 }
-                // let payloads = self.tabs[self.active_tab].vm.widget_mut().input_manager.accept_key(key_event.clone(), ctx);
+                let mode = im.get_keybind_mode();
                 let payloads = im.accept_key(key_event.clone(), ctx);
                 for payload in &payloads {
+                    tracing::debug!("{:?} {:?}", mode, payloads);
                     if self.dialog_visible 
                         && ((key_event.key == druid::keyboard_types::Key::Tab ||
                         key_event.key == druid::keyboard_types::Key::Enter ||
