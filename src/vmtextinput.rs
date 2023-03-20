@@ -1,4 +1,3 @@
-
 // Copyright 2022 Doug Powers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -139,7 +138,7 @@ impl<'a> VMTextInput {
             index: 0,
             visual_anchor: None,
             text_layout: None,
-            mode: KeybindMode::EditBrowse,
+            mode: KeybindMode::Edit,
         }
     }
 
@@ -149,15 +148,17 @@ impl<'a> VMTextInput {
         match payload.action {
             Action::ExecuteTextAction => {
                 if let Some(text_action) = &payload.text_action {
+                    if text_action.operation == TextOperation::ChangeText {
+                        change_mode = Some(KeybindMode::Insert);
+                    }
                     match &text_action.operation {
-                        TextOperation::ChangeText => {
+                        TextOperation::ChangeText | TextOperation::DeleteText => {
                             if let Some(obj) = &text_action.text_obj {
                                 match obj {
                                     TextObj::InnerWord => {
                                         let range = self.text.current_word_bounds(self.index);
                                         self.text.edit(range.clone(), "");
                                         self.index = range.start;
-                                        change_mode = Some(KeybindMode::Edit);
                                     },
                                     TextObj::OuterWord => {
                                         let mut range = self.text.current_word_bounds(self.index);
@@ -175,58 +176,111 @@ impl<'a> VMTextInput {
                                                 if let Some(prev_graph) = self.text.slice(prev_graph_index..range.start) {
                                                     if prev_graph.contains(char::is_whitespace) {
                                                         range.start = prev_graph_index;
-                                                        range_modified = true;
                                                     }
                                                 }
                                             }
                                         }
                                         self.text.edit(range.clone(), "");
                                         self.index = range.start;
-                                        change_mode = Some(KeybindMode::Edit);
-                                    }
+                                    },
+                                    TextObj::Inner(delimiters) => {
+                                        change_mode = None;
+                                        if let Some(opening_index) = self.text.prev_occurrence(self.index, delimiters.slice(0..delimiters.next_grapheme_offset(0).unwrap()).unwrap().to_string()) {
+                                            if let Some(opening_index_next) = self.text.next_grapheme_offset(opening_index) {
+                                                if let Some(closing_index) = self.text.next_occurrence(self.index, delimiters.slice(delimiters.prev_grapheme_offset(delimiters.len()).unwrap()..delimiters.len()).unwrap().to_string()) {
+                                                    self.text.edit(opening_index_next..closing_index, "");
+                                                    self.set_cursor(Some(opening_index_next));
+                                                    change_mode = Some(KeybindMode::Insert);
+                                                }
+                                            }
+                                        }
+                                    },
+                                    TextObj::Outer(delimiters) => {
+                                        change_mode = None;
+                                        if let Some(opening_index) = self.text.prev_occurrence(self.index, delimiters.slice(0..delimiters.next_grapheme_offset(0).unwrap()).unwrap().to_string()) {
+                                            if let Some(closing_index) = self.text.next_occurrence(self.index, delimiters.slice(delimiters.prev_grapheme_offset(delimiters.len()).unwrap()..delimiters.len()).unwrap().to_string()) {
+                                                if let Some(closing_index) = self.text.next_grapheme_offset(closing_index) {
+                                                    self.text.edit(opening_index..closing_index, "");
+                                                    self.set_cursor(Some(opening_index));
+                                                    change_mode = Some(KeybindMode::Insert);
+                                                }
+                                            }
+                                        }
+                                    },
                                     _ => ()
                                 }
-                            }
-                        },
-                        TextOperation::DeleteText => {
-                            if let Some(obj) = &text_action.text_obj {
-                                match obj {
-                                    TextObj::InnerWord => {
-                                        let range = self.text.current_word_bounds(self.index);
-                                        self.text.edit(range.clone(), "");
-                                        self.index = range.start;
+                            } else if let Some(motion) = &text_action.text_motion {
+                                match motion {
+                                    TextMotion::ForwardCharacter => {
+                                        if let Some(next_graph) = self.text.next_grapheme_offset(self.index) {
+                                            self.text.edit(self.index..next_graph, "");
+                                        }
                                     },
-                                    TextObj::OuterWord => {
-                                        let mut range = self.text.current_word_bounds(self.index);
-                                        let mut range_modified = false;
-                                        if let Some(next_graph_index) = self.text.next_grapheme_offset(range.end) {
-                                            if let Some(next_graph) = self.text.slice(range.end..next_graph_index) {
-                                                if next_graph.contains(char::is_whitespace) {
-                                                    range.end = next_graph_index;
-                                                    range_modified = true;
+                                    TextMotion::BackwardCharacter => {
+                                        if let Some(prev_graph) = self.text.prev_grapheme_offset(self.index) {
+                                            tracing::debug!("{:?}", self.text.slice(prev_graph..self.index));
+                                            self.text.edit(prev_graph..self.index, "");
+                                            self.cursor_backward();
+                                        }
+                                    },
+                                    TextMotion::ForwardWordStart | TextMotion::ForwardWordEnd => {
+                                        if let Some(next_end) = self.text.next_word_end_offset(self.index) {
+                                            if let Some(after) = self.text.next_grapheme_offset(next_end) {
+                                                self.text.edit(self.index..after, "");
+                                            }
+                                        }
+                                    },
+                                    TextMotion::BackwardWordStart => {
+                                        if let Some(prev_start) = self.text.prev_word_start_offset(self.index) {
+                                            self.text.edit(prev_start..self.index, "");
+                                            self.set_cursor(Some(prev_start));
+                                        }
+                                    },
+                                    TextMotion::BackwardWordEnd => {
+                                        if let Some(prev_end) = self.text.prev_word_end_offset(self.index) {
+                                            self.text.edit(prev_end..self.index, "");
+                                            self.set_cursor(Some(prev_end));
+                                        }
+                                    },
+                                    TextMotion::ForwardToN => {
+                                        if let Some(grapheme) = text_action.character_string.clone() {
+                                            if let Some(occurrence) = self.text.next_occurrence(self.index, grapheme) {
+                                                self.text.edit(self.index..occurrence, "");
+                                            }
+                                        }
+                                    },
+                                    TextMotion::BackwardToN => {
+                                        if let Some(grapheme) = text_action.character_string.clone() {
+                                            if let Some(occurrence) = self.text.prev_occurrence(self.index, grapheme) {
+                                                if let Some(next_graph) = self.text.next_grapheme_offset(occurrence) {
+                                                    self.text.edit(next_graph..self.index, "");
+                                                    self.set_cursor(Some(next_graph));
                                                 }
                                             }
                                         }
-                                        if !range_modified {
-                                            if let Some(prev_graph_index) = self.text.prev_grapheme_offset(range.start) {
-                                                if let Some(prev_graph) = self.text.slice(prev_graph_index..range.start) {
-                                                    if prev_graph.contains(char::is_whitespace) {
-                                                        range.start = prev_graph_index;
-                                                        range_modified = true;
-                                                    }
+                                    },
+                                    TextMotion::ForwardWithN => {
+                                        if let Some(grapheme) = text_action.character_string.clone() {
+                                            if let Some(occurrence) = self.text.next_occurrence(self.index, grapheme) {
+                                                if let Some(next_graph) = self.text.next_grapheme_offset(occurrence) {
+                                                    self.text.edit(self.index..next_graph, "");
                                                 }
                                             }
                                         }
-                                        self.text.edit(range.clone(), "");
-                                        self.index = range.start;
-                                    }
-                                    _ => ()
+                                    },
+                                    TextMotion::BackwardWithN => {
+                                        if let Some(grapheme) = text_action.character_string.clone() {
+                                            if let Some(occurrence) = self.text.prev_occurrence(self.index, grapheme) {
+                                                self.text.edit(occurrence..self.index, "");
+                                                self.set_cursor(Some(occurrence));
+                                            }
+                                        }
+                                    },
                                 }
                             }
                         },
                         TextOperation::None => {
                             if let Some(motion) = &text_action.text_motion {
-                                // tracing::debug!("{:?}", motion);
                                 match motion {
                                     TextMotion::ForwardCharacter => {
                                         self.cursor_forward();
@@ -247,26 +301,26 @@ impl<'a> VMTextInput {
                                         self.set_cursor(self.text.prev_word_end_offset(self.index));
                                     },
                                     TextMotion::ForwardToN => {
-                                        if let Some(grapheme) = text_action.target_string.clone() {
+                                        if let Some(grapheme) = text_action.character_string.clone() {
                                             if let Some(occurrence) = self.text.next_occurrence(self.index, grapheme) {
                                                 self.set_cursor(self.text.prev_grapheme_offset(occurrence));
                                             }
                                         }
                                     },
                                     TextMotion::BackwardToN => {
-                                        if let Some(grapheme) = text_action.target_string.clone() {
+                                        if let Some(grapheme) = text_action.character_string.clone() {
                                             if let Some(occurrence) = self.text.prev_occurrence(self.index, grapheme) {
                                                 self.set_cursor(self.text.next_grapheme_offset(occurrence));
                                             }
                                         }
                                     },
                                     TextMotion::ForwardWithN => {
-                                        if let Some(grapheme) = text_action.target_string.clone() {
+                                        if let Some(grapheme) = text_action.character_string.clone() {
                                             self.set_cursor(self.text.next_occurrence(self.index, grapheme));
                                         }
                                     },
                                     TextMotion::BackwardWithN => {
-                                        if let Some(grapheme) = text_action.target_string.clone() {
+                                        if let Some(grapheme) = text_action.character_string.clone() {
                                             self.set_cursor(self.text.prev_occurrence(self.index, grapheme));
                                         }
                                     },
@@ -299,8 +353,8 @@ impl<'a> VMTextInput {
             Action::ChangeWithNthCharacter |
             _ => ()
         }
-        if (self.mode == KeybindMode::EditBrowse ||
-            self.mode == KeybindMode::EditVisual) && self.index == self.text.len() {
+        if (self.mode == KeybindMode::Edit ||
+            self.mode == KeybindMode::Visual) && self.index == self.text.len() {
                 self.cursor_backward();
             } 
         ctx.request_layout();
@@ -310,7 +364,7 @@ impl<'a> VMTextInput {
 
     pub fn cursor_forward(&mut self) -> Result<(), ()> {
         if let Some(new_index) = self.text.next_grapheme_offset(self.index) { 
-            if self.mode == KeybindMode::EditBrowse || self.mode == KeybindMode::EditVisual {
+            if self.mode == KeybindMode::Edit || self.mode == KeybindMode::Visual {
                 if let Some(_) = self.text.next_grapheme_offset(new_index) {
                     self.index = new_index; 
                     return Ok(());
@@ -443,17 +497,17 @@ impl<'a> VMTextInput {
 
     pub fn set_keybind_mode(&mut self, mode: KeybindMode) {
         match mode {
-            KeybindMode::Edit => {
+            KeybindMode::Insert => {
                 self.visual_anchor = None;
             }
-            KeybindMode::EditBrowse => {
+            KeybindMode::Edit => {
                 self.visual_anchor = None;
                 if let Some(_) = self.text.next_grapheme_offset(self.index) {
                 } else {
                     self.cursor_backward();
                 }
             },
-            KeybindMode::EditVisual => {
+            KeybindMode::Visual => {
                 self.visual_anchor = Some(self.index);
             }
             _ => ()
@@ -483,9 +537,9 @@ impl<'a> VMTextInput {
         if let Some(layout) = &self.text_layout {
             for rect in 
                 match self.mode {
-                    KeybindMode::Edit => { self.get_line_cursor_bounds(self.index) },
-                    KeybindMode::EditBrowse => { self.get_block_cursor_bounds(self.index) },
-                    KeybindMode::EditVisual => { self.get_block_cursor_bounds(self.index) },
+                    KeybindMode::Insert => { self.get_line_cursor_bounds(self.index) },
+                    KeybindMode::Edit => { self.get_block_cursor_bounds(self.index) },
+                    KeybindMode::Visual => { self.get_block_cursor_bounds(self.index) },
                     _ => { vec![] },
                 } {
                 ctx.fill(

@@ -962,7 +962,7 @@ impl<'a> VimMapper {
                             self.cycle_target_forward();
                         }
                     },
-                    Some(KeybindMode::EditBrowse) | Some(KeybindMode::Edit) | Some(KeybindMode::EditVisual) => {
+                    Some(KeybindMode::Edit) | Some(KeybindMode::Insert) | Some(KeybindMode::Visual) => {
                         if let Some(active_node) = self.nodes.get(&self.get_active_node_idx().unwrap()) {
                             self.input_manager.text_input.text = active_node.label.clone();
                         }
@@ -996,7 +996,7 @@ impl<'a> VimMapper {
                 if let Some(idx) = self.get_active_node_idx() {
                     if let Some(new_idx) = self.add_node(idx, format!("")) {
                         self.set_node_as_active(new_idx);
-                        self.input_manager.set_keybind_mode(KeybindMode::Edit);
+                        self.input_manager.set_keybind_mode(KeybindMode::Insert);
                         self.input_manager.text_input.text = self.nodes.get(&new_idx).unwrap().label.clone();
                         self.input_manager.text_input.curosr_to_start();
                     }
@@ -1022,7 +1022,7 @@ impl<'a> VimMapper {
             },
             Action::EditActiveNodeSelectAll => {
                 if let Some(idx) = self.get_active_node_idx() {
-                    self.input_manager.set_keybind_mode(KeybindMode::EditBrowse);
+                    self.input_manager.set_keybind_mode(KeybindMode::Edit);
                     self.input_manager.text_input.text = self.nodes.get(&idx).unwrap().label.clone();
                     self.input_manager.text_input.cursor_to_end();
                 }
@@ -1030,7 +1030,7 @@ impl<'a> VimMapper {
             },
             Action::EditActiveNodeInsert => {
                 if let Some(idx) = self.get_active_node_idx() {
-                    self.input_manager.set_keybind_mode(KeybindMode::Edit);
+                    self.input_manager.set_keybind_mode(KeybindMode::Insert);
                     self.input_manager.text_input.text = self.nodes.get(&idx).unwrap().label.clone();
                     self.input_manager.text_input.curosr_to_start();
                 }
@@ -1038,7 +1038,7 @@ impl<'a> VimMapper {
             },
             Action::EditActiveNodeAppend => {
                 if let Some(idx) = self.get_active_node_idx() {
-                    self.input_manager.set_keybind_mode(KeybindMode::Edit);
+                    self.input_manager.set_keybind_mode(KeybindMode::Insert);
                     self.input_manager.text_input.text = self.nodes.get(&idx).unwrap().label.clone();
                     self.input_manager.text_input.cursor_to_end();
                 }
@@ -1585,7 +1585,7 @@ impl Widget<()> for VimMapper {
                         0,
                         &self.graph,
                         enabled,
-                        if self.input_manager.get_keybind_mode() != KeybindMode::Edit && self.input_manager.get_keybind_mode() != KeybindMode::EditBrowse {
+                        if self.input_manager.get_keybind_mode() != KeybindMode::Insert && self.input_manager.get_keybind_mode() != KeybindMode::Edit {
                             if enabled {&self.enabled_layouts[&node.fg_index.unwrap()]} else {&self.disabled_layouts[&node.fg_index.unwrap()]}
                         } else {
                             &self.input_manager.text_input.text_layout.as_ref().unwrap()
@@ -1599,9 +1599,9 @@ impl Widget<()> for VimMapper {
             
 
             //Render input label and cursor boxes if necessary
-            if self.input_manager.get_keybind_mode() == KeybindMode::Edit || 
-                self.input_manager.get_keybind_mode() == KeybindMode::EditBrowse || 
-                self.input_manager.get_keybind_mode() == KeybindMode::EditVisual {
+            if self.input_manager.get_keybind_mode() == KeybindMode::Insert || 
+                self.input_manager.get_keybind_mode() == KeybindMode::Edit || 
+                self.input_manager.get_keybind_mode() == KeybindMode::Visual {
                 ctx.with_save(|ctx| {
                     let mut label_size = self.input_manager.text_input.text_layout.as_ref().unwrap().size();
                     if label_size.width < DEFAULT_MIN_NODE_WIDTH_DATA {

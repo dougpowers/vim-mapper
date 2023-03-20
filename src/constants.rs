@@ -60,7 +60,7 @@ pub const DEFAULT_NODE_MOVE_AMOUNT_LARGE: f64 = 100.;
 pub const NODE_LABEL_MAX_CONSTRAINTS: (f64, f64) = (200., 115.);
 pub const BADGE_BORDER_INFLATION_AMOUNT: f64 = 3.;
 
-const ACCEPTED_DELIMITERS: [(&'static str, &'static str); 6] = [
+pub const ACCEPTED_DELIMITERS: [(&'static str, &'static str); 6] = [
     (r#"""#, r#"""#), 
     (r"'", r"'"), 
     (r"[", r"]"), 

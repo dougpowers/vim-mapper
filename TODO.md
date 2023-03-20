@@ -20,3 +20,6 @@
 - [ ] Implement context menu for node operations via mouse
     - [ ] Implement mouse node dragging
 - [ ] Zoom from center point rather than origin
+
+## Minor tasks
+- [ ] Rewrite Delete/Change OuterN to delete empty pairs
