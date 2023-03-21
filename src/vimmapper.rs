@@ -1272,17 +1272,10 @@ impl<'a> VimMapper {
                 }
                 return Ok(());
             },
-            Action::Delete |
-            Action::DeleteWord |
-            Action::DeleteToNthCharacter |
-            Action::DeleteWithNthCharacter |
-            Action::Change |
-            Action::ChangeWord |
-            Action::ChangeToNthCharacter |
-            Action::ChangeWithNthCharacter |
-            Action::DeleteBackspace |
             Action::ExecuteTextAction |
-            Action::DeleteForward |
+            Action::InsertCharacterUnconfirmed |
+            Action::ConfirmInserts |
+            Action::RollBackInserts |
             Action::InsertCharacter => {
                 let ret = self.input_manager.text_input.handle_action(ctx, payload);
                 if let Some(active_idx) = self.get_active_node_idx() {

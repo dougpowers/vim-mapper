@@ -1,4 +1,5 @@
-## Major Tasks
+## Current Tasks
+### Major
 - [x] Implement one input manager per tab
 - [x] Implement sheets in tabs
     - [x] Implement dedicated colors for active, inactive tabs and active tab indicator
@@ -9,17 +10,26 @@
     - [x] Implement tab deletion via VMDialog
 - [x] Implement saving multiple sheets per file
     - [x] Implement importing VMSaveVersion into single-tab VMSaveVersion5
-- [ ] Implement custom text entry with vim-like bindings
+- [x] Implement custom text entry with vim-like bindings
     - [x] Implement UnicodeSegmentation-based iteration
 - [x] Move VMTextInput from VimMapper member to VMInputManager member
 - [x] Change regex keybinds to straight string rebinds
-- [ ] Add string keybind functionality to KeybindMode::Edit
+- [x] Add string keybind functionality to KeybindMode::Edit
 - [ ] Implement cross-tab cut/paste registers 
-- [ ] Implement :commands
 - [ ] Remove and replace mouse logic
 - [ ] Implement context menu for node operations via mouse
     - [ ] Implement mouse node dragging
 - [ ] Zoom from center point rather than origin
 
-## Minor tasks
+### Minor
+- [x] Fix partial matches being falsely reported
+- [ ] Reposition mode indicators, prompts, and input
+
+## Deferred Tasks
+### Major
+- [ ] Implement global and local counts
+- [ ] Implement visual mode
+- [ ] Implement :commands
+
+### Minor
 - [ ] Rewrite Delete/Change OuterN to delete empty pairs

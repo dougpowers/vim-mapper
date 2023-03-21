@@ -867,9 +867,9 @@ impl Widget<AppState> for VMCanvas {
                     im = &mut tab.vm.widget_mut().input_manager;
                 }
                 if Some(*token) == im.get_timeout_revert_token() {
-                    im.revert_timeout();
+                    im.revert_timeout(ctx);
                 } else if Some(*token) == im.get_timeout_build_token() {
-                    im.build_timeout();
+                    im.build_timeout(ctx);
                 }
             }
             Event::WindowConnected => {

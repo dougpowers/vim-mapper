@@ -25,6 +25,7 @@ pub struct VMTextInput {
     pub(crate) text: String,
     index: usize,
     visual_anchor: Option<usize>,
+    unconfirmed_range: Option<Range<usize>>,
     pub(crate) text_layout: Option<PietTextLayout>,
     pub(crate) mode: KeybindMode,
 }
@@ -115,16 +116,14 @@ impl VMTextSearch for String {
     }
 
     fn prev_occurrence(&self, index: usize, grapheme: String) -> Option<usize> {
-        // if let Some(prev_index) = self.prev_grapheme_offset(index) {
-            if let Some(slice) = self.slice(0..index) {
-                let mut graphemes = slice.grapheme_indices(true);
-                while let Some((i, graph)) = graphemes.next_back() {
-                    if graph == grapheme { 
-                        return Some(i); 
-                    }
+        if let Some(slice) = self.slice(0..index) {
+            let mut graphemes = slice.grapheme_indices(true);
+            while let Some((i, graph)) = graphemes.next_back() {
+                if graph == grapheme { 
+                    return Some(i); 
                 }
             }
-        // }
+        }
         return None;
     }
 }
@@ -137,6 +136,7 @@ impl<'a> VMTextInput {
             text,
             index: 0,
             visual_anchor: None,
+            unconfirmed_range: None,
             text_layout: None,
             mode: KeybindMode::Edit,
         }
@@ -218,9 +218,8 @@ impl<'a> VMTextInput {
                                     },
                                     TextMotion::BackwardCharacter => {
                                         if let Some(prev_graph) = self.text.prev_grapheme_offset(self.index) {
-                                            tracing::debug!("{:?}", self.text.slice(prev_graph..self.index));
                                             self.text.edit(prev_graph..self.index, "");
-                                            self.cursor_backward();
+                                            self.set_cursor(Some(prev_graph));
                                         }
                                     },
                                     TextMotion::ForwardWordStart | TextMotion::ForwardWordEnd => {
@@ -327,30 +326,40 @@ impl<'a> VMTextInput {
                                 }
                             }
                         }
+                        TextOperation::ReplaceText => {
+                            if let Some(text) = &text_action.character_string {
+                                if let Some(next_graph) = self.text.next_grapheme_offset(self.index) {
+                                    self.text.edit(self.index..next_graph, text);
+                                }
+                            }
+                        },
                     }
                 }
             },
             Action::InsertCharacter => {
-                self.insert_character(payload.string.clone().unwrap());
+                self.text.insert_str(self.index, &payload.string.clone().unwrap());
+                self.index = self.text.next_grapheme_offset(self.index).unwrap();
             },
-            Action::DeleteBackspace => {
-                if let Ok(_) = self.cursor_backward() {
-                    self.delete_character();
+            Action::InsertCharacterUnconfirmed => {
+                self.text.insert_str(self.index, &payload.string.clone().unwrap());
+                let next = self.text.next_grapheme_offset(self.index).unwrap();
+                if let Some(range) = &mut self.unconfirmed_range {
+                    range.end = next;
+                } else {
+                    self.unconfirmed_range = Some(self.index..next);
                 }
+                self.index = next;
             },
-            Action::DeleteForward => {
-                self.delete_character();
+            Action::ConfirmInserts => {
+                self.unconfirmed_range = None;
             },
-            Action::DeleteWord => {
-                let range = self.text.current_word_bounds(self.index);
-                self.text.edit(range.clone(), "");
-                self.index = range.start;
-            },
-            Action::ChangeWord |
-            Action::DeleteToNthCharacter |
-            Action::DeleteWithNthCharacter |
-            Action::ChangeToNthCharacter |
-            Action::ChangeWithNthCharacter |
+            Action::RollBackInserts => {
+                if let Some(range) = &self.unconfirmed_range {
+                    self.text.edit(range.clone(), "");
+                    self.set_cursor(Some(range.start));
+                }
+                self.unconfirmed_range = None;
+            }
             _ => ()
         }
         if (self.mode == KeybindMode::Edit ||
@@ -382,7 +391,8 @@ impl<'a> VMTextInput {
 
     pub fn cursor_backward(&mut self) -> Result<(), ()> {
         if let Some(new_index) = self.text.prev_grapheme_offset(self.index) { 
-            self.index = new_index; return Ok(());
+            self.index = new_index; 
+            return Ok(());
         } else {
             return Err(());
         }
@@ -414,8 +424,6 @@ impl<'a> VMTextInput {
     }
 
     pub fn insert_character(&mut self, string: String) {
-        self.text.insert_str(self.index, string.as_str());
-        self.index = self.text.next_grapheme_offset(self.index).unwrap();
     }
 
     pub fn get_block_cursor_bounds(&self, index: usize) -> Vec<Rect> {

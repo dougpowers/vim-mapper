@@ -14,7 +14,7 @@
 
 use std::{path::PathBuf};
 
-use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, RawMods, Data, text::EditableText};
+use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, RawMods, Data, text::EditableText, Target, Command};
 use unicode_segmentation::UnicodeSegmentation;
 use crate::{constants::*, vmsave::VMSaveState, vmdialog::VMDialogParams, vmtextinput::VMTextInput};
 
@@ -66,22 +66,11 @@ pub enum Action {
     ZoomOut,
     ZoomIn,
     InsertCharacter,
+    InsertCharacterUnconfirmed,
+    ConfirmInserts,
+    RollBackInserts,
     Highlight,
     ExecuteTextAction,
-    Delete,
-    DeleteBackspace,
-    DeleteForward,
-    DeleteWord,
-    DeleteToNthCharacter,
-    DeleteWithNthCharacter,
-    ChangeWordWithWhitespace,
-    Change,
-    ChangeWord,
-    ChangeToNthCharacter,
-    ChangeWithNthCharacter,
-    SetCursortStyleBlock,
-    SetCursortStyleLine,
-    SetCursortStyleNone,
     AcceptNodeText,
     ToggleColorScheme,
     ToggleDebug,
@@ -107,6 +96,7 @@ pub enum TextObj {
     Inner(String),
     Outer(String),
     Sentence,
+    None,
 }
 
 
@@ -131,6 +121,7 @@ pub enum TextOperation {
     None,
     DeleteText,
     ChangeText,
+    ReplaceText,
 }
 
 #[allow(dead_code)]
@@ -238,7 +229,7 @@ impl Default for Keybind {
             key: None,
             string: None,
             modifiers: None,
-            action_payloads: vec![None],
+            action_payloads: vec![],
             operation: None,
             motion: None,
             next: None,
@@ -269,6 +260,7 @@ pub struct VMInputManager {
     outer_count: String,
     accepts_outer_count: Option<bool>,
     operation: Option<TextOperation>,
+    payloads: Option<Vec<Option<ActionPayload>>>,
     inner_count: String,
     accepts_inner_count: Option<bool>,
     target_string: String,
@@ -293,6 +285,7 @@ impl Default for VMInputManager {
             outer_count: String::new(),
             accepts_outer_count: None,
             operation: None,
+            payloads: None,
             inner_count: String::new(),
             accepts_inner_count: None,
             target_string: String::new(),
@@ -523,18 +516,6 @@ impl Default for VMInputManager {
                         ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::Insert),
-                            ..Default::default()
-                    })],
-                    mode: KeybindMode::Edit,
-					..Default::default()
-                },
-                Keybind { 
-                    kb_type: KeybindType::Key, 
-                    key: Some(Key::Character(String::from("x"))),
-                    modifiers: None, 
-                    action_payloads: vec![Some(
-                        ActionPayload {
-                            action: Action::DeleteForward,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Edit,
@@ -1243,6 +1224,51 @@ impl Default for VMInputManager {
                     mode: KeybindMode::Edit,
                     ..Default::default()
                 },
+                Keybind {
+                    kb_type: KeybindType::String,
+                    string: Some("x".to_string()),
+                    operation: Some(TextOperation::DeleteText),
+                    motion: Some(TextMotion::ForwardCharacter),
+                    accepts_outer_count: Some(true),
+                    accepts_inner_count: Some(false),
+                    next: Some(BuildState::Complete),
+                    mode: KeybindMode::Edit,
+                    ..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::String,
+                    string: Some("r".to_string()),
+                    operation: Some(TextOperation::ReplaceText),
+                    accepts_outer_count: Some(true),
+                    accepts_inner_count: Some(false),
+                    next: Some(BuildState::AwaitCharacter),
+                    mode: KeybindMode::Edit,
+                    ..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::String,
+                    string: Some("j".to_string()),
+                    operation: Some(TextOperation::None),
+                    accepts_outer_count: Some(false),
+                    accepts_inner_count: Some(false),
+                    next: Some(BuildState::AwaitTarget),
+                    mode: KeybindMode::Insert,
+                    ..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::String,
+                    string: Some("j".to_string()),
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Edit),
+                            ..Default::default()
+                        }
+                    )],
+                    next: Some(BuildState::Complete),
+                    mode: KeybindMode::Insert,
+                    ..Default::default()
+                },
             ],
         };
 
@@ -1391,7 +1417,7 @@ impl VMInputManager {
                                     self.text_motion = keybind.motion.clone();
                                     self.operation = Some(operation);
                                     if Some(BuildState::Complete) == keybind.next {
-                                        return Some(Ok(self.build_payload()));
+                                        return Some(Ok(self.build_text_action()));
                                     } else if let Some(state) = keybind.next {
                                         self.build_state = state;
                                     } else if Some(true) == self.accepts_inner_count {
@@ -1406,42 +1432,52 @@ impl VMInputManager {
             }
         } else if self.build_state == BuildState::AwaitTarget {
             self.target_string += &string;
-            let mut partial = false;
+            let mut partial_count: usize = 0;
             for keybind in &self.string_keybind_cache {
                 if keybind.mode == self.mode {
                     if let Some(k_string) = keybind.string.clone() {
-                        if keybind.obj.is_some() || keybind.motion.is_some() {
+                        if keybind.obj.is_some() || keybind.motion.is_some() || keybind.action_payloads.len() > 0 {
+                            tracing::debug!("{:?} {:?} {:?}", keybind.obj, keybind.motion, keybind.action_payloads);
                             let k_graphs = k_string.graphemes(true).collect::<Vec<&str>>();
                             let s_graphs = self.target_string.graphemes(true).collect::<Vec<&str>>();
-                            for s_i in 0..s_graphs.len() {
-                                if Some(s_graphs[s_i]) == k_graphs.get(s_i).copied() {
-                                    partial = true;
-                                    if s_i == k_graphs.len()-1 {
-                                        tracing::debug!("full match {} with {}", self.target_string, k_string);
-                                        if let Some(outer_accepted) = keybind.accepts_outer_count {
-                                            self.accepts_outer_count = Some(outer_accepted);
+                            let mut partial = false;
+                            for k_i in 0..k_graphs.len() {
+                                if let Some(s_graph) = s_graphs.get(k_i) {
+                                    if Some(k_graphs[k_i]) == Some(s_graph) {
+                                        partial = true;
+                                        if k_i == k_graphs.len()-1 {
+                                            tracing::debug!("full match {} with {}", self.target_string, k_string);
+                                            if let Some(outer_accepted) = keybind.accepts_outer_count {
+                                                self.accepts_outer_count = Some(outer_accepted);
+                                            }
+                                            if let Some(inner_accepted) = keybind.accepts_inner_count {
+                                                self.accepts_inner_count = Some(inner_accepted);
+                                            }
+                                            if let Some(motion) = keybind.motion.clone() {
+                                                self.text_motion = Some(motion);
+                                            } else if let Some(object) = keybind.obj.clone() {
+                                                self.text_obj = Some(object);
+                                            } else if keybind.action_payloads.len() > 0 {
+                                                self.payloads = Some(keybind.action_payloads.clone());
+                                            }
+                                            if Some(BuildState::Complete) == keybind.next {
+                                                tracing::debug!("Complete match");
+                                                return Some(Ok(self.build_text_action()));
+                                            } else if let Some(next_state) = keybind.next {
+                                                self.build_state = next_state;
+                                                return None;
+                                            } else {
+                                                return Some(Ok(self.build_text_action()));
+                                            }
                                         }
-                                        if let Some(inner_accepted) = keybind.accepts_inner_count {
-                                            self.accepts_inner_count = Some(inner_accepted);
-                                        }
-                                        if let Some(motion) = keybind.motion.clone() {
-                                            self.text_motion = Some(motion);
-                                        } else if let Some(object) = keybind.obj.clone() {
-                                            self.text_obj = Some(object);
-                                        }
-                                        if Some(BuildState::Complete) == keybind.next {
-                                            return Some(Ok(self.build_payload()));
-                                        } else if let Some(next_state) = keybind.next {
-                                            self.build_state = next_state;
-                                            return None;
-                                        } else {
-                                            return Some(Ok(self.build_payload()));
-                                        }
+                                    } else {
+                                        break;
                                     }
+                                } else {
+                                    partial_count += 1;
                                     if partial {
                                         tracing::debug!("partial match {} with {}", self.target_string, k_string);
                                     }
-                                } else {
                                     break;
                                 }
                             }
@@ -1449,19 +1485,20 @@ impl VMInputManager {
                     }
                 }
             }
-            if partial {
+            if partial_count > 0 {
+                tracing::debug!("indicates there are still partial matches");
                 return None;
             }
         } else if self.build_state == BuildState::AwaitCharacter {
             self.character_string = string;
-            return Some(Ok(self.build_payload()));
+            return Some(Ok(self.build_text_action()));
         } else if self.build_state == BuildState::Complete {
-            return Some(Ok(self.build_payload()));
+            return Some(Ok(self.build_text_action()));
         }
         return Some(Err(()));
     }
 
-    fn build_payload(&mut self) -> Vec<Option<ActionPayload>> {
+    fn build_text_action(&mut self) -> Vec<Option<ActionPayload>> {
         let mut payload = ActionPayload {
             ..Default::default()
         };
@@ -1527,6 +1564,25 @@ impl VMInputManager {
                     self.clear_build();
                     return vec![Some(payload)];
                 },
+                TextOperation::ReplaceText => {
+                    payload.action = Action::ExecuteTextAction;
+                    text_action.operation = TextOperation::ReplaceText;
+
+                    if self.character_string.len() > 0 {
+                        text_action.character_string = Some(self.character_string.clone());
+                    }
+
+                    if self.inner_count.len() > 0 && Some(true) == self.accepts_inner_count {
+                        text_action.inner_count = Some(self.inner_count.parse::<usize>().unwrap());
+                    }
+
+                    if Some(true) == self.accepts_outer_count && self.outer_count.len() > 0 {
+                        text_action.outer_count = Some(self.outer_count.parse::<usize>().unwrap());
+                    }
+                    payload.text_action = Some(text_action);
+                    self.clear_build();
+                    return vec![Some(payload)];
+                },
                 TextOperation::None => {
                     if let Some(motion) = &self.text_motion {
                         payload.action = Action::ExecuteTextAction;
@@ -1548,6 +1604,8 @@ impl VMInputManager {
                         payload.text_action = Some(text_action);
                         self.clear_build();
                         return vec![Some(payload)]
+                    } else if let Some(payloads) = &self.payloads {
+                        return payloads.clone();
                     }
                 }
             }
@@ -1730,23 +1788,64 @@ impl VMInputManager {
             KeybindMode::Insert => {
                 match key_event.key {
                     Key::Character(character) => {
-                        return vec![Some(ActionPayload {
-                            action: Action::InsertCharacter,
-                            string: Some(character),
-                            ..Default::default() 
-                        })]
-                    },
+                        self.input_string += &character;
+                        let ret = self.build_keybind_string(character.clone());
+                        if let Some(Ok(mut payloads)) = ret {
+                            self.clear_build();
+                            payloads.push(Some(ActionPayload {
+                                action: Action::RollBackInserts,
+                                ..Default::default()
+                            }));
+                            return payloads;
+                        } else if let None = ret {
+                            self.set_new_build_timeout(ctx);
+                            return vec![Some(ActionPayload {
+                                action: Action::InsertCharacterUnconfirmed,
+                                string: Some(character),
+                                ..Default::default()
+                            })];
+                        } else if let Some(Err(_)) = ret {
+                            self.clear_build();
+                            return vec![
+                                Some(ActionPayload {
+                                    action: Action::ConfirmInserts,
+                                    ..Default::default()
+                                }),
+                                Some(ActionPayload {
+                                    action: Action::InsertCharacter,
+                                    string: Some(character),
+                                    ..Default::default()
+                                })
+                            ];
+                        } else {
+                            return vec![None];
+                        }
+                    }
                     Key::Backspace => {
-                        return vec![Some(ActionPayload {
-                            action: Action::DeleteBackspace,
+                        return vec![
+                            Some(ActionPayload {
+                            action: Action::ExecuteTextAction,
+                            text_action: Some(TextAction {
+                                    operation: TextOperation::DeleteText,
+                                    text_motion: Some(TextMotion::BackwardCharacter),
+                                    ..Default::default()
+                                }),
                             ..Default::default()
-                        })]
+                            }),
+                        ]
                     },
                     Key::Delete => {
-                        return vec![Some(ActionPayload {
-                            action: Action::DeleteForward,
+                        return vec![
+                            Some(ActionPayload {
+                            action: Action::ExecuteTextAction,
+                            text_action: Some(TextAction {
+                                    operation: TextOperation::DeleteText,
+                                    text_motion: Some(TextMotion::ForwardCharacter),
+                                    ..Default::default()
+                                }),
                             ..Default::default()
-                        })]
+                            }),
+                        ]
                     },
                     Key::Enter => {
                         return vec![Some(ActionPayload {
@@ -1809,7 +1908,6 @@ impl VMInputManager {
             KeybindMode::Edit => {
                 match &key_event.key {
                     Key::Character(character) => {
-                        // self.set_new_build_timeout(ctx);
                         self.input_string += &character;
                         let ret = self.build_keybind_string(character.clone());
                         if let Some(Ok(payloads)) = ret {
@@ -1817,6 +1915,11 @@ impl VMInputManager {
                         } else if let None = ret {
                             return vec![None];
                         } else if let Some(Err(_)) = ret {
+                            self.clear_build();
+                            if self.input_string.len() >= 1 {
+                                self.clear_build();
+                                return vec![None];
+                            }
                         }
                     }
                     Key::Escape => {
@@ -1991,6 +2094,7 @@ impl VMInputManager {
 
     pub fn clear_build(&mut self) {
         self.input_string = String::new();
+        self.payloads = None;
         self.build_state = BuildState::AwaitOuterCount;
         self.target_string = String::new();
         self.outer_count = String::new();
@@ -2031,7 +2135,7 @@ impl VMInputManager {
         }
     }
 
-    pub fn revert_timeout(&mut self) {
+    pub fn revert_timeout(&mut self, ctx: &mut EventCtx) {
         self.clear_build();
         if let Some(mode) = &self.timeout_revert_mode {
             self.set_keybind_mode((*mode).clone());
@@ -2039,8 +2143,16 @@ impl VMInputManager {
         }
     }
 
-    pub fn build_timeout(&mut self) {
+    pub fn build_timeout(&mut self, ctx: &mut EventCtx) {
         self.clear_build();
+        ctx.submit_command(
+            Command::new(EXECUTE_ACTION, 
+                ActionPayload {
+                    action: Action::ConfirmInserts,
+                    ..Default::default()
+                },
+                Target::Global,
+        ));
     }
 
     pub fn get_keybind_mode(&self) -> KeybindMode {
