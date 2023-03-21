@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![allow(dead_code)]
 
 use std::{path::PathBuf};
 
@@ -2135,7 +2136,7 @@ impl VMInputManager {
         }
     }
 
-    pub fn revert_timeout(&mut self, ctx: &mut EventCtx) {
+    pub fn revert_timeout(&mut self, _ctx: &mut EventCtx) {
         self.clear_build();
         if let Some(mode) = &self.timeout_revert_mode {
             self.set_keybind_mode((*mode).clone());

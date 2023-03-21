@@ -16,7 +16,7 @@ use std::ops::Range;
 
 use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size, text::{EditableText}, Color};
 
-use crate::{vminput::{ActionPayload, Action, KeybindMode, TextAction, TextOperation, TextObj, TextMotion}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH}, vimmapper::VimMapper};
+use crate::{vminput::{ActionPayload, Action, KeybindMode, TextOperation, TextObj, TextMotion}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH}, vimmapper::VimMapper};
 
 use unicode_segmentation::*;
 
@@ -409,21 +409,6 @@ impl<'a> VMTextInput {
         } else {
             Err(())
         }
-    }
-
-    pub fn delete_character(&mut self) -> Result<(), ()> {
-        if self.text.next_grapheme_offset(self.index).is_some() {
-            self.text.edit(
-                self.index..self.text.next_grapheme_offset(self.index).unwrap(),
-                ""
-            );
-            return Ok(());
-        } else {
-            return Err(());
-        }
-    }
-
-    pub fn insert_character(&mut self, string: String) {
     }
 
     pub fn get_block_cursor_bounds(&self, index: usize) -> Vec<Rect> {

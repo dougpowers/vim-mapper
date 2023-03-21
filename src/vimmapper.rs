@@ -1392,16 +1392,16 @@ impl Widget<()> for VimMapper {
                 }
                 ctx.request_anim_frame();
             }
-            Event::Notification(note) if note.is(TAKEN_FOCUS) => {
-                ctx.set_handled();
-                ctx.request_anim_frame();
-            }
-            Event::Notification(note) if note.is(TAKE_FOCUS_SELECT_ALL) => {
-                // if !self.node_editor.is_visible {
-                //     self.node_editor.container.event(ctx, event, &mut self.node_editor.title_text, _env);
-                // }
-                ctx.request_anim_frame();
-            }
+            // Event::Notification(note) if note.is(TAKEN_FOCUS) => {
+            //     ctx.set_handled();
+            //     ctx.request_anim_frame();
+            // }
+            // Event::Notification(note) if note.is(TAKE_FOCUS_SELECT_ALL) => {
+            //     // if !self.node_editor.is_visible {
+            //     //     self.node_editor.container.event(ctx, event, &mut self.node_editor.title_text, _env);
+            //     // }
+            //     ctx.request_anim_frame();
+            // }
             Event::Command(note) if note.is(REFRESH) => {
                 self.invalidate_node_layouts();
                 ctx.request_update();
@@ -1435,8 +1435,6 @@ impl Widget<()> for VimMapper {
                 self.is_hot = *is_hot;
                 self.set_dragging(false, None);
             },
-            LifeCycle::FocusChanged(focused) => {
-            }
             _ => {
             }
         }

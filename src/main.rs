@@ -382,7 +382,6 @@ impl VMCanvas {
         }
         let tab = &mut self.tabs.get_mut(self.active_tab);
         if let Some(tab) = tab {
-            let inner = &mut tab.vm;
             if let Some(payload) = payload {
                 if payload.action != Action::ChangeModeWithTimeoutRevert {
                     // inner.widget_mut().input_manager.clear_timeout();
@@ -834,7 +833,6 @@ impl Widget<AppState> for VMCanvas {
                 if let Some(tab) = self.tabs.get_mut(self.active_tab) {
                     im = &mut tab.vm.widget_mut().input_manager;
                 }
-                let mode = im.get_keybind_mode();
                 let payloads = im.accept_key(key_event.clone(), ctx);
                 for payload in &payloads {
                     if self.dialog_visible 
