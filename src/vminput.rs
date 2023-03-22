@@ -17,6 +17,8 @@ use std::{path::PathBuf};
 
 use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, RawMods, Data, text::EditableText, Target, Command};
 use unicode_segmentation::UnicodeSegmentation;
+use bitflags::bitflags;
+
 use crate::{constants::*, vmsave::VMSaveState, vmdialog::VMDialogParams, vmtextinput::VMTextInput};
 
 #[allow(dead_code)]
@@ -114,6 +116,8 @@ pub enum TextMotion {
     BackwardToN,
     ForwardWithN,
     BackwardWithN,
+    BeginningLine,
+    EndLine,
 }
 
 #[allow(dead_code)]
@@ -164,6 +168,9 @@ pub enum KeybindMode {
     SearchedSheet,
     SearchEnter,
     Global,
+}
+
+bitflags! {
 }
 
 #[allow(dead_code)]
@@ -1172,6 +1179,28 @@ impl Default for VMInputManager {
                 },
                 Keybind {
                     kb_type: KeybindType::String,
+                    string: Some("$".to_string()),
+                    operation: Some(TextOperation::None),
+                    motion: Some(TextMotion::EndLine),
+                    accepts_outer_count: Some(true),
+                    accepts_inner_count: Some(false),
+                    next: Some(BuildState::Complete),
+                    mode: KeybindMode::Edit,
+                    ..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::String,
+                    string: Some("^".to_string()),
+                    operation: Some(TextOperation::None),
+                    motion: Some(TextMotion::BeginningLine),
+                    accepts_outer_count: Some(true),
+                    accepts_inner_count: Some(false),
+                    next: Some(BuildState::Complete),
+                    mode: KeybindMode::Edit,
+                    ..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::String,
                     string: Some(" ".to_string()),
                     operation: Some(TextOperation::None),
                     motion: Some(TextMotion::ForwardCharacter),
@@ -1412,7 +1441,7 @@ impl VMInputManager {
                         if let Some(operation) = keybind.operation {
                             if k_string.slice(0..k_string.next_grapheme_offset(0).unwrap()).unwrap() == string {
                                 if k_string == string {
-                                    tracing::debug!("matched {} with {}", string, k_string);
+                                    // tracing::debug!("matched {} with {}", string, k_string);
                                     self.accepts_outer_count = keybind.accepts_outer_count;
                                     self.accepts_inner_count = keybind.accepts_inner_count;
                                     self.text_motion = keybind.motion.clone();
@@ -1438,7 +1467,6 @@ impl VMInputManager {
                 if keybind.mode == self.mode {
                     if let Some(k_string) = keybind.string.clone() {
                         if keybind.obj.is_some() || keybind.motion.is_some() || keybind.action_payloads.len() > 0 {
-                            tracing::debug!("{:?} {:?} {:?}", keybind.obj, keybind.motion, keybind.action_payloads);
                             let k_graphs = k_string.graphemes(true).collect::<Vec<&str>>();
                             let s_graphs = self.target_string.graphemes(true).collect::<Vec<&str>>();
                             let mut partial = false;
@@ -1447,7 +1475,7 @@ impl VMInputManager {
                                     if Some(k_graphs[k_i]) == Some(s_graph) {
                                         partial = true;
                                         if k_i == k_graphs.len()-1 {
-                                            tracing::debug!("full match {} with {}", self.target_string, k_string);
+                                            // tracing::debug!("full match {} with {}", self.target_string, k_string);
                                             if let Some(outer_accepted) = keybind.accepts_outer_count {
                                                 self.accepts_outer_count = Some(outer_accepted);
                                             }
@@ -1462,7 +1490,7 @@ impl VMInputManager {
                                                 self.payloads = Some(keybind.action_payloads.clone());
                                             }
                                             if Some(BuildState::Complete) == keybind.next {
-                                                tracing::debug!("Complete match");
+                                                // tracing::debug!("Complete match");
                                                 return Some(Ok(self.build_text_action()));
                                             } else if let Some(next_state) = keybind.next {
                                                 self.build_state = next_state;
@@ -1477,7 +1505,7 @@ impl VMInputManager {
                                 } else {
                                     partial_count += 1;
                                     if partial {
-                                        tracing::debug!("partial match {} with {}", self.target_string, k_string);
+                                        // tracing::debug!("partial match {} with {}", self.target_string, k_string);
                                     }
                                     break;
                                 }
@@ -1487,7 +1515,7 @@ impl VMInputManager {
                 }
             }
             if partial_count > 0 {
-                tracing::debug!("indicates there are still partial matches");
+                // tracing::debug!("indicates there are still partial matches");
                 return None;
             }
         } else if self.build_state == BuildState::AwaitCharacter {

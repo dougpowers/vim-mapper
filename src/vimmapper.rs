@@ -1642,54 +1642,54 @@ impl Widget<()> for VimMapper {
         }
 
         //Paint debug dump
-        if self.debug_data {
-            if let Some(idx) = self.get_active_node_idx() {
-                ctx.with_save(|ctx| {
-                    ctx.transform(Affine::from(self.translate));
-                    ctx.transform(Affine::from(self.scale));
-                    let node_pos = self.get_node_pos(idx);
-                    ctx.transform(Affine::translate(node_pos));
-                    let line = Line::new(Point::ORIGIN, (Vec2::from_angle(self.last_traverse_angle)*100.).to_point());
-                    ctx.stroke(line, &Color::BLUE, 5.);
-                    let mut red = 60;
-                    for i in &self.target_node_list {
-                        let target_node_pos = self.get_node_pos(*i);
-                        let angle = Vec2::from_angle(Vec2::new(target_node_pos.x-node_pos.x, target_node_pos.y-node_pos.y).atan2());
-                        let offset = angle.dot(Vec2::from_angle(self.last_traverse_angle).normalize()).acos().abs();
-                        ctx.stroke(Line::new(Point::ORIGIN, (angle*150.).to_point()), &Color::rgb8(red, 0, 0), 5.);
-                        let text = ctx.text().new_text_layout(format!("{:.3}", offset)).text_color(Color::WHITE).build().unwrap();
-                        ctx.draw_text(&text, VEC_ORIGIN.lerp(angle*150., 0.5).to_point());
-                        red += 195/self.target_node_list.len() as u8;
-                    }
-                });
-                let active_fg_index = self.nodes.get(&idx).unwrap().fg_index.unwrap();
-                let component = self.graph.get_node_component(active_fg_index);
-                let current_root = self.root_nodes.get(&component).unwrap();
-                let text = format!(
-                        "Is Animating: {:?}\nLarget Node Movement: {:?}\nRoots: {:?}\nRemoval List: {:?}\nCurrent Component:{:?}", 
-                        self.animating,
-                        self.largest_node_movement,
-                        self.root_nodes,
-                        self.graph.get_node_removal_tree(active_fg_index, *current_root),
-                        component,
-                );
-                let layout = ctx.text().new_text_layout(text)
-                    .font(FontFamily::SANS_SERIF, 12.)
-                    .text_color(Color::RED)
-                    .max_width(ctx.size().width/1.3)
-                    .build();
+        // if self.debug_data {
+        //     if let Some(idx) = self.get_active_node_idx() {
+        //         ctx.with_save(|ctx| {
+        //             ctx.transform(Affine::from(self.translate));
+        //             ctx.transform(Affine::from(self.scale));
+        //             let node_pos = self.get_node_pos(idx);
+        //             ctx.transform(Affine::translate(node_pos));
+        //             let line = Line::new(Point::ORIGIN, (Vec2::from_angle(self.last_traverse_angle)*100.).to_point());
+        //             ctx.stroke(line, &Color::BLUE, 5.);
+        //             let mut red = 60;
+        //             for i in &self.target_node_list {
+        //                 let target_node_pos = self.get_node_pos(*i);
+        //                 let angle = Vec2::from_angle(Vec2::new(target_node_pos.x-node_pos.x, target_node_pos.y-node_pos.y).atan2());
+        //                 let offset = angle.dot(Vec2::from_angle(self.last_traverse_angle).normalize()).acos().abs();
+        //                 ctx.stroke(Line::new(Point::ORIGIN, (angle*150.).to_point()), &Color::rgb8(red, 0, 0), 5.);
+        //                 let text = ctx.text().new_text_layout(format!("{:.3}", offset)).text_color(Color::WHITE).build().unwrap();
+        //                 ctx.draw_text(&text, VEC_ORIGIN.lerp(angle*150., 0.5).to_point());
+        //                 red += 195/self.target_node_list.len() as u8;
+        //             }
+        //         });
+        //         let active_fg_index = self.nodes.get(&idx).unwrap().fg_index.unwrap();
+        //         let component = self.graph.get_node_component(active_fg_index);
+        //         let current_root = self.root_nodes.get(&component).unwrap();
+        //         let text = format!(
+        //                 "Is Animating: {:?}\nLarget Node Movement: {:?}\nRoots: {:?}\nRemoval List: {:?}\nCurrent Component:{:?}", 
+        //                 self.animating,
+        //                 self.largest_node_movement,
+        //                 self.root_nodes,
+        //                 self.graph.get_node_removal_tree(active_fg_index, *current_root),
+        //                 component,
+        //         );
+        //         let layout = ctx.text().new_text_layout(text)
+        //             .font(FontFamily::SANS_SERIF, 12.)
+        //             .text_color(Color::RED)
+        //             .max_width(ctx.size().width/1.3)
+        //             .build();
 
-                if let Ok(text) = layout {
-                    ctx.with_save(|ctx| {
-                        let canvas_size = ctx.size();
-                        let layout_size = text.size();
-                        let point = Point::new(canvas_size.width-layout_size.width-50., canvas_size.height-layout_size.height-50.);
-                        ctx.fill(Rect::new(point.x, point.y, point.x+layout_size.width, point.y+layout_size.height), &Color::rgba8(255,255,255,200));
-                        ctx.draw_text(&text, point);
-                    });
-                }
-            }
-        }
+        //         if let Ok(text) = layout {
+        //             ctx.with_save(|ctx| {
+        //                 let canvas_size = ctx.size();
+        //                 let layout_size = text.size();
+        //                 let point = Point::new(canvas_size.width-layout_size.width-50., canvas_size.height-layout_size.height-50.);
+        //                 ctx.fill(Rect::new(point.x, point.y, point.x+layout_size.width, point.y+layout_size.height), &Color::rgba8(255,255,255,200));
+        //                 ctx.draw_text(&text, point);
+        //             });
+        //         }
+        //     }
+        // }
     }
 }
 

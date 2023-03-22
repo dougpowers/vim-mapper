@@ -15,6 +15,8 @@
 - [x] Move VMTextInput from VimMapper member to VMInputManager member
 - [x] Change regex keybinds to straight string rebinds
 - [x] Add string keybind functionality to KeybindMode::Edit
+- [ ] Add functionality to split tree to external
+- [ ] Add functionality to split tree to new tab
 - [ ] Implement cross-tab cut/paste registers 
 - [ ] Remove and replace mouse logic
 - [ ] Implement context menu for node operations via mouse
@@ -23,6 +25,7 @@
 
 ### Minor
 - [x] Fix partial matches being falsely reported
+- [ ] Fix delete to end of word leaving cursor in the wrong position when word is at end of string
 - [ ] Reposition mode indicators, prompts, and input
 
 ## Deferred Tasks

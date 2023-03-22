@@ -14,7 +14,7 @@
 
 use std::ops::Range;
 
-use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size, text::{EditableText}, Color};
+use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size, text::{EditableText}, Color, FontFamily, Vec2, Affine};
 
 use crate::{vminput::{ActionPayload, Action, KeybindMode, TextOperation, TextObj, TextMotion}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH}, vimmapper::VimMapper};
 
@@ -226,6 +226,7 @@ impl<'a> VMTextInput {
                                         if let Some(next_end) = self.text.next_word_end_offset(self.index) {
                                             if let Some(after) = self.text.next_grapheme_offset(next_end) {
                                                 self.text.edit(self.index..after, "");
+                                                self.index = self.text.len();
                                             }
                                         }
                                     },
@@ -275,6 +276,13 @@ impl<'a> VMTextInput {
                                             }
                                         }
                                     },
+                                    TextMotion::BeginningLine => {
+                                        self.text.edit(0..self.index, "");
+                                        self.curosr_to_start();
+                                    },
+                                    TextMotion::EndLine => {
+                                        self.text.edit(self.index..self.text.len(), "");
+                                    }
                                 }
                             }
                         },
@@ -323,6 +331,12 @@ impl<'a> VMTextInput {
                                             self.set_cursor(self.text.prev_occurrence(self.index, grapheme));
                                         }
                                     },
+                                    TextMotion::BeginningLine => {
+                                        self.set_cursor(Some(0));
+                                    },
+                                    TextMotion::EndLine => {
+                                        self.set_cursor(Some(self.text.len()));
+                                    }
                                 }
                             }
                         }
@@ -363,7 +377,7 @@ impl<'a> VMTextInput {
             _ => ()
         }
         if (self.mode == KeybindMode::Edit ||
-            self.mode == KeybindMode::Visual) && self.index == self.text.len() {
+            self.mode == KeybindMode::Visual) && self.index == self.text.len() && change_mode != Some(KeybindMode::Insert) {
                 self.cursor_backward();
             } 
         ctx.request_layout();
@@ -411,72 +425,62 @@ impl<'a> VMTextInput {
         }
     }
 
-    pub fn get_block_cursor_bounds(&self, index: usize) -> Vec<Rect> {
+    pub fn get_block_cursor_bounds(&self, index: usize) -> Rect {
         if let Some(layout) = &self.text_layout {
             if self.text.is_empty() {
                 let metric = layout.line_metric(0).unwrap();
-                return vec![
-                    Rect::new(
+                    return Rect::new(
                         0.,
                         0.,
                         6.,
                         metric.height,
-                    )
-                ]
+                    );
             } else if let Some(next_index) = self.text.next_grapheme_offset(index) {
                 let rects = layout.rects_for_range(index..next_index);
-                return rects;
+                return rects[0];
             } else {
                 let rects = layout.rects_for_range(self.text.prev_grapheme_offset(index).unwrap()..index);
-                return vec![
-                    Rect::new(
+                    return Rect::new(
                         rects[0].x1,
                         rects[0].y0,
                         rects[0].x1+6.,
                         rects[0].y1,
-                    )
-                ]
+                    );
             }
         } else {
-            return vec![Rect::new(0.,0.,0.,0.)];
+            return Rect::new(0.,0.,0.,0.);
         }
     }
 
-    pub fn get_line_cursor_bounds(&self, index: usize) -> Vec<Rect> {
+    pub fn get_line_cursor_bounds(&self, index: usize) -> Rect {
         if let Some(layout) = &self.text_layout {
             if self.text.is_empty() {
                 let metric = layout.line_metric(0).unwrap();
-                return vec![
-                    Rect::new(
+                return Rect::new(
                         0.,
                         0.,
                         DEFUALT_TEXT_CURSOR_WIDTH,
                         metric.height,
-                    )
-                ]
+                    );
             } else if let Some(next_index) = self.text.next_grapheme_offset(index) {
                 let rects = layout.rects_for_range(index..next_index);
-                return vec![
-                    Rect::new(
+                return Rect::new(
                         rects[0].x0,
                         rects[0].y0,
                         rects[0].x0+DEFUALT_TEXT_CURSOR_WIDTH,
                         rects[0].y1,
-                    ),
-                ]
+                    );
             } else {
                 let rects = layout.rects_for_range(self.text.prev_grapheme_offset(index).unwrap()..index);
-                return vec![
-                    Rect::new(
+                return Rect::new(
                         rects[0].x1,
                         rects[0].y0,
                         rects[0].x1+DEFUALT_TEXT_CURSOR_WIDTH,
                         rects[0].y1,
-                    )
-                ]
+                    );
             }
         } else {
-            return vec![Rect::new(0.,0.,0.,0.)];
+            return Rect::new(0.,0.,0.,0.);
         }
     }
 
@@ -528,36 +532,44 @@ impl<'a> VMTextInput {
 
     pub fn paint(&mut self, ctx: &mut PaintCtx, config: &VMConfigVersion4, debug: bool) {
         if let Some(layout) = &self.text_layout {
-            for rect in 
-                match self.mode {
-                    KeybindMode::Insert => { self.get_line_cursor_bounds(self.index) },
-                    KeybindMode::Edit => { self.get_block_cursor_bounds(self.index) },
-                    KeybindMode::Visual => { self.get_block_cursor_bounds(self.index) },
-                    _ => { vec![] },
-                } {
-                ctx.fill(
-                    rect,
-                    &config.get_color(VMColor::TextCursorColor).unwrap()
-                )
-            }
+            let rect = match self.mode {
+                KeybindMode::Insert => { self.get_line_cursor_bounds(self.index) },
+                KeybindMode::Edit => { self.get_block_cursor_bounds(self.index) },
+                KeybindMode::Visual => { self.get_block_cursor_bounds(self.index) },
+                _ => { Rect::new(0.,0.,0.,0.) }
+            };
+            ctx.fill(
+                rect,
+                &config.get_color(VMColor::TextCursorColor).unwrap()
+            );
+
             if debug {
-                let mut index: usize = 0;
-                loop {
-                    if let Some(next_index) = self.text.next_word_offset(index) {
-                        index = next_index;
-                    } else {
-                        break;
-                    }
-                    for rect in self.get_line_cursor_bounds(index) {
-                        ctx.fill(
-                            rect,
-                            &Color::RED
-                        );
-                    }
-                    if index == self.text.len() {
-                        break;
-                    }
-                }
+                let debug_layout = ctx.text().new_text_layout(format!("{}", self.index))
+                .text_color(Color::RED)
+                .font(FontFamily::SANS_SERIF, 6.)
+                .build()
+                .unwrap();
+                ctx.with_save(|ctx| {
+                    ctx.transform(Affine::translate(Vec2::new(rect.x0, rect.y1)));
+                    ctx.fill(debug_layout.size().to_rect(), &Color::BLUE);
+                });
+                ctx.draw_text(&debug_layout, Point::new(rect.x0, rect.y1));
+                // let mut index: usize = 0;
+                // loop {
+                //     if let Some(next_index) = self.text.next_word_offset(index) {
+                //         index = next_index;
+                //     } else {
+                //         break;
+                //     }
+                //     let rect = self.get_line_cursor_bounds(index);
+                //     ctx.fill(
+                //         rect,
+                //         &Color::RED
+                //     );
+                //     if index == self.text.len() {
+                //         break;
+                //     }
+                // }
 
             }
             ctx.draw_text(layout, Point {x: 0., y: 0.});
