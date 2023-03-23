@@ -18,6 +18,7 @@
 - [x] Add functionality to split tree to external
 - [x] Add functionality to split tree to new tab
 - [x] Implement cross-tab cut/paste registers 
+- [ ] Add VMGraphClip rotation and translation logic
 - [ ] Implement KeybindType::String for KeybindMode::Sheet
 - [ ] Implement new KeybindMode::RegisterSelect
 - [ ] Remove and replace mouse logic
@@ -28,6 +29,7 @@
 ### Minor
 - [x] Fix partial matches being falsely reported
 - [x] Fix delete to end of word leaving cursor in the wrong position when word is at end of string
+- [x] Add functionality to save active_idx in each tab
 - [ ] Ensure any node deletion activates a convenient neighbor node instead of the root
 - [ ] Reposition mode indicators, prompts, and input
 

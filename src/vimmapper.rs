@@ -137,7 +137,7 @@ impl<'a> Default for VimMapper {
         let mut root_node = VMNode {
             label: DEFAULT_ROOT_LABEL.to_string(),
             index: 0,
-            is_active: true,
+            is_active: false,
             ..Default::default()
         };
         // Capture the DefaultNodeIdx and store it in the VMNode. This allows nodes to refer to the 
@@ -202,7 +202,7 @@ impl<'a> VimMapper {
             label: DEFAULT_ROOT_LABEL.to_string(),
             index: 0,
             mark: Some("0".to_string()),
-            is_active: true,
+            is_active: false,
             ..Default::default()
         };
         // Capture the DefaultNodeIdx and store it in the VMNode. This allows nodes to refer to the 
@@ -1001,13 +1001,14 @@ impl<'a> VimMapper {
                     Some(KeybindMode::Edit) | Some(KeybindMode::Insert) | Some(KeybindMode::Visual) => {
                         if let Some(active_node) = self.nodes.get(&self.get_active_node_idx().unwrap()) {
                             self.input_manager.text_input.text = active_node.label.clone();
+                            self.input_manager.text_input.set_cursor(Some(active_node.text_cursor_index));
                         }
                         self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         self.input_manager.text_input.set_keybind_mode(payload.mode.unwrap());
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                     },
                     Some(KeybindMode::Sheet) => {
-                        self.input_manager.text_input.curosr_to_start();
+                        // self.input_manager.text_input.cursor_to_start();
                         self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                     },
@@ -1034,7 +1035,7 @@ impl<'a> VimMapper {
                         self.set_node_as_active(new_idx);
                         self.input_manager.set_keybind_mode(KeybindMode::Insert);
                         self.input_manager.text_input.text = self.nodes.get(&new_idx).unwrap().label.clone();
-                        self.input_manager.text_input.curosr_to_start();
+                        self.input_manager.text_input.cursor_to_start();
                     }
                 }
                 return Ok(());
@@ -1068,7 +1069,7 @@ impl<'a> VimMapper {
                 if let Some(idx) = self.get_active_node_idx() {
                     self.input_manager.set_keybind_mode(KeybindMode::Insert);
                     self.input_manager.text_input.text = self.nodes.get(&idx).unwrap().label.clone();
-                    self.input_manager.text_input.curosr_to_start();
+                    self.input_manager.text_input.cursor_to_start();
                 }
                 return Ok(());
             },
@@ -1321,7 +1322,9 @@ impl<'a> VimMapper {
             },
             Action::AcceptNodeText => {
                 if let Some(idx) = self.get_active_node_idx() {
+                    tracing::debug!("setting {} text cursor to {}", idx, self.input_manager.text_input.get_cursor_index());
                     self.nodes.get_mut(&idx).unwrap().label = self.input_manager.text_input.text.clone();
+                    self.nodes.get_mut(&idx).unwrap().text_cursor_index = self.input_manager.text_input.get_cursor_index();
                 }
                 return Ok(());
             },
@@ -1333,6 +1336,7 @@ impl<'a> VimMapper {
                 let ret = self.input_manager.text_input.handle_action(ctx, payload);
                 if let Some(active_idx) = self.get_active_node_idx() {
                     self.nodes.get_mut(&active_idx).unwrap().label = self.input_manager.text_input.text.clone();
+                    self.nodes.get_mut(&active_idx).unwrap().text_cursor_index = self.input_manager.text_input.get_cursor_index();
                     self.invalidate_node_layouts();
                     self.animating = true;
                 }

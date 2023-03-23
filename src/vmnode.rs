@@ -47,6 +47,8 @@ pub struct VMNode {
     pub fg_index: Option<DefaultNodeIdx>,
     pub is_active: bool,
     pub mark: Option<String>,
+    #[serde(skip)]
+    pub text_cursor_index: usize,
     //Cached rect of the node, transformed to screen coords. Used to scroll node into view.
     #[serde(with = "RectDef")]
     pub node_rect: Rect,
@@ -61,6 +63,7 @@ impl Default for VMNode {
             fg_index: None,
             is_active: false,
             mark: None,
+            text_cursor_index: 0,
             node_rect: Rect::new(0.,0.,0.,0.),
         };
         node

@@ -278,7 +278,7 @@ impl<'a> VMTextInput {
                                     },
                                     TextMotion::BeginningLine => {
                                         self.text.edit(0..self.index, "");
-                                        self.curosr_to_start();
+                                        self.cursor_to_start();
                                     },
                                     TextMotion::EndLine => {
                                         self.text.edit(self.index..self.text.len(), "");
@@ -488,7 +488,7 @@ impl<'a> VMTextInput {
         self.index = self.text.len();
     }
 
-    pub fn curosr_to_start(&mut self) {
+    pub fn cursor_to_start(&mut self) {
         self.index = 0;
     }
 
@@ -515,6 +515,10 @@ impl<'a> VMTextInput {
     #[allow(dead_code)]
     pub fn get_keybind_mode(&self) -> KeybindMode {
         return self.mode;
+    }
+
+    pub fn get_cursor_index(&self) -> usize {
+        return self.index;
     }
 
     pub fn layout(&mut self, ctx: &mut LayoutCtx, config: &VMConfigVersion4) {

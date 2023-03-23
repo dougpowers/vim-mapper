@@ -36,9 +36,7 @@ pub struct VMSaveVersion4 {
     graph: ForceGraph<u32, u32>,
     nodes: HashMap<u32, BareNodeVersion4>,
     root_nodes: HashMap<usize, DefaultNodeIdx>,
-    // edges: HashMap<u32, BareEdgeVersion4>,
     node_idx_count: u32,
-    // edge_idx_count: u32,
     translate: (f64, f64),
     scale: f64,
     offset_x: f64,
@@ -152,6 +150,7 @@ impl From<VMSaveNoVersion> for VMSaveVersion4 {
                 index: v.index, 
                 fg_index: fg_index, 
                 mark: v.mark.clone(),
+                is_active: v.is_active,
                 ..Default::default()
             });
         }
@@ -211,10 +210,11 @@ impl VMSaveSerde {
                     index: v.index, 
                     fg_index: Some(fg_index), 
                     mark: v.mark,
+                    is_active: v.is_active,
                     ..Default::default()
                 });
             }
-            let mut vm = VimMapper {
+            let vm = VimMapper {
                 graph,
                 animating: true,
                 nodes,
@@ -239,7 +239,6 @@ impl VMSaveSerde {
                 root_nodes: tab.root_nodes,
                 ..Default::default()
             };
-            vm.set_node_as_active(0);
             vms.push(VMTab {vm: WidgetPod::new(vm), tab_name: tab.tab_name});
         }
         (vms, save.active_tab)
@@ -258,7 +257,7 @@ impl VMSaveSerde {
                     label: node.label.clone(),
                     index: node.index,
                     pos: (pos.x, pos.y),
-                    is_active: false,
+                    is_active: node.is_active,
                     targeted_internal_edge_idx: None,
                     mark: node.mark.clone(),
                     mass: vm.graph.get_graph()[node.fg_index.unwrap()].data.mass,
