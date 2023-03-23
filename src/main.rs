@@ -18,8 +18,10 @@ use druid::{AppLauncher, WindowDesc, FileDialogOptions, Point, WindowState, Comm
 use druid::piet::{Text, TextLayout, TextLayoutBuilder};
 use vmdialog::{VMDialogParams, VMDialog, VMInputParams};
 use vmtabbar::VMTabBar;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{PathBuf, Path};
+use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 mod vmnode;
@@ -38,6 +40,9 @@ use vmconfig::*;
 
 mod vmsave;
 use vmsave::*;
+
+mod vmgraphclip;
+use vmgraphclip::VMGraphClip;
 
 mod vmdialog;
 
@@ -58,6 +63,7 @@ struct VMCanvas {
     last_frame_time: u128,
     take_focus: bool,
     start_input_manager: VMInputManager,
+    graph_clip_registers: HashMap<String, VMGraphClip>,
 }
 
 struct VMTab {
@@ -75,10 +81,18 @@ impl VMCanvas {
             dialog_visible: true,
             path: None,
             config,
-            // input_managers: vec![VMInputManager::new()],
             last_frame_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
             take_focus: true,
             start_input_manager: VMInputManager::new(),
+            graph_clip_registers: HashMap::new(),
+        }
+    }
+
+    pub fn get_register(&mut self, register: String) -> Option<&VMGraphClip> {
+        if let Some(clip) = self.graph_clip_registers.get_mut(&register) {
+            return Some(clip);
+        } else {
+            return None;
         }
     }
 
@@ -104,14 +118,11 @@ impl VMCanvas {
     pub fn load_new_tabs(&mut self, tabs: Vec<VMTab>, active_tab: usize) {
         let tab_names = &tabs.iter().map(|v| {return v.tab_name.clone();}).collect();
         self.tabs = vec![];
-        // self.input_managers = vec![];
         for tab in tabs {
             self.tabs.push(tab);
-            // self.input_managers.push(VMInputManager::new());
         }
         self.active_tab = active_tab; 
         self.tab_bar.widget_mut().update_tabs(
-            // &vec![String::from("Tab 1")], 
             tab_names,
             self.active_tab
         );
@@ -123,7 +134,6 @@ impl VMCanvas {
             vm: WidgetPod::new(VimMapper::new(self.config.clone())),
             tab_name,
         });
-        // self.input_managers.push(VMInputManager::new());
         self.active_tab = self.tabs.len() - 1;
         ctx.children_changed();
         ctx.request_layout();
@@ -134,7 +144,6 @@ impl VMCanvas {
 
     fn delete_current_tab(&mut self, ctx: &mut EventCtx) {
         self.tabs.remove(self.active_tab);
-        // self.input_managers.remove(self.active_tab);
         if self.active_tab > self.tabs.len() - 1 {
             self.active_tab = self.active_tab - 1;
         }
@@ -156,7 +165,6 @@ impl VMCanvas {
     }
 
     fn hide_dialog(&mut self) {
-        // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Sheet);
         self.tabs[self.active_tab].vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Sheet);
         self.dialog_visible = false;
         self.take_focus = true;
@@ -171,7 +179,6 @@ impl VMCanvas {
         ctx.set_handled();
         self.dialog_visible = show;
         if show {
-            // self.input_managers[self.active_tab].set_keybind_mode(KeybindMode::Dialog);
             if data.save_state != VMSaveState::NoSheetOpened {
                 self.tabs[self.active_tab].vm.widget_mut().input_manager.set_keybind_mode(KeybindMode::Dialog);
             } else {
@@ -802,6 +809,21 @@ impl Widget<AppState> for VMCanvas {
                 }
                 for payload in payloads {
                     self.handle_action(ctx, data, &Some((*payload).clone()));
+                }
+            }
+            Event::Command(command) if command.is(SET_REGISTER) => {
+                let (register_name, graph_clip) = command.get_unchecked(SET_REGISTER);
+                self.graph_clip_registers.insert(register_name.clone(), graph_clip.clone());
+            }
+            Event::Command(command) if command.is(GET_REGISTER) => {
+                let (register_name, paste_external) = command.get_unchecked(GET_REGISTER);
+                if let Some(graph_clip) = self.graph_clip_registers.get(register_name) {
+                    if let Some(tab) = self.tabs.get(self.active_tab) {
+                        ctx.submit_command(Command::new(OFFER_REGISTER,
+                            (register_name.clone(), graph_clip.clone(), *paste_external),
+                            Target::Widget(tab.vm.id())
+                        ));
+                    }
                 }
             }
             Event::Notification(note) if note.is(SUBMIT_CHANGES) => {

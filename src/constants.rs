@@ -17,7 +17,7 @@ use std::time::Duration;
 
 use druid::{kurbo::TranslateScale, Selector, Vec2};
 use vm_force_graph_rs::SimulationParameters;
-use crate::vminput::ActionPayload;
+use crate::{vminput::ActionPayload, vmgraphclip::VMGraphClip};
 
 pub const CURRENT_SAVE_FILE_VERSION: &str = "0.5.0";
 pub const CURRENT_CONFIG_FILE_VERSION: &str = "0.4.0";
@@ -96,13 +96,15 @@ pub const DEFAULT_COMPOSE_TIMEOUT: Duration = Duration::from_millis(1150);
 pub const DEFAULT_BUILD_TIMEOUT: Duration = Duration::from_millis(1150);
 pub const DEFAULT_ANIMATION_TIMEOUT: Duration = Duration::from_millis(2000);
 
-pub const TAKE_FOCUS_SELECT_ALL: Selector = Selector::new("take-focus-select-all");
-
-pub const TAKEN_FOCUS: Selector = Selector::new("taken-focus");
-
 pub const SUBMIT_CHANGES: Selector = Selector::new("submit-changes");
 
 pub const EXECUTE_ACTION: Selector<ActionPayload> = Selector::<ActionPayload>::new("execute-action");
+
+pub const SET_REGISTER: Selector<(String, VMGraphClip)> = Selector::<(String, VMGraphClip)>::new("set-register");
+
+pub const GET_REGISTER: Selector<(String, bool)> = Selector::<(String, bool)>::new("get-register");
+
+pub const OFFER_REGISTER: Selector<(String, VMGraphClip, bool)> = Selector::<(String, VMGraphClip, bool)>::new("offer-register");
 
 pub const CANCEL_CHANGES: Selector = Selector::new("cancel-changes");
 
@@ -121,3 +123,6 @@ pub const DEFAULT_CONFIG_DIR_NAME: &str = "vim-mapper";
 pub const DEFAULT_CONFIG_FILE_NAME: &str = "vmconfig";
 
 pub const DEFAULT_ROOT_LABEL: &str = "Root";
+
+pub const DEFAULT_YANK_REGISTER: &str = "0";
+pub const DEFAULT_DELETE_REGISTER: &str = "1";

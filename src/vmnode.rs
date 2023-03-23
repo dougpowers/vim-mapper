@@ -40,7 +40,7 @@ struct RectDef {
     y1: f64
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VMNode {
     pub label: String,
     pub index: u32,

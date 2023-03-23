@@ -50,6 +50,9 @@ pub enum Action {
     DeleteNodeTree,
     DeleteActiveNode,
     DeleteTargetNode,
+    PasteNodeTree,
+    PasteNodeTreeExternal,
+    PasteNodeTreeAsTab,
     MarkActiveNode,
     JumpToMarkedNode,
     TargetNode,
@@ -1366,6 +1369,18 @@ impl Default for VMInputManager {
                     )],
                     next: Some(BuildState::Complete),
                     mode: KeybindMode::Insert,
+                    ..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
+                    key: Some(Key::Character("p".to_string())),
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::PasteNodeTree,
+                            ..Default::default()
+                        }
+                    )],
+                    mode: KeybindMode::Sheet,
                     ..Default::default()
                 },
             ],
