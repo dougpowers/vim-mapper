@@ -50,6 +50,7 @@ pub enum Action {
     DeleteNodeTree,
     DeleteActiveNode,
     DeleteTargetNode,
+    YankNodeTree,
     PasteNodeTree,
     PasteNodeTreeExternal,
     PasteNodeTreeAsTab,
@@ -1377,6 +1378,31 @@ impl Default for VMInputManager {
                     action_payloads: vec![Some(
                         ActionPayload {
                             action: Action::PasteNodeTree,
+                            ..Default::default()
+                        }
+                    )],
+                    mode: KeybindMode::Sheet,
+                    ..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
+                    key: Some(Key::Character("P".to_string())),
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::PasteNodeTreeExternal,
+                            ..Default::default()
+                        }
+                    )],
+                    mode: KeybindMode::Sheet,
+                    ..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
+                    key: Some(Key::Character("p".to_string())),
+                    modifiers: Some(Modifiers::CONTROL),
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::PasteNodeTreeAsTab,
                             ..Default::default()
                         }
                     )],

@@ -35,7 +35,7 @@ use crate::vmconfig::*;
 
 //VimMapper is the controller class for the graph implementation and UI. 
 
-pub(crate) struct VimMapper {
+pub struct VimMapper {
     //The ForceGraph is contained as a background object, shadowed by the the nodes and edges HashMaps.
     // The user_data structures provided are populated by the u32 index to the corresponding nodes and edges
     // in the global HashMaps. This inefficiency will be rectified in future versions of Vim-Mapper by 
@@ -249,12 +249,24 @@ impl<'a> VimMapper {
         mapper
     }
 
+    // pub fn from_clip(graph_clip: &VMGraphClip) -> Self {
+
+    // }
+
     pub fn get_nodes(&self) -> &HashMap<u32, VMNode> {
         return &self.nodes;
     }
 
-    pub fn get_nodes_mut(&mut self) -> &HashMap<u32, VMNode> {
+    pub fn get_nodes_mut(&mut self) -> &mut HashMap<u32, VMNode> {
         return &mut self.nodes;
+    }
+
+    pub fn get_force_graph(&self) -> &ForceGraph<u32, u32> {
+        return &self.graph;
+    }
+
+    pub fn get_force_graph_mut(&mut self) -> &mut ForceGraph<u32, u32> {
+        return &mut self.graph;
     }
 
     pub fn get_offset_x(&self) -> f64 {
@@ -559,10 +571,12 @@ impl<'a> VimMapper {
             return Err("Cannot delete root node!".to_string());
         }
         if let Some(node) = self.nodes.get(&idx) {
+            self.animating = true;
             let node_component = self.graph.get_node_component(node.fg_index.unwrap());
             let component_root = *self.root_nodes.get(&node_component).unwrap();
             let removal_list = self.graph.get_node_removal_tree(node.fg_index.unwrap(), component_root);
-            let mut graph_clip = VMGraphClip::new();
+            // let mut graph_clip = VMGraphClip::new();
+            VMGraphClip::dispatch(ctx, &self, &removal_list, node.fg_index.unwrap(), &"0".to_string());
             if self.is_node_root(idx) {
                 for fg_idx in removal_list {
                     if fg_idx == component_root {
@@ -585,38 +599,31 @@ impl<'a> VimMapper {
                 if removal_would_unanchor_component {
                     return Err(String::from("Removal of node tree would unanchor component!"));
                 } else {
-                    let mut trans_map: HashMap<DefaultNodeIdx, DefaultNodeIdx> = HashMap::new();
+                    let mut shortest_path: (u32, Option<usize>) = (0, None);
                     for fg_idx in &removal_list {
-                        let node = &self.graph.get_graph()[*fg_idx];
-                        graph_clip.get_node_map_mut().insert(node.data.user_data, self.nodes.get(&node.data.user_data).unwrap().clone());
-                        let new_idx = graph_clip.get_graph_mut().add_node(node.clone());
-                        trans_map.insert(node.index(), new_idx);
-                    }
-                    graph_clip.root_node = Some(*trans_map.get(&node.fg_index.unwrap()).unwrap());
-                    for fg_idx in &removal_list {
-                        let mut edges = self.graph.get_graph().edges(*fg_idx).clone();
-                        while let Some(edge) = edges.next() {
-                            if let Some(source_idx) = trans_map.get(&edge.source()) {
-                                if let Some(target_idx) = trans_map.get(&edge.target()) {
-                                    if graph_clip.get_graph().contains_node(*source_idx) && graph_clip.get_graph().contains_node(*target_idx) {
-                                        tracing::debug!("{:?} <--> {:?}", *source_idx, *target_idx);
-                                        graph_clip.get_graph_mut().update_edge(*source_idx, *target_idx, EdgeData {user_data: 0});
+                        let neighbors = self.graph.get_graph().neighbors(*fg_idx).collect::<Vec<_>>();
+                        for neighbor in neighbors {
+                            let mut paths = petgraph::algo::all_simple_paths::<Vec<_>, _>(self.graph.get_graph(), self.nodes.get(&0).unwrap().fg_index.unwrap(), neighbor, 0, None);
+                            while let Some(path) = paths.next() {
+                                if let Some(shortest_path_length) = shortest_path.1 {
+                                    if path.len() < shortest_path_length {
+                                        shortest_path.0 = self.graph.get_graph()[neighbor].data.user_data;
+                                        shortest_path.1 = Some(path.len());
                                     }
+                                } else {
+                                    shortest_path.0 = self.graph.get_graph()[neighbor].data.user_data;
+                                    shortest_path.1 = Some(path.len());
                                 }
                             }
                         }
                     }
-                    ctx.submit_command(Command::new(SET_REGISTER,
-                        ("0".to_string(), graph_clip),
-                        Target::Global,
-                    ));
                     for fg_idx in removal_list {
                         self.nodes.remove(&self.graph.get_graph()[fg_idx].data.user_data);
                         self.graph.remove_node(fg_idx);
                         self.enabled_layouts.remove(&fg_idx);
                         self.disabled_layouts.remove(&fg_idx);
                     }
-                    return Ok(0);
+                    return Ok(shortest_path.0);
                 }
             }
         } else {
@@ -1176,6 +1183,12 @@ impl<'a> VimMapper {
                     return Ok(());
                 }
             }
+            Action::PasteNodeTreeExternal => {
+                ctx.submit_command(Command::new(GET_REGISTER,
+                ("0".to_string(), true),
+                Target::Global));
+                return Ok(());
+            }
             Action::IncreaseActiveNodeMass => {
                 if let Some(idx) = self.get_active_node_idx() {
                     self.increase_node_mass(idx);
@@ -1337,6 +1350,7 @@ impl<'a> VimMapper {
 
 impl Widget<()> for VimMapper {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut (), _env: &Env) {
+        if self.animating { ctx.request_anim_frame(); }
         //If the node editor is visible, pass events to it. Both events and paints must be withheld
         // for the widget to be truly hidden and uninteractable. 
         match event {
@@ -1344,7 +1358,6 @@ impl Widget<()> for VimMapper {
                 if self.is_hot && self.animating {
                     self.largest_node_movement = Some(self.graph.update(DEFAULT_UPDATE_DELTA));
                     // self.update_node_coords();
-                    ctx.request_anim_frame();
                     if self.largest_node_movement < Some(ANIMATION_MOVEMENT_THRESHOLD) && self.animation_timer_token == None {
                         // self.animating = false;
                         self.animation_timer_token = Some(ctx.request_timer(DEFAULT_ANIMATION_TIMEOUT));
@@ -1439,36 +1452,14 @@ impl Widget<()> for VimMapper {
                 ctx.request_anim_frame();
                 ctx.set_handled();
             }
-            Event::Command(command) if command.is(OFFER_REGISTER) => {
+            Event::Command(command) if command.is(OFFER_REGISTER) && !ctx.is_handled() => {
                 if let Some(active_idx) = self.get_active_node_idx() {
-                    let (mut register, mut graph_clip, is_external) = command.get_unchecked(OFFER_REGISTER).clone();
-                    let mut trans_map: HashMap<DefaultNodeIdx, DefaultNodeIdx> = HashMap::new(); 
-                    for old_fg_index in graph_clip.get_graph().node_indices() {
-                        let node = graph_clip.get_graph()[old_fg_index].clone();
-                        let new_index = self.increment_node_idx();
-                        let new_fg_index = self.graph.add_node(NodeData {
-                            x: node.data.x,
-                            y: node.data.y,
-                            mass: node.data.mass,
-                            repel_distance: node.data.repel_distance,
-                            is_anchor: node.data.is_anchor,
-                            user_data: new_index,
-                        });
-                        tracing::debug!("old: {:?}   new: {:?}", old_fg_index, new_fg_index);
-                        let mut vm_node = graph_clip.get_node_map().get(&node.data.user_data).unwrap().clone();
-                        vm_node.index = new_index;
-                        vm_node.is_active = false;
-                        vm_node.fg_index = Some(new_fg_index);
-                        self.nodes.insert(new_index, vm_node);
-                        trans_map.insert(old_fg_index, new_fg_index);
+                    let (register, graph_clip, is_external) = command.get_unchecked(OFFER_REGISTER).clone();
+                    if !is_external {
+                        graph_clip.append_node_clip(self, Some(active_idx), register);
+                    } else {
+                        graph_clip.append_node_clip(self, None, register);
                     }
-                    tracing::debug!("{:?}", trans_map);
-                    for edge in graph_clip.get_graph().edge_references() {
-                        tracing::debug!("{:?} {:?}", edge.source(), edge.target());
-                        self.graph.add_edge(*trans_map.get(&edge.source()).unwrap(), *trans_map.get(&edge.target()).unwrap(), EdgeData { user_data: 0 });
-                    }
-                    self.graph.add_edge(self.nodes.get(&active_idx).unwrap().fg_index.unwrap(), *trans_map.get(&graph_clip.root_node.unwrap()).unwrap(), EdgeData{ user_data: 0 });
-                    self.build_target_list_from_neighbors(active_idx);
                 }
             }
             Event::Command(command) if command.is(EXECUTE_ACTION) && !ctx.is_handled() => {

@@ -66,7 +66,7 @@ struct VMCanvas {
     graph_clip_registers: HashMap<String, VMGraphClip>,
 }
 
-struct VMTab {
+pub struct VMTab {
     vm: WidgetPod<(), VimMapper>,
     tab_name: String,
 }
@@ -115,18 +115,30 @@ impl VMCanvas {
         }
     }
 
-    pub fn load_new_tabs(&mut self, tabs: Vec<VMTab>, active_tab: usize) {
+    pub fn load_new_tabs(&mut self, tabs: Vec<VMTab>, active_tab: Option<usize>) {
         let tab_names = &tabs.iter().map(|v| {return v.tab_name.clone();}).collect();
         self.tabs = vec![];
         for tab in tabs {
             self.tabs.push(tab);
         }
-        self.active_tab = active_tab; 
+        if let Some(active_tab) = active_tab {
+            self.active_tab = active_tab; 
+        }
         self.tab_bar.widget_mut().update_tabs(
             tab_names,
             self.active_tab
         );
         self.hide_dialog();
+    }
+    
+    fn load_tab(&mut self, ctx: &mut EventCtx, tab: VMTab) {
+        self.tabs.push(tab);
+        self.active_tab = self.tabs.len() - 1;
+        ctx.children_changed();
+        ctx.request_layout();
+        ctx.set_handled();
+        let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+        self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
     }
 
     fn new_tab(&mut self, ctx: &mut EventCtx, tab_name: String) {
@@ -310,7 +322,7 @@ impl VMCanvas {
                 Action::CreateNewSheet => {
                     if data.save_state == VMSaveState::Saved || data.save_state == VMSaveState::NoSheetOpened || data.save_state == VMSaveState::DiscardChanges {
                         // self.load_new_mapper(VimMapper::new(self.config.clone()));
-                        self.load_new_tabs(vec![VMTab { tab_name: String::from("Tab 1"), vm: WidgetPod::new(VimMapper::new(self.config.clone()))}], 0);
+                        self.load_new_tabs(vec![VMTab { tab_name: String::from("Tab 1"), vm: WidgetPod::new(VimMapper::new(self.config.clone()))}], Some(0));
                         self.path = None;
                         data.save_state = VMSaveState::NoSave;
                         ctx.children_changed();
@@ -492,7 +504,16 @@ impl VMCanvas {
                     Action::DeleteTab => {
                         self.delete_current_tab(ctx);
                         return Ok(());
-                    }
+                    },
+                    Action::PasteNodeTreeAsTab => {
+                        if let Some(graph_clip) = self.graph_clip_registers.get("0") {
+                            self.load_tab(ctx, graph_clip.init_tab_with_clip(self.config.clone()));
+                            ctx.children_changed();
+                            ctx.request_layout();
+                            ctx.set_handled();
+                        }
+                        return Ok(());
+                    },
                     _ => {
                         let tab = &mut self.tabs.get_mut(self.active_tab);
                         if let Some(tab) = tab {
@@ -623,7 +644,7 @@ impl Widget<AppState> for VMCanvas {
                 if let Ok((save, path)) = VMSaveSerde::load(payload.path().to_str().unwrap().to_string()) {
                     let (tabs, active_tab) = VMSaveSerde::from_save(save, self.config.clone());
                     self.path = Some(path);
-                    self.load_new_tabs(tabs, active_tab);
+                    self.load_new_tabs(tabs, Some(active_tab));
                     data.save_state = VMSaveState::Saved;
                     ctx.children_changed();
                 }
@@ -1128,7 +1149,7 @@ pub fn main() {
                         let (tabs, active_tab) = VMSaveSerde::from_save(save, canvas.config.clone());
                         canvas.path = Some(path.clone());
                         // canvas.load_new_mapper(vm);
-                        canvas.load_new_tabs(tabs, active_tab);
+                        canvas.load_new_tabs(tabs, Some(active_tab));
                         launch_with_file = true;
                         println!("Launching with open sheet: {}...", path.display());
                     }
@@ -1140,7 +1161,7 @@ pub fn main() {
                     let (tabs, active_tab) = (vec![VMTab {tab_name: String::from("Tab 1"), vm: WidgetPod::new(VimMapper::new(canvas.config.clone()))}], 0);
                     launch_with_unsaved_path = true;
                     // canvas.load_new_mapper(vm);
-                    canvas.load_new_tabs(tabs, active_tab);
+                    canvas.load_new_tabs(tabs, Some(active_tab));
                     println!("Launching new file with path: {}...", path.display());
                 }
             } else {

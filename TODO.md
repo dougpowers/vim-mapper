@@ -15,9 +15,11 @@
 - [x] Move VMTextInput from VimMapper member to VMInputManager member
 - [x] Change regex keybinds to straight string rebinds
 - [x] Add string keybind functionality to KeybindMode::Edit
-- [ ] Add functionality to split tree to external
-- [ ] Add functionality to split tree to new tab
-- [ ] Implement cross-tab cut/paste registers 
+- [x] Add functionality to split tree to external
+- [x] Add functionality to split tree to new tab
+- [x] Implement cross-tab cut/paste registers 
+- [ ] Implement KeybindType::String for KeybindMode::Sheet
+- [ ] Implement new KeybindMode::RegisterSelect
 - [ ] Remove and replace mouse logic
 - [ ] Implement context menu for node operations via mouse
     - [ ] Implement mouse node dragging
