@@ -153,24 +153,39 @@ impl Default for TextAction {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Data, Clone, Copy, PartialEq, Debug)]
-pub enum KeybindMode {
-    Start,
-    Dialog,
-    Sheet,
-    Edit,
-    Visual,
-    Insert,
-    Jump,
-    Mark,
-    Move,
-    SearchedSheet,
-    SearchEnter,
-    Global,
-}
+// #[allow(dead_code)]
+// #[derive(Data, Clone, Copy, PartialEq, Debug)]
+// pub enum KeybindMode {
+//     Start,
+//     Dialog,
+//     Sheet,
+//     Edit,
+//     Visual,
+//     Insert,
+//     Jump,
+//     Mark,
+//     Move,
+//     SearchedSheet,
+//     SearchEnter,
+//     Global,
+// }
 
 bitflags! {
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub struct KeybindMode: u32 {
+        const Start =           0b00000001;
+        const Dialog =          0b00000010;
+        const Sheet =           0b00000100;
+        const Edit =            0b00001000;
+        const Visual =          0b00010000;
+        const Insert =          0b00100000;
+        const Jump =            0b01000000;
+        const Mark =            0b10000000;
+        const Move =            0b100000000;
+        const SearchedSheet =   0b1000000000;
+        const SearchEntry =     0b10000000000;
+        const Global =          0b100000000000;
+    }
 }
 
 #[allow(dead_code)]
@@ -465,30 +480,30 @@ impl Default for VMInputManager {
                     mode: KeybindMode::Edit,
 					..Default::default()
                 },
-                Keybind { 
-                    kb_type: KeybindType::Key, 
-                    key: Some(Key::Character(String::from("a"))),
-                    modifiers: None, 
-                    action_payloads: vec![Some(
-                        ActionPayload {
-                            action: Action::EditActiveNodeAppend,
-                            ..Default::default()
-                    })],
-                    mode: KeybindMode::Sheet,
-					..Default::default()
-                },
-                Keybind { 
-                    kb_type: KeybindType::Key, 
-                    key: Some(Key::Character(String::from("i"))),
-                    modifiers: None, 
-                    action_payloads: vec![Some(
-                        ActionPayload {
-                            action: Action::EditActiveNodeInsert,
-                            ..Default::default()
-                    })],
-                    mode: KeybindMode::Sheet,
-					..Default::default()
-                },
+                // Keybind { 
+                //     kb_type: KeybindType::Key, 
+                //     key: Some(Key::Character(String::from("a"))),
+                //     modifiers: None, 
+                //     action_payloads: vec![Some(
+                //         ActionPayload {
+                //             action: Action::EditActiveNodeAppend,
+                //             ..Default::default()
+                //     })],
+                //     mode: KeybindMode::Sheet,
+				// 	..Default::default()
+                // },
+                // Keybind { 
+                //     kb_type: KeybindType::Key, 
+                //     key: Some(Key::Character(String::from("i"))),
+                //     modifiers: None, 
+                //     action_payloads: vec![Some(
+                //         ActionPayload {
+                //             action: Action::EditActiveNodeInsert,
+                //             ..Default::default()
+                //     })],
+                //     mode: KeybindMode::Sheet,
+				// 	..Default::default()
+                // },
                 Keybind { 
                     kb_type: KeybindType::Key, 
                     key: Some(Key::Character(String::from("a"))),
@@ -513,7 +528,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                         }
                     )],
-                    mode: KeybindMode::Edit,
+                    mode: (KeybindMode::Edit | KeybindMode::Sheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -526,6 +541,60 @@ impl Default for VMInputManager {
                             mode: Some(KeybindMode::Insert),
                             ..Default::default()
                     })],
+                    mode: (KeybindMode::Edit | KeybindMode::Sheet),
+					..Default::default()
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    key: Some(Key::Character(String::from("A"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Insert),
+                            ..Default::default()
+                    }),
+                    Some(
+                        ActionPayload {
+                            action: Action::ExecuteTextAction,
+                            text_action: Some(TextAction { 
+                                operation: TextOperation::None, 
+                                outer_count: None, 
+                                inner_count: None, 
+                                text_obj: None, 
+                                text_motion: Some(TextMotion::EndLine), 
+                                character_string: None,
+                            }),
+                            ..Default::default()
+                        }
+                    )],
+                    mode: KeybindMode::Edit,
+					..Default::default()
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    key: Some(Key::Character(String::from("I"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Insert),
+                            ..Default::default()
+                    }),
+                    Some(
+                        ActionPayload {
+                            action: Action::ExecuteTextAction,
+                            text_action: Some(TextAction { 
+                                operation: TextOperation::None, 
+                                outer_count: None, 
+                                inner_count: None, 
+                                text_obj: None, 
+                                text_motion: Some(TextMotion::BeginningLine), 
+                                character_string: None,
+                            }),
+                            ..Default::default()
+                        }
+                    )],
                     mode: KeybindMode::Edit,
 					..Default::default()
                 },
@@ -716,7 +785,7 @@ impl Default for VMInputManager {
                             action: Action::ToggleDebug,
                             ..Default::default()
                     })],
-                    mode: KeybindMode::Sheet,
+                    mode: KeybindMode::Global,
 					..Default::default()
                 },
                 Keybind { 
@@ -800,7 +869,7 @@ impl Default for VMInputManager {
                     action_payloads: vec![Some(
                             ActionPayload {
                                 action: Action::ChangeMode,
-                                mode: Some(KeybindMode::SearchEnter),
+                                mode: Some(KeybindMode::SearchEntry),
                                 ..Default::default()
                             }
                         ),
@@ -1436,7 +1505,7 @@ impl VMInputManager {
     fn process_keybind_string(&mut self, string: String) -> Option<Result<Vec<Option<ActionPayload>>, ()>> {
         if self.build_state == BuildState::AwaitOperator {
             for keybind in &self.string_keybind_cache {
-                if keybind.mode == self.mode {
+                if keybind.mode.contains(self.mode) {
                     if let Some(k_string) = keybind.string.clone() {
                         if let Some(operation) = keybind.operation {
                             if k_string.slice(0..k_string.next_grapheme_offset(0).unwrap()).unwrap() == string {
@@ -1464,7 +1533,7 @@ impl VMInputManager {
             self.target_string += &string;
             let mut partial_count: usize = 0;
             for keybind in &self.string_keybind_cache {
-                if keybind.mode == self.mode {
+                if keybind.mode.contains(self.mode) {
                     if let Some(k_string) = keybind.string.clone() {
                         if keybind.obj.is_some() || keybind.motion.is_some() || keybind.action_payloads.len() > 0 {
                             let k_graphs = k_string.graphemes(true).collect::<Vec<&str>>();
@@ -1667,7 +1736,7 @@ impl VMInputManager {
             KeybindMode::Start => {
                 let keybinds = self.keybinds.clone();
                 for keybind in keybinds {
-                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode.intersects(self.mode | KeybindMode::Global)) {
                         if let Some(mods) = keybind.modifiers {
                             if key_event.mods == mods {
                                 return keybind.action_payloads.clone();
@@ -1687,7 +1756,7 @@ impl VMInputManager {
                 self.set_new_revert_timeout(ctx);
                 let keybinds = self.keybinds.clone();
                 for keybind in keybinds {
-                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode.intersects(self.mode | KeybindMode::Global)) {
                         if let Some(mods) = keybind.modifiers {
                             if key_event.mods == mods {
                                 self.clear_revert_timeout();
@@ -1721,7 +1790,7 @@ impl VMInputManager {
             KeybindMode::Move => {
                 let keybinds = self.keybinds.clone();
                 for keybind in keybinds {
-                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode.intersects(self.mode | KeybindMode::Global)) {
                         if let Some(mods) = keybind.modifiers {
                             if key_event.mods == mods {
                                 return keybind.action_payloads.clone();
@@ -1974,12 +2043,36 @@ impl VMInputManager {
                                 ..Default::default()
                             })
                         ]
-                    }
+                    },
+                    Key::ArrowRight => {
+                        return vec![
+                            Some(ActionPayload {
+                            action: Action::ExecuteTextAction,
+                            text_action: Some(TextAction {
+                                text_motion: Some(TextMotion::ForwardCharacter),
+                                    ..Default::default()
+                                }),
+                            ..Default::default()
+                            }),
+                        ]
+                    },
+                    Key::ArrowLeft => {
+                        return vec![
+                            Some(ActionPayload {
+                            action: Action::ExecuteTextAction,
+                            text_action: Some(TextAction {
+                                text_motion: Some(TextMotion::BackwardCharacter),
+                                    ..Default::default()
+                                }),
+                            ..Default::default()
+                            }),
+                        ]
+                    },
                     _ => ()
                 }
                 self.clear_build();
                 for keybind in &self.keybinds {
-                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode.intersects(self.mode | KeybindMode::Global)) {
                         if let Some(mods) = keybind.modifiers {
                             if key_event.mods == mods {
                                 return keybind.action_payloads.clone();
@@ -1993,7 +2086,7 @@ impl VMInputManager {
             },
             KeybindMode::Visual => {
                 for keybind in &self.keybinds {
-                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode.intersects(self.mode | KeybindMode::Global)) {
                         if let Some(mods) = keybind.modifiers {
                             if key_event.mods == mods {
                                 return keybind.action_payloads.clone();
@@ -2029,7 +2122,7 @@ impl VMInputManager {
             KeybindMode::SearchedSheet => {
                 self.clear_revert_timeout();
                 for keybind in &self.keybinds {
-                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode == self.mode || keybind.mode == KeybindMode::Global) {
+                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode.intersects(self.mode | KeybindMode::Global)) {
                         if let Some(mods) = keybind.modifiers {
                             if key_event.mods == mods {
                                 return keybind.action_payloads.clone();
@@ -2065,7 +2158,7 @@ impl VMInputManager {
                 }
                 return vec![None];
             },
-            KeybindMode::SearchEnter => {
+            KeybindMode::SearchEntry => {
                 if let Key::Character(character) = key_event.key {
                     if key_event.mods == RawMods::None || key_event.mods == RawMods::Shift {
                         self.input_string += &character;
@@ -2117,7 +2210,11 @@ impl VMInputManager {
             KeybindMode::Global => {
                 tracing::error!("KeybindMode::Global should never be set!");
                 panic!();
-            }
+            },
+            _ => { 
+                tracing::error!("Non-existent KeybindMode mode set!");
+                panic!();
+            },
         }
     }
 
@@ -2231,13 +2328,17 @@ impl VMInputManager {
                 self.mode_prompt = String::from("<SELECT>");
                 self.input_string = String::from("");
             }
-            KeybindMode::SearchEnter => {
+            KeybindMode::SearchEntry => {
                 self.mode_prompt = String::from("<SEARCH>");
                 self.input_string = String::from("");
             }
             KeybindMode::Global => {
                 tracing::error!("KeybindMode::Global should never be set!");
-                panic!()
+                panic!();
+            }
+            _ => {
+                tracing::error!("Non-existent KeybindMode set!");
+                panic!();
             }
         }
         self.mode = mode;

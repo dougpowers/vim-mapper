@@ -55,7 +55,6 @@ struct VMCanvas {
     dialog_visible: bool,
     path: Option<PathBuf>,
     config: VMConfigVersion4,
-    // input_managers: Vec<VMInputManager>,
     last_frame_time: u128,
     take_focus: bool,
     start_input_manager: VMInputManager,

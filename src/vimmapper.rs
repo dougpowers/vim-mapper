@@ -916,7 +916,7 @@ impl<'a> VimMapper {
                 self.input_manager.set_keybind_mode(payload.mode.clone().unwrap());
 
                 match payload.mode {
-                    Some(KeybindMode::SearchEnter) | Some(KeybindMode::SearchedSheet) => {
+                    Some(KeybindMode::SearchEntry) | Some(KeybindMode::SearchedSheet) => {
                         self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                     },
                     _ => {
@@ -936,7 +936,7 @@ impl<'a> VimMapper {
                             }
                         }
                     }
-                    Some(KeybindMode::SearchEnter) => {
+                    Some(KeybindMode::SearchEntry) => {
                         self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                     },
@@ -1392,16 +1392,6 @@ impl Widget<()> for VimMapper {
                 }
                 ctx.request_anim_frame();
             }
-            // Event::Notification(note) if note.is(TAKEN_FOCUS) => {
-            //     ctx.set_handled();
-            //     ctx.request_anim_frame();
-            // }
-            // Event::Notification(note) if note.is(TAKE_FOCUS_SELECT_ALL) => {
-            //     // if !self.node_editor.is_visible {
-            //     //     self.node_editor.container.event(ctx, event, &mut self.node_editor.title_text, _env);
-            //     // }
-            //     ctx.request_anim_frame();
-            // }
             Event::Command(note) if note.is(REFRESH) => {
                 self.invalidate_node_layouts();
                 ctx.request_update();

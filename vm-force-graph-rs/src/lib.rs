@@ -350,7 +350,7 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
     /// Applies the next step of the force graph simulation.
     ///
     /// The number of seconds that have elapsed since the previous update must be calculated and
-    /// provided by the user as `dt`. Returns the largest movement (x or y) that a node has undergone.
+    /// provided by the user as `dt`. Returns the largest movement (x or y) that any node has undergone.
     pub fn update(&mut self, dt: f64) -> f64 {
 
         if self.graph.node_count() == 0 {

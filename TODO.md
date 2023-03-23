@@ -25,7 +25,8 @@
 
 ### Minor
 - [x] Fix partial matches being falsely reported
-- [ ] Fix delete to end of word leaving cursor in the wrong position when word is at end of string
+- [x] Fix delete to end of word leaving cursor in the wrong position when word is at end of string
+- [ ] Ensure any node deletion activates a convenient neighbor node instead of the root
 - [ ] Reposition mode indicators, prompts, and input
 
 ## Deferred Tasks
