@@ -11,12 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+#![allow(dead_code)]
 use std::{collections::{HashMap, HashSet}};
 
 use druid::{WidgetPod, EventCtx, Command, Target};
 use serde::{Deserialize, Serialize};
-use vm_force_graph_rs::{Node, NodeData, DefaultNodeIdx, EdgeData, ForceGraph};
+use vm_force_graph_rs::{Node, NodeData, DefaultNodeIdx, EdgeData};
 use petgraph::{stable_graph::StableUnGraph, visit::{EdgeRef, IntoEdgeReferences}};
 
 use crate::{vmnode::VMNode, vimmapper::VimMapper, VMTab, constants::SET_REGISTER, vmconfig::VMConfigVersion4};
@@ -29,7 +29,7 @@ pub struct VMGraphClip {
 }
 
 impl VMGraphClip {
-    pub fn dispatch(ctx: &mut EventCtx, mapper: &VimMapper, node_set: &HashSet<DefaultNodeIdx>, root: DefaultNodeIdx, register_name: &String) {
+    pub fn dispatch(ctx: &mut EventCtx, mapper: &VimMapper, node_set: &HashSet<DefaultNodeIdx>, root: DefaultNodeIdx, _register_name: &String) {
         let mut graph_clip = VMGraphClip {
             nodes: HashMap::new(),
             graph: StableUnGraph::default(),
@@ -90,7 +90,7 @@ impl VMGraphClip {
         return &mut self.nodes;
     }
 
-    pub fn append_node_clip(&self, target: &mut VimMapper, target_idx: Option<u32>, register: String) {
+    pub fn append_node_clip(&self, target: &mut VimMapper, target_idx: Option<u32>, _register: String) {
         let mut trans_map: HashMap<DefaultNodeIdx, DefaultNodeIdx> = HashMap::new(); 
         if let Some(target_idx) = target_idx {
             for old_fg_index in self.graph.node_indices() {

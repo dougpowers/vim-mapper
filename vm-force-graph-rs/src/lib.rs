@@ -247,12 +247,13 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
     //     }
     // }
 
-    pub fn get_node_removal_tree(&mut self, from: NodeIndex, root: NodeIndex) -> HashSet<NodeIndex> {
+    pub fn get_node_removal_tree(&mut self, from: NodeIndex, root: NodeIndex) -> (HashSet<NodeIndex>, Option<NodeIndex>) {
         let mut bfs = petgraph::visit::Bfs::new(&self.graph, from);
         let mut removal_set: HashSet<NodeIndex> = HashSet::new();
+        let mut remainder: Option<NodeIndex> = None;
         // Passed root is not in the same component as designated index, return an empty removal set
         if !self.are_nodes_connected(from, root) {
-            return removal_set;
+            return (removal_set, None);
         }
         if let Some(node) = bfs.next(&self.graph) {
             removal_set.insert(node);
@@ -276,13 +277,14 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
                 }
             }
             if let Some(idx) = index_and_length.0 {
+                remainder = Some(*bfs.stack.get(idx).unwrap());
                 bfs.stack.remove(idx);
             }
         }
         while let Some(idx) = bfs.next(&self.graph) {
             removal_set.insert(idx);
         }
-        removal_set
+        (removal_set, remainder)
     }
 
     /// Returns whether or not the provided node index is the only anchored node in the component

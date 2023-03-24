@@ -1961,6 +1961,7 @@ impl VMInputManager {
                         }
                     }
                     Key::Backspace => {
+                        self.clear_build();
                         return vec![
                             Some(ActionPayload {
                             action: Action::ExecuteTextAction,
@@ -1971,9 +1972,14 @@ impl VMInputManager {
                                 }),
                             ..Default::default()
                             }),
+                            Some(ActionPayload {
+                                action: Action::ConfirmInserts,
+                                ..Default::default()
+                            }),
                         ]
                     },
                     Key::Delete => {
+                        self.clear_build();
                         return vec![
                             Some(ActionPayload {
                             action: Action::ExecuteTextAction,
@@ -1984,9 +1990,14 @@ impl VMInputManager {
                                 }),
                             ..Default::default()
                             }),
+                            Some(ActionPayload {
+                                action: Action::ConfirmInserts,
+                                ..Default::default()
+                            })
                         ]
                     },
                     Key::Enter => {
+                        self.clear_build();
                         return vec![Some(ActionPayload {
                             action: Action::AcceptNodeText,
                             ..Default::default() 
@@ -1997,6 +2008,7 @@ impl VMInputManager {
                         })]
                     },
                     Key::Escape => {
+                        self.clear_build();
                         return vec![Some(ActionPayload {
                             action: Action::AcceptNodeText,
                             ..Default::default()    
@@ -2016,6 +2028,7 @@ impl VMInputManager {
                         })]
                     },
                     Key::ArrowRight => {
+                        self.clear_build();
                         return vec![
                             Some(ActionPayload {
                             action: Action::ExecuteTextAction,
@@ -2028,6 +2041,7 @@ impl VMInputManager {
                         ]
                     },
                     Key::ArrowLeft => {
+                        self.clear_build();
                         return vec![
                             Some(ActionPayload {
                             action: Action::ExecuteTextAction,

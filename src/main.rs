@@ -21,7 +21,6 @@ use vmtabbar::VMTabBar;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{PathBuf, Path};
-use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 mod vmnode;
@@ -88,6 +87,7 @@ impl VMCanvas {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_register(&mut self, register: String) -> Option<&VMGraphClip> {
         if let Some(clip) = self.graph_clip_registers.get_mut(&register) {
             return Some(clip);

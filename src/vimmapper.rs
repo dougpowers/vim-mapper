@@ -15,14 +15,12 @@
 use druid::kurbo::{Line, TranslateScale};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
-use petgraph::visit::{EdgeRef, IntoEdgeReferences};
 use vm_force_graph_rs::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::prelude::*;
 use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
 use regex::Regex;
 use std::collections::HashMap;
 use std::f64::consts::*;
-use std::rc::Rc;
 
 use crate::vmdialog::VMDialog;
 use crate::vmgraphclip::VMGraphClip;
@@ -505,10 +503,9 @@ impl<'a> VimMapper {
         if let Some(node) = self.nodes.get(&idx) {
             let node_component = self.graph.get_node_component(node.fg_index.unwrap());
             let component_root = *self.root_nodes.get(&node_component).unwrap();
-            return self.graph.get_node_removal_tree(
-                self.nodes.get(&idx).unwrap().fg_index.unwrap(), 
-                component_root,
-            ).len();
+            let (removal_set, _remainder) = self.graph.get_node_removal_tree(
+                self.nodes.get(&idx).unwrap().fg_index.unwrap(), component_root);
+            return removal_set.len();
         } else {
             return 0;
         }
@@ -574,7 +571,7 @@ impl<'a> VimMapper {
             self.animating = true;
             let node_component = self.graph.get_node_component(node.fg_index.unwrap());
             let component_root = *self.root_nodes.get(&node_component).unwrap();
-            let removal_list = self.graph.get_node_removal_tree(node.fg_index.unwrap(), component_root);
+            let (removal_list, remainder) = self.graph.get_node_removal_tree(node.fg_index.unwrap(), component_root);
             // let mut graph_clip = VMGraphClip::new();
             VMGraphClip::dispatch(ctx, &self, &removal_list, node.fg_index.unwrap(), &"0".to_string());
             if self.is_node_root(idx) {
@@ -599,31 +596,17 @@ impl<'a> VimMapper {
                 if removal_would_unanchor_component {
                     return Err(String::from("Removal of node tree would unanchor component!"));
                 } else {
-                    let mut shortest_path: (u32, Option<usize>) = (0, None);
-                    for fg_idx in &removal_list {
-                        let neighbors = self.graph.get_graph().neighbors(*fg_idx).collect::<Vec<_>>();
-                        for neighbor in neighbors {
-                            let mut paths = petgraph::algo::all_simple_paths::<Vec<_>, _>(self.graph.get_graph(), self.nodes.get(&0).unwrap().fg_index.unwrap(), neighbor, 0, None);
-                            while let Some(path) = paths.next() {
-                                if let Some(shortest_path_length) = shortest_path.1 {
-                                    if path.len() < shortest_path_length {
-                                        shortest_path.0 = self.graph.get_graph()[neighbor].data.user_data;
-                                        shortest_path.1 = Some(path.len());
-                                    }
-                                } else {
-                                    shortest_path.0 = self.graph.get_graph()[neighbor].data.user_data;
-                                    shortest_path.1 = Some(path.len());
-                                }
-                            }
-                        }
-                    }
                     for fg_idx in removal_list {
                         self.nodes.remove(&self.graph.get_graph()[fg_idx].data.user_data);
                         self.graph.remove_node(fg_idx);
                         self.enabled_layouts.remove(&fg_idx);
                         self.disabled_layouts.remove(&fg_idx);
                     }
-                    return Ok(shortest_path.0);
+                    if let Some(remainder) = remainder {
+                        return Ok(self.graph.get_graph()[remainder].data.user_data);
+                    } else {
+                        return Ok(0)
+                    }
                 }
             }
         } else {
@@ -1001,7 +984,7 @@ impl<'a> VimMapper {
                     Some(KeybindMode::Edit) | Some(KeybindMode::Insert) | Some(KeybindMode::Visual) => {
                         if let Some(active_node) = self.nodes.get(&self.get_active_node_idx().unwrap()) {
                             self.input_manager.text_input.text = active_node.label.clone();
-                            self.input_manager.text_input.set_cursor(Some(active_node.text_cursor_index));
+                            let _ = self.input_manager.text_input.set_cursor(Some(active_node.text_cursor_index));
                         }
                         self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         self.input_manager.text_input.set_keybind_mode(payload.mode.unwrap());

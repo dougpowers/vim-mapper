@@ -30,7 +30,7 @@
 - [x] Fix partial matches being falsely reported
 - [x] Fix delete to end of word leaving cursor in the wrong position when word is at end of string
 - [x] Add functionality to save active_idx in each tab
-- [ ] Ensure any node deletion activates a convenient neighbor node instead of the root
+- [x] Ensure any node deletion activates a convenient neighbor node instead of the root
 - [ ] Reposition mode indicators, prompts, and input
 
 ## Deferred Tasks

@@ -1,6 +1,6 @@
 [package]
 name = "vim-mapper"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,7 +10,7 @@ druid = { git = "https://github.com/linebender/druid.git" }
 indexmap =  { version = "1.0.2", features = ["std"]}
 unicode-segmentation = "^1.10"
 petgraph = { version = "0.6.2", features = ["serde-1"] }
-vm_force_graph_rs = { path = "vm-force-graph-rs", version = "0.4.0" }
+vm_force_graph_rs = { path = "vm-force-graph-rs", version = "0.4.1" }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.2", features = ["fmt", "ansi"], default-features = false }
 rand = "0.8.5"
