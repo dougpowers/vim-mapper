@@ -161,7 +161,6 @@ impl<'a> Default for VimMapper {
             offset_y: DEFAULT_OFFSET_Y,
             last_click_point: None,
             last_collision_rects: Vec::new(),
-            // node_editor: VMNodeEditor::new(),
             is_dragging: false,
             drag_point: None,
             target_node_idx: None,
@@ -247,10 +246,6 @@ impl<'a> VimMapper {
         mapper.nodes.insert(0, root_node);
         mapper
     }
-
-    // pub fn from_clip(graph_clip: &VMGraphClip) -> Self {
-
-    // }
 
     pub fn get_nodes(&self) -> &HashMap<u32, VMNode> {
         return &self.nodes;
@@ -500,6 +495,49 @@ impl<'a> VimMapper {
         Some(new_node_idx)
     }
 
+    pub fn insert_node(&mut self, from_node_idx: u32, to_node_idx: u32, node_label: String) -> Option<u32> {
+        let mut from_node: Option<DefaultNodeIdx> = None;
+        let mut to_node: Option<DefaultNodeIdx> = None;
+        if let Some(from_vmnode) = self.nodes.get(&from_node_idx) {
+            from_node = Some(from_vmnode.fg_index.unwrap());
+        }
+        if let Some(to_vmnode) = self.nodes.get(&to_node_idx) {
+            to_node = Some(to_vmnode.fg_index.unwrap());
+        }
+        if from_node.is_some() && to_node.is_some() {
+            let neighbors = self.graph.get_graph().neighbors(from_node.unwrap()).collect::<Vec<_>>();
+            if neighbors.contains(&to_node.unwrap()) {
+                let from_node_pos = Vec2::new(self.graph.get_graph()[from_node.unwrap()].x(), self.graph.get_graph()[from_node.unwrap()].y());
+                let to_node_pos = Vec2::new(self.graph.get_graph()[to_node.unwrap()].x(), self.graph.get_graph()[to_node.unwrap()].y());
+                let new_node_idx = self.increment_node_idx();
+                let new_node_pos = from_node_pos + (to_node_pos - from_node_pos);
+                let mut new_vmnode = VMNode {
+                    label: node_label.clone(),
+                    index: new_node_idx,
+                    ..Default::default()
+                };
+                new_vmnode.fg_index = Some(self.graph.add_node(NodeData {
+                    x: new_node_pos.x,
+                    y: new_node_pos.y,
+                    user_data: new_vmnode.index,
+                    mass: DEFAULT_NODE_MASS,
+                    ..Default::default()
+                }));
+                tracing::debug!("Adding node {:?} between {:?} and {:?}", &new_vmnode.fg_index.unwrap(), from_node.unwrap(), to_node.unwrap());
+                self.graph.add_edge(from_node.unwrap(), new_vmnode.fg_index.unwrap(), EdgeData { user_data: 0 }); 
+                self.graph.add_edge(to_node.unwrap(), new_vmnode.fg_index.unwrap(), EdgeData { user_data: 0 }); 
+                self.nodes.insert(new_vmnode.index, new_vmnode);
+                let old_edge = self.graph.get_graph().find_edge(from_node.unwrap(), to_node.unwrap());
+                tracing::debug!("Removing edge {:?}", old_edge);
+                self.graph.get_graph_mut().remove_edge(old_edge.unwrap());
+                self.animating = true;
+                self.set_node_as_active(new_node_idx);
+                return Some(new_node_idx);
+            }
+        }
+        None
+    }
+
     pub fn get_node_deletion_count(&mut self, idx: u32) -> usize {
         if let Some(node) = self.nodes.get(&idx) {
             let node_component = self.graph.get_node_component(node.fg_index.unwrap());
@@ -690,14 +728,8 @@ impl<'a> VimMapper {
     pub fn get_node_by_mark(&mut self, char: String) -> Option<u32> {
         let marked_node = self.nodes.iter().find(|(_, node)| {
             if let Some(mark) = &node.mark {
-                if *mark == char {
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
+                if *mark == char { true } else { false }
+            } else { false }
         });
 
         if let Some((idx, _)) = marked_node {
@@ -1014,6 +1046,15 @@ impl<'a> VimMapper {
                 }
                 return Ok(());
             },
+            Action::InsertNewNode => {
+                if let Some(from_idx) = self.get_active_node_idx() {
+                    if let Some(to_idx) = self.get_target_node_idx() {
+                        self.insert_node(from_idx, to_idx, format!(""));
+                        ctx.request_layout();
+                    }
+                }
+                return Ok(());
+            }
             Action::CreateNewNodeAndEdit => {
                 if let Some(idx) = self.get_active_node_idx() {
                     if let Some(new_idx) = self.add_node(idx, format!("")) {
@@ -1346,7 +1387,6 @@ impl Widget<()> for VimMapper {
             Event::AnimFrame(_interval) => {
                 if self.is_hot && self.animating {
                     self.largest_node_movement = Some(self.graph.update(DEFAULT_UPDATE_DELTA));
-                    // self.update_node_coords();
                     if self.largest_node_movement < Some(ANIMATION_MOVEMENT_THRESHOLD) && self.animation_timer_token == None {
                         // self.animating = false;
                         self.animation_timer_token = Some(ctx.request_timer(DEFAULT_ANIMATION_TIMEOUT));
@@ -1369,10 +1409,6 @@ impl Widget<()> for VimMapper {
             Event::MouseDown(event) if event.button.is_left() => {
                 if self.does_point_collide(event.pos) == None {
                     self.set_dragging(true, Some(event.pos));
-                    if !ctx.is_handled() {
-                        // self.node_editor.is_visible = false;
-                        // self.close_editor(ctx, false);
-                    }
                 }
                 ctx.request_anim_frame();
             }
@@ -1463,17 +1499,17 @@ impl Widget<()> for VimMapper {
         }
     }
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, _data: &(), _env: &Env) {
-        // self.node_editor.container.lifecycle(ctx, event, &self.node_editor.title_text, _env);
         match event {
             LifeCycle::WidgetAdded => {
                 if let Some(idx) = self.get_active_node_idx() {
                     self.build_target_list_from_neighbors(idx);
+                    self.cycle_target_forward();
                 }
                 //Register children with druid
-                ctx.children_changed();
                 //Kick off animation and calculation
                 ctx.request_layout();
                 ctx.request_anim_frame();
+                ctx.children_changed();
             },
             LifeCycle::HotChanged(is_hot) => {
                 //Cache is_hot values

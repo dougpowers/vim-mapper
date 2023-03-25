@@ -36,6 +36,7 @@ pub enum Action {
     CycleNodeForward,
     CycleNodeBackward,
     CreateNewNode,
+    InsertNewNode,
     CreateNewNodeAndEdit,
     CreateNewExternalNode,
     IncreaseActiveNodeMass,
@@ -547,7 +548,19 @@ impl Default for VMInputManager {
                             mode: Some(KeybindMode::Insert),
                             ..Default::default()
                     })],
-                    mode: (KeybindMode::Edit | KeybindMode::Sheet),
+                    mode: (KeybindMode::Edit),
+					..Default::default()
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
+                    key: Some(Key::Character(String::from("i"))),
+                    modifiers: None, 
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::InsertNewNode,
+                            ..Default::default()
+                    })],
+                    mode: (KeybindMode::Sheet),
 					..Default::default()
                 },
                 Keybind { 

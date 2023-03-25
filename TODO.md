@@ -19,12 +19,13 @@
 - [x] Add functionality to split tree to new tab
 - [x] Implement cross-tab cut/paste registers 
 - [ ] Add VMGraphClip rotation and translation logic
+- [ ] Add node insertion between any active and target nodes
 - [ ] Implement KeybindType::String for KeybindMode::Sheet
 - [ ] Implement new KeybindMode::RegisterSelect
 - [ ] Remove and replace mouse logic
 - [ ] Implement context menu for node operations via mouse
     - [ ] Implement mouse node dragging
-- [ ] Zoom from center point rather than origin
+- [ ] Zoom from canvas center point rather than origin
 
 ### Minor
 - [x] Fix partial matches being falsely reported
