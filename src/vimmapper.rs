@@ -510,7 +510,7 @@ impl<'a> VimMapper {
                 let from_node_pos = Vec2::new(self.graph.get_graph()[from_node.unwrap()].x(), self.graph.get_graph()[from_node.unwrap()].y());
                 let to_node_pos = Vec2::new(self.graph.get_graph()[to_node.unwrap()].x(), self.graph.get_graph()[to_node.unwrap()].y());
                 let new_node_idx = self.increment_node_idx();
-                let new_node_pos = from_node_pos + (to_node_pos - from_node_pos);
+                let new_node_pos = from_node_pos.lerp(to_node_pos, 0.5);
                 let mut new_vmnode = VMNode {
                     label: node_label.clone(),
                     index: new_node_idx,

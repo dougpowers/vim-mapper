@@ -136,7 +136,7 @@ where
             x: 0.,
             y: 0.,
             mass: 10.,
-            repel_distance: 250.,
+            repel_distance: 40.,
             is_anchor: false,
             user_data: Default::default(),
         }
