@@ -981,7 +981,7 @@ impl Widget<AppState> for VMCanvas {
             inner.layout(ctx, bc, &(), env);
             inner.set_origin(ctx, Point::new(0., 0.));
             self.tab_bar.layout(ctx, bc, &(), env);
-            self.tab_bar.set_origin(ctx, Point::new(0., bc.max().height - TAB_BAR_HEIGHT));
+            self.tab_bar.set_origin(ctx, Point::new(0., 0.));
         }
         bc.max()
     }
@@ -1020,17 +1020,31 @@ impl Widget<AppState> for VMCanvas {
         if let Some(tab) = self.tabs.get_mut(self.active_tab) {
             let inner = &mut tab.vm;
             inner.paint(ctx, &(), env);
-            let layout = ctx.text()
+            let input_layout = ctx.text()
                 .new_text_layout(
                     // self.input_managers[self.active_tab].get_string()
-                    inner.widget().input_manager.get_string()
+                    format!("{}{}", inner.widget().input_manager.get_mode_prompt(), inner.widget().input_manager.get_string())
                 )
                 .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
                 .text_color( self.config.get_color(VMColor::ComposeIndicatorTextColor).ok().expect("compose indicator text color not found in config"))
                 .build().unwrap();
             ctx.paint_with_z_index(100, move |ctx| {
-                ctx.draw_text(&layout, 
-                    (Point::new(0., ctx_size.height-layout.size().height).to_vec2() + DEFAULT_COMPOSE_INDICATOR_INSET).to_point()
+                ctx.draw_text(&input_layout, 
+                    (Point::new(0., ctx_size.height-input_layout.size().height).to_vec2() + DEFAULT_COMPOSE_INDICATOR_INSET).to_point()
+                );
+            });
+            let mode_label = ctx.text()
+                .new_text_layout(
+                    // self.input_managers[self.active_tab].get_string()
+                    // format!("{}{}", inner.widget().input_manager.get_mode_prompt(), inner.widget().input_manager.get_string())
+                    inner.widget().input_manager.get_mode_label().to_string()
+                )
+                .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
+                .text_color( self.config.get_color(VMColor::ComposeIndicatorTextColor).ok().expect("compose indicator text color not found in config"))
+                .build().unwrap();
+            ctx.paint_with_z_index(100, move |ctx| {
+                ctx.draw_text(&mode_label, 
+                    (Point::new(ctx_size.width-mode_label.size().width, ctx_size.height-mode_label.size().height).to_vec2()).to_point()
                 );
             });
             if inner.widget().debug_data {

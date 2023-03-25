@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use common_macros::hash_set;
 use druid::kurbo::{Line, TranslateScale};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
@@ -19,7 +20,7 @@ use vm_force_graph_rs::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::prelude::*;
 use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::{HashMap};
 use std::f64::consts::*;
 
 use crate::vmdialog::VMDialog;
@@ -511,7 +512,7 @@ impl<'a> VimMapper {
         }
     }
 
-    pub fn snip_node(&mut self, idx: u32) -> Result<u32, String> {
+    pub fn snip_node(&mut self, idx: u32, ctx: &mut EventCtx) -> Result<u32, String> {
         if let Some(node) = self.nodes.get(&idx) {
             let mut node_is_root: bool = false;
             for v in self.root_nodes.values() {
@@ -527,6 +528,7 @@ impl<'a> VimMapper {
             if neighbor_count > 2 {
                 return Err(String::from("Node has more than 2 neighbors"));
             } else if neighbor_count == 2 {
+                VMGraphClip::dispatch(ctx, &self, &hash_set!{node.fg_index.unwrap()}, node.fg_index.unwrap(), &"0".to_string());
                 self.graph.add_edge(neighbors[0], neighbors[1], EdgeData { user_data: 0 });
                 self.graph.remove_node(node.fg_index.unwrap());
                 self.nodes.remove(&idx);
@@ -1113,7 +1115,7 @@ impl<'a> VimMapper {
                     if neighbor_count > 2 {
                         return Err(());
                     } else if neighbor_count == 2 {
-                        if let Ok(idx) = self.snip_node(active_idx) {
+                        if let Ok(idx) = self.snip_node(active_idx, ctx) {
                             self.set_node_as_active(idx);
                             self.scroll_node_into_view(idx);
                         }
@@ -1464,6 +1466,9 @@ impl Widget<()> for VimMapper {
         // self.node_editor.container.lifecycle(ctx, event, &self.node_editor.title_text, _env);
         match event {
             LifeCycle::WidgetAdded => {
+                if let Some(idx) = self.get_active_node_idx() {
+                    self.build_target_list_from_neighbors(idx);
+                }
                 //Register children with druid
                 ctx.children_changed();
                 //Kick off animation and calculation

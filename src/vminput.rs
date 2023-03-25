@@ -294,6 +294,7 @@ pub struct VMInputManager {
     character_string: String,
     text_obj: Option<TextObj>,
     text_motion: Option<TextMotion>,
+    mode_label: String,
     mode_prompt: String,
     timeout_build_token: Option<TimerToken>,
     timeout_revert_token: Option<TimerToken>,
@@ -307,8 +308,9 @@ impl Default for VMInputManager {
             mode: KeybindMode::Start,
             build_state: BuildState::AwaitOuterCount,
             text_input: VMTextInput::new(),
-            mode_prompt: String::new(),
+            mode_label: String::new(),
             input_string: String::new(),
+            mode_prompt: String::new(),
             outer_count: String::new(),
             accepts_outer_count: None,
             operation: None,
@@ -2227,7 +2229,7 @@ impl VMInputManager {
                         return vec![None];
                     }
                 } else if let Key::Backspace = key_event.key {
-                    if self.input_string == "/".to_string() {
+                    if self.input_string.is_empty() {
                         self.clear_build();
                         self.clear_revert_timeout();
                         return vec![Some(ActionPayload {
@@ -2239,7 +2241,7 @@ impl VMInputManager {
                         self.input_string.pop();
                         return vec![Some(ActionPayload {
                                 action: Action::SearchNodes,
-                                string: Some(self.input_string[1..].to_string()),
+                                string: Some(self.input_string.clone()),
                                 ..Default::default()
                             })];
                     }
@@ -2349,43 +2351,52 @@ impl VMInputManager {
 
             }
             KeybindMode::Sheet => {
-                self.mode_prompt = String::from("<SHEET>");
+                self.mode_label = String::from("<sheet>");
                 self.input_string = String::from("");
+                self.mode_prompt = String::from("");
             },
             KeybindMode::Move => {
-                self.mode_prompt = String::from("<MOVE>");
+                self.mode_label = String::from("<move>");
                 self.input_string = String::from("");
+                self.mode_prompt = String::from("");
             },
             KeybindMode::Edit => {
                 self.text_input.set_keybind_mode(mode);
-                self.mode_prompt = String::from("<EDIT>");
+                self.mode_label = String::from("<edit>");
                 self.input_string = String::from("");
+                self.mode_prompt = String::from("");
             },
             KeybindMode::Visual => {
                 self.text_input.set_keybind_mode(mode);
-                self.mode_prompt = String::from("<VISUAL>");
+                self.mode_label = String::from("<visual>");
                 self.input_string = String::from("");
+                self.mode_prompt = String::from("");
             }
             KeybindMode::Jump => {
-                self.mode_prompt = String::from("<JUMP>");
+                self.mode_label = String::from("<jump>");
                 self.input_string = String::from("");
+                self.mode_prompt = String::from("'");
             },
             KeybindMode::Mark => {
-                self.mode_prompt = String::from("<MARK>");
+                self.mode_label = String::from("<mark>");
                 self.input_string = String::from("");
+                self.mode_prompt = String::from("m");
             },
             KeybindMode::Insert => {
                 self.text_input.set_keybind_mode(mode);
-                self.mode_prompt = String::from("<INSERT>");
+                self.mode_label = String::from("<insert>");
                 self.input_string = String::from("");
+                self.mode_prompt = String::from("");
             },
             KeybindMode::SearchedSheet => {
-                self.mode_prompt = String::from("<SELECT>");
+                self.mode_label = String::from("<select>");
                 self.input_string = String::from("");
+                self.mode_prompt = String::from("");
             }
             KeybindMode::SearchEntry => {
-                self.mode_prompt = String::from("<SEARCH>");
+                self.mode_label = String::from("<search>");
                 self.input_string = String::from("");
+                self.mode_prompt = String::from("/");
             }
             KeybindMode::Global => {
                 tracing::error!("KeybindMode::Global should never be set!");
@@ -2401,6 +2412,10 @@ impl VMInputManager {
 
     pub fn get_string(&self) -> String {
         return self.input_string.clone();
+    }
+
+    pub fn get_mode_label(&self) -> &str {
+        return self.mode_label.as_str();
     }
 
     pub fn get_mode_prompt(&self) -> &str {
