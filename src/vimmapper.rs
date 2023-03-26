@@ -523,12 +523,10 @@ impl<'a> VimMapper {
                     mass: DEFAULT_NODE_MASS,
                     ..Default::default()
                 }));
-                tracing::debug!("Adding node {:?} between {:?} and {:?}", &new_vmnode.fg_index.unwrap(), from_node.unwrap(), to_node.unwrap());
                 self.graph.add_edge(from_node.unwrap(), new_vmnode.fg_index.unwrap(), EdgeData { user_data: 0 }); 
                 self.graph.add_edge(to_node.unwrap(), new_vmnode.fg_index.unwrap(), EdgeData { user_data: 0 }); 
                 self.nodes.insert(new_vmnode.index, new_vmnode);
                 let old_edge = self.graph.get_graph().find_edge(from_node.unwrap(), to_node.unwrap());
-                tracing::debug!("Removing edge {:?}", old_edge);
                 self.graph.get_graph_mut().remove_edge(old_edge.unwrap());
                 self.animating = true;
                 self.set_node_as_active(new_node_idx);
@@ -1348,7 +1346,6 @@ impl<'a> VimMapper {
             },
             Action::AcceptNodeText => {
                 if let Some(idx) = self.get_active_node_idx() {
-                    tracing::debug!("setting {} text cursor to {}", idx, self.input_manager.text_input.get_cursor_index());
                     self.nodes.get_mut(&idx).unwrap().label = self.input_manager.text_input.text.clone();
                     self.nodes.get_mut(&idx).unwrap().text_cursor_index = self.input_manager.text_input.get_cursor_index();
                 }

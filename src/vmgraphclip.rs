@@ -14,7 +14,7 @@
 #![allow(dead_code)]
 use std::{collections::{HashMap, HashSet}};
 
-use druid::{WidgetPod, EventCtx, Command, Target};
+use druid::{WidgetPod, EventCtx, Command, Target, Vec2, Affine};
 use serde::{Deserialize, Serialize};
 use vm_force_graph_rs::{Node, NodeData, DefaultNodeIdx, EdgeData};
 use petgraph::{stable_graph::StableUnGraph, visit::{EdgeRef, IntoEdgeReferences}};
@@ -36,11 +36,25 @@ impl VMGraphClip {
             root_node: None,
         };
 
+        let root_pos = Vec2::new(mapper.graph.get_graph()[root].data.x, mapper.graph.get_graph()[root].data.y);
+        let root_angle = root_pos.atan2();
+        let rotation = Affine::rotate(root_angle).inverse();
+
         let mut trans_map: HashMap<DefaultNodeIdx, DefaultNodeIdx> = HashMap::new();
+
         for fg_idx in node_set {
             let node = &mapper.get_force_graph().get_graph()[*fg_idx];
             graph_clip.nodes.insert(node.data.user_data, mapper.get_nodes().get(&node.data.user_data).unwrap().clone());
             let new_idx = graph_clip.get_graph_mut().add_node(node.clone());
+            let mut new_node_pos = Vec2::new(
+                graph_clip.get_graph()[new_idx].data.x,
+                graph_clip.get_graph()[new_idx].data.y
+            );
+
+            new_node_pos -= root_pos;
+            new_node_pos = Vec2::from(((rotation * new_node_pos.to_point()).x, (rotation * new_node_pos.to_point()).y));
+            graph_clip.get_graph_mut()[new_idx].data.x = new_node_pos.x;
+            graph_clip.get_graph_mut()[new_idx].data.y = new_node_pos.y;
             trans_map.insert(node.index(), new_idx);
         }
         graph_clip.root_node = Some(*trans_map.get(&root).unwrap());
@@ -93,12 +107,21 @@ impl VMGraphClip {
     pub fn append_node_clip(&self, target: &mut VimMapper, target_idx: Option<u32>, _register: String) {
         let mut trans_map: HashMap<DefaultNodeIdx, DefaultNodeIdx> = HashMap::new(); 
         if let Some(target_idx) = target_idx {
+            let target_node = &target.graph.get_graph()[target.nodes.get(&target_idx).unwrap().fg_index.unwrap()];
+            let target_node_pos = Vec2::new(target_node.x(), target_node.y());
+            let angle = target_node_pos.atan2();
+            let rotation = Affine::rotate(angle);
+            let new_node_offset = target_node_pos + Vec2::new(
+                (rotation * Vec2::new(target_node.data.repel_distance, target_node.data.repel_distance).to_point()).x,
+                (rotation * Vec2::new(target_node.data.repel_distance, target_node.data.repel_distance).to_point()).y,
+            );
             for old_fg_index in self.graph.node_indices() {
                 let node = self.graph[old_fg_index].clone();
                 let new_index = target.increment_node_idx();
+                let new_node_pos = (rotation * Vec2::new(node.data.x, node.data.y).to_point()) + new_node_offset;
                 let new_fg_index = target.graph.add_node(NodeData {
-                    x: node.data.x,
-                    y: node.data.y,
+                    x: new_node_pos.x,
+                    y: new_node_pos.y,
                     mass: node.data.mass,
                     repel_distance: node.data.repel_distance,
                     is_anchor: node.data.is_anchor,
