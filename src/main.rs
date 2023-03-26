@@ -147,6 +147,7 @@ impl VMCanvas {
             tab_name,
         });
         self.active_tab = self.tabs.len() - 1;
+        self.tabs[self.active_tab].vm.widget_mut().set_node_as_active(0);
         ctx.children_changed();
         ctx.request_layout();
         ctx.set_handled();
@@ -237,15 +238,20 @@ impl VMCanvas {
                     Action::GoToNextTab |
                     Action::GoToPreviousTab |
                     Action::ActivateTargetedNode |
-                    Action::IncreaseActiveNodeMass |
-                    Action::DecreaseActiveNodeMass |
-                    Action::ResetActiveNodeMass |
-                    Action::ToggleAnchorActiveNode |
+                    Action::IncreaseNodeMass |
+                    Action::DecreaseNodeMass |
+                    Action::ResetNodeMass |
+                    Action::ToggleNodeAnchor |
                     Action::EditActiveNodeSelectAll |
                     Action::EditActiveNodeAppend |
                     Action::EditActiveNodeInsert |
-                    Action::DeleteActiveNode |
+                    Action::AttemptNodeDeletion |
+                    Action::SnipNode |
                     Action::DeleteTargetNode |
+                    Action::DeleteNodeTree |
+                    Action::PasteNodeTree |
+                    Action::PasteNodeTreeAsTab |
+                    Action::PasteNodeTreeExternal |
                     Action::MarkActiveNode |
                     Action::MoveActiveNodeDown |
                     Action::MoveActiveNodeUp |

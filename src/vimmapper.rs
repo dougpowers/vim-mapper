@@ -13,19 +13,20 @@
 // limitations under the License.
 
 use common_macros::hash_set;
-use druid::kurbo::{Line, TranslateScale};
+use druid::kurbo::{Line, TranslateScale, Circle};
+use druid::menu::MenuEntry;
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
 use vm_force_graph_rs::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::prelude::*;
-use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target};
+use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, Menu, MenuItem};
 use regex::Regex;
 use std::collections::{HashMap};
 use std::f64::consts::*;
 
 use crate::vmdialog::VMDialog;
 use crate::vmgraphclip::VMGraphClip;
-use crate::vminput::*;
+use crate::{vminput::*, AppState};
 use crate::vmnode::VMNode;
 
 use crate::constants::*;
@@ -65,29 +66,8 @@ pub struct VimMapper {
     // events which affect panning modify this value. It is used to build the translate TranslateScale
     // during painting.
     pub(crate) offset_y: f64,
-    //This holds the last location the user clicked in order to determine double clicks 
-    pub(crate) last_click_point: Option<Point>,
-    //This is a debug vector containing all the node collision rects from the last click interaction.
-    pub(crate) last_collision_rects: Vec<Rect>,
     pub(crate) target_node_list: Vec<u32>,
     pub(crate) target_node_idx: Option<usize>,
-    //A struct that holds state and widgets for the modal node editor.
-    // pub(crate) node_editor: VMNodeEditor,
-    //A bool that specifies whether or not a MouseUp event has been received. If not, MouseMoves will 
-    // pan the canvas.
-    pub(crate) is_dragging: bool,
-    //The point at which the last MouseDown was received. This is used to create a Vec2 that can be
-    // applied to the translate TranslateScale.
-    pub(crate) drag_point: Option<Point>,
-    //The timer that, when expired, determines that the use submitted two distinct clicks rather than
-    // a double click. Duration is the DOUBLE_CLICK_THRESHOLD constant.
-    pub(crate) double_click_timer: Option<TimerToken>,
-    //This value is true until the double_click_timer has passed the DOUBLE_CLICK_THRESHOLD and signals
-    // that the subsequent click should be interpreted as a double click.
-    pub(crate) double_click: bool,
-    //This tuple captures the state of canvas translation so that all MouseMove deltas can be accumulated
-    // to compute panning
-    pub(crate) translate_at_drag: Option<(f64, f64)>,
     //This captures the is_hot context value during lifecycle changes to allow for the VimCanvas widget
     // to isolate click events for the dialog widgets
     pub(crate) is_hot: bool,
@@ -118,6 +98,8 @@ pub struct VimMapper {
     pub(crate) root_nodes: HashMap<usize, DefaultNodeIdx>,
 
     pub(crate) input_manager: VMInputManager,
+
+    pub(crate) last_mouse_down_data: Option<(Option<u32>, Point, (f64, f64))>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -159,15 +141,8 @@ impl<'a> Default for VimMapper {
             scale: DEFAULT_SCALE,
             offset_x: DEFAULT_OFFSET_X,
             offset_y: DEFAULT_OFFSET_Y,
-            last_click_point: None,
-            last_collision_rects: Vec::new(),
-            is_dragging: false,
-            drag_point: None,
             target_node_idx: None,
             target_node_list: vec![],
-            translate_at_drag: None,
-            double_click_timer: None,
-            double_click: false,
             is_hot: true,
             debug_data: false,
             debug_visuals: false,
@@ -180,7 +155,8 @@ impl<'a> Default for VimMapper {
             enabled_layouts: HashMap::new(),
             disabled_layouts: HashMap::new(),
             root_nodes: HashMap::new(),
-            input_manager: VMInputManager::new()
+            input_manager: VMInputManager::new(),
+            last_mouse_down_data: None,
         };
         let root_fg_index = root_node.fg_index.unwrap();
         mapper.nodes.insert(0, root_node);
@@ -223,16 +199,8 @@ impl<'a> VimMapper {
             scale: DEFAULT_SCALE,
             offset_x: DEFAULT_OFFSET_X,
             offset_y: DEFAULT_OFFSET_Y,
-            last_click_point: None,
-            last_collision_rects: Vec::new(),
-            // node_editor: VMNodeEditor::new(),
-            is_dragging: false,
-            drag_point: None,
             target_node_idx: None,
             target_node_list: vec![],
-            translate_at_drag: None,
-            double_click_timer: None,
-            double_click: false,
             is_hot: true,
             debug_data: false,
             debug_visuals: false,
@@ -372,6 +340,118 @@ impl<'a> VimMapper {
             return Ok(());
         } else {
             return Err(());
+        }
+    }
+
+    fn build_menu_for_node(&mut self, ctx: &EventCtx, idx: u32) -> Menu<AppState> {
+        let delete_count = self.get_node_deletion_count(idx);
+        let node = self.nodes.get(&idx);
+        if let Some(node) = node {
+            let mut menu: Menu<AppState> = Menu::empty();
+            let neighbor_count = self.graph.get_graph().neighbors(node.fg_index.unwrap()).collect::<Vec<_>>().len();
+            menu = menu.entry(
+                MenuItem::new("Add Child").command(Command::new(
+                    EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::CreateNewNode,
+                        index: Some(idx),
+                        ..Default::default()
+                    },
+                    Target::Global))
+            );
+            if self.target_node_list.contains(&idx) {
+                menu = menu.entry(
+                    MenuItem::new("Insert Node").command(Command::new(
+                        EXECUTE_ACTION,
+                        ActionPayload {
+                            action: Action::InsertNewNode,
+                            index: Some(idx),
+                            ..Default::default()
+                        },
+                        Target::Global))
+                );
+            }
+            menu = menu.entry(
+                MenuItem::new("Paste Nodes").command(Command::new(
+                    EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::PasteNodeTree,
+                        index: Some(idx),
+                        ..Default::default()
+                    },
+                    Target::Global))
+            );
+            menu = menu.separator();
+            if neighbor_count <= 2 {
+                menu = menu.entry(
+                    MenuItem::new("Snip Node").command(Command::new(
+                        EXECUTE_ACTION,
+                        ActionPayload {
+                            action: Action::SnipNode,
+                            index: Some(idx),
+                            ..Default::default()
+                        },
+                        Target::Global))
+                );
+            } 
+            if delete_count > 1 {
+                menu = menu.entry(
+                    MenuItem::new(format!("Delete {} Nodes", delete_count)).command(Command::new(
+                        EXECUTE_ACTION,
+                        ActionPayload {
+                            action: Action::AttemptNodeDeletion,
+                            index: Some(idx),
+                            ..Default::default()
+                        },
+                        Target::Global))
+                );
+            }
+            menu = menu.separator();
+            menu = menu.entry(
+                MenuItem::new("⚓Toggle Anchor").command(Command::new(
+                    EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::ToggleNodeAnchor,
+                        index: Some(idx),
+                        ..Default::default()
+                    },
+                    Target::Global))
+            );
+            let mass_menu: Menu<AppState> = Menu::new("Mass").entry(
+                MenuItem::new("Increase Mass").command(Command::new(
+                    EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::IncreaseNodeMass,
+                        index: Some(idx),
+                        ..Default::default()
+                    },
+                    Target::Global
+                ))
+            ).entry(
+                MenuItem::new("Decrease Mass").command(Command::new(
+                    EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::DecreaseNodeMass,
+                        index: Some(idx),
+                        ..Default::default()
+                    },
+                    Target::Global
+                ))
+            ).entry(
+                MenuItem::new("Reset Mass").command(Command::new(
+                    EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::ResetNodeMass,
+                        index: Some(idx),
+                        ..Default::default()
+                    },
+                    Target::Global
+                ))
+            );
+            menu = menu.entry(mass_menu);
+            return menu;
+        } else {
+            return Menu::<AppState>::empty();
         }
     }
 
@@ -844,9 +924,8 @@ impl<'a> VimMapper {
 
     //Determine of a given Point (usually a click) intersects with a node. Return that node's index if so.
     pub fn does_point_collide(&mut self, point: Point) -> Option<u32> {
-        self.last_collision_rects = Vec::new();
-        self.last_click_point = Some(point);
-        let mut add_to_index: Option<u32> = None;
+        // self.last_click_point = Some(point);
+        let mut collided_index: Option<u32> = None;
         self.nodes.iter().for_each(|item| {
             let affine_scale = Affine::scale(self.scale.as_tuple().1);
             let affine_translate = Affine::translate(self.translate.as_tuple().0);
@@ -865,24 +944,10 @@ impl<'a> VimMapper {
             rect = (affine_translate).transform_rect_bbox(rect);
             rect = (pos_translate).transform_rect_bbox(rect);
             if rect.contains(point) {
-                add_to_index = Some(node.index);
+                collided_index = Some(node.index);
             }
         });
-        add_to_index
-    }
-
-    //Start tracking dragging movement. This allows for MouseMove deltas to be accumulated to calulate
-    // total pan values.
-    pub fn set_dragging(&mut self, is_dragging: bool, drag_point: Option<Point>) -> () {
-        if is_dragging {
-            self.is_dragging = true;
-            self.drag_point = drag_point;
-            self.translate_at_drag = Some((self.offset_x, self.offset_y));
-        } else {
-            self.is_dragging = false;
-            self.drag_point = None;
-            self.translate_at_drag = None;
-        }
+        collided_index
     }
 
     //Loop over node label generation until it fits within a set of BoxConstraints. Wraps the contents
@@ -1038,14 +1103,23 @@ impl<'a> VimMapper {
                 return Ok(());
             },
             Action::CreateNewNode => {
-                if let Some(idx) = self.get_active_node_idx() {
-                    if let Some(_) = self.add_node(idx, format!("")) {
-                    }
+                if let Some(idx) = payload.index {
+                    let _ = self.add_node(idx, format!(""));
+                } else if let Some(idx) = self.get_active_node_idx() {
+                    let _ = self.add_node(idx, format!(""));
                 }
+                ctx.request_layout();
                 return Ok(());
             },
             Action::InsertNewNode => {
-                if let Some(from_idx) = self.get_active_node_idx() {
+                if let Some(to_idx) = payload.index {
+                    if self.target_node_list.contains(&to_idx) {
+                        if let Some(from_idx) = self.get_active_node_idx() {
+                            self.insert_node(from_idx, to_idx, format!(""));
+                            ctx.request_layout();
+                        }
+                    }
+                } else if let Some(from_idx) = self.get_active_node_idx() {
                     if let Some(to_idx) = self.get_target_node_idx() {
                         self.insert_node(from_idx, to_idx, format!(""));
                         ctx.request_layout();
@@ -1148,8 +1222,23 @@ impl<'a> VimMapper {
                 }
                 return Ok(());
             },
-            Action::SnipActiveNode => {
-                if let Some(active_idx) = self.get_active_node_idx() {
+            Action::SnipNode => {
+                if let Some(idx) = payload.index {
+                    let neighbor_count = self.graph.get_graph().neighbors(self.nodes.get(&idx).unwrap().fg_index.unwrap()).count();
+                    if neighbor_count > 2 {
+                        return Err(());
+                    } else if neighbor_count == 2 {
+                        if let Ok(idx) = self.snip_node(idx, ctx) {
+                            self.set_node_as_active(idx);
+                            self.scroll_node_into_view(idx);
+                        }
+                    } else {
+                        if let Ok(idx) = self.delete_node(idx, ctx) {
+                            self.set_node_as_active(idx);
+                            self.scroll_node_into_view(idx);
+                        }
+                    }
+                } else if let Some(active_idx) = self.get_active_node_idx() {
                     let neighbor_count = self.graph.get_graph().neighbors(self.nodes.get(&active_idx).unwrap().fg_index.unwrap()).count();
                     if neighbor_count > 2 {
                         return Err(());
@@ -1167,8 +1256,31 @@ impl<'a> VimMapper {
                 }
                 return Ok(());
             }
-            Action::DeleteActiveNode => {
-                if let Some(remove_idx) = self.get_active_node_idx() {
+            Action::AttemptNodeDeletion => {
+                if let Some(remove_idx) = payload.index {
+                    let count = self.get_node_deletion_count(remove_idx);
+                    if count == 0 {
+                        return Ok(());
+                    }
+                    if count <= 1 {
+                        if let Ok(idx) = self.delete_node(remove_idx, ctx) {
+                            self.set_node_as_active(idx);
+                            self.scroll_node_into_view(idx);
+                        }
+                    } else if remove_idx == 0 {
+                        
+                    } else {
+                        ctx.submit_command(Command::new(
+                            EXECUTE_ACTION,
+                            ActionPayload {
+                                action: Action::CreateDialog,
+                                dialog_params: Some(VMDialog::make_delete_node_prompt_dialog_params(count, remove_idx)),
+                                ..Default::default()
+                            },
+                            Target::Global
+                        ));
+                    }
+                } else if let Some(remove_idx) = self.get_active_node_idx() {
                     let count = self.get_node_deletion_count(remove_idx);
                     if count == 0 {
                         return Ok(());
@@ -1198,6 +1310,9 @@ impl<'a> VimMapper {
                 return Ok(());
             }
             Action::PasteNodeTree => {
+                if let Some(idx) = payload.index {
+                    self.set_node_as_active(idx);
+                }
                 if let Some(_) = self.get_active_node_idx() {
                     ctx.submit_command(Command::new(GET_REGISTER,
                         ("0".to_string(), false),
@@ -1214,26 +1329,34 @@ impl<'a> VimMapper {
                 Target::Global));
                 return Ok(());
             }
-            Action::IncreaseActiveNodeMass => {
-                if let Some(idx) = self.get_active_node_idx() {
+            Action::IncreaseNodeMass => {
+                if let Some(idx) = payload.index {
+                    self.increase_node_mass(idx);
+                } else if let Some(idx) = self.get_active_node_idx() {
                     self.increase_node_mass(idx);
                 }
                 return Ok(());
             }
-            Action::DecreaseActiveNodeMass => {
-                if let Some(idx) = self.get_active_node_idx() {
+            Action::DecreaseNodeMass => {
+                if let Some(idx) = payload.index {
+                    self.decrease_node_mass(idx);
+                } else if let Some(idx) = self.get_active_node_idx() {
                     self.decrease_node_mass(idx);
                 }
                 return Ok(());
             }
-            Action::ResetActiveNodeMass => {
-                if let Some(idx) = self.get_active_node_idx() {
+            Action::ResetNodeMass => {
+                if let Some(idx) = payload.index {
+                    self.reset_node_mass(idx);
+                } else if let Some(idx) = self.get_active_node_idx() {
                     self.reset_node_mass(idx);
                 }
                 return Ok(());
             }
-            Action::ToggleAnchorActiveNode => {
-                if let Some(idx) = self.get_active_node_idx() {
+            Action::ToggleNodeAnchor => {
+                if let Some(idx) = payload.index {
+                    self.toggle_node_anchor(idx);
+                } else if let Some(idx) = self.get_active_node_idx() {
                     self.toggle_node_anchor(idx);
                 }
                 return Ok(());
@@ -1393,37 +1516,74 @@ impl Widget<()> for VimMapper {
                 ctx.request_layout();
                 ctx.request_paint();
             }
-            Event::MouseUp(event) if event.button.is_left() => {
-                if self.is_dragging {
-                    self.set_dragging(false, None);
-                } else if let Some(_token) = self.double_click_timer {
-                    self.double_click = true;
-                } else {
-                    self.double_click_timer = Some(ctx.request_timer(DOUBLE_CLICK_THRESHOLD));
-                }
-                ctx.request_anim_frame();
-            }
-            Event::MouseDown(event) if event.button.is_left() => {
-                if self.does_point_collide(event.pos) == None {
-                    self.set_dragging(true, Some(event.pos));
-                }
-                ctx.request_anim_frame();
-            }
-            Event::MouseDown(event) if event.button.is_right() => {
-                if let Some(idx) = self.does_point_collide(event.pos) {
-                    self.add_node(idx, DEFAULT_NEW_NODE_LABEL.to_string());
-                }
-                ctx.request_anim_frame();
-            }
-            Event::MouseMove(event) => {
-                if self.is_dragging {
-                    if let Some(drag_point) = self.drag_point {
-                        let delta = drag_point - event.pos;
-                        self.offset_x = self.translate_at_drag.unwrap().0 - delta.x;
-                        self.offset_y = self.translate_at_drag.unwrap().1 - delta.y;
+            Event::MouseDown(mouse_event) if mouse_event.button.is_left() => {
+                if mouse_event.count == 1 {
+                    if let Some(idx) = self.does_point_collide(mouse_event.pos) {
+                        if let Some(active_idx) = self.get_active_node_idx() {
+                            if active_idx != idx {
+                                self.set_node_as_active(idx);
+                                self.last_mouse_down_data = Some((Some(idx), mouse_event.pos, (self.offset_x, self.offset_y)));
+                                let _ = self.handle_action(ctx, &ActionPayload {
+                                    action: Action::ChangeMode,
+                                    mode: Some(KeybindMode::Sheet),
+                                    ..Default::default()
+                                });
+                            } else {
+                                if self.input_manager.get_keybind_mode() == KeybindMode::Insert {
+                                    //Handle cursor click logic here
+                                } else {
+                                    self.last_mouse_down_data = Some((Some(idx), mouse_event.pos, (self.offset_x, self.offset_y)));
+                                }
+                            }
+                        }
+                    } else {
+                        self.last_mouse_down_data = Some((None, mouse_event.pos, (self.offset_x, self.offset_y)));
+                        let _ = self.handle_action(ctx, &ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Sheet),
+                            ..Default::default()
+                        });
+                    }
+                } else if mouse_event.count == 2 {
+                    self.last_mouse_down_data = None;
+                    if let Some(idx) = self.does_point_collide(mouse_event.pos) {
+                        self.set_node_as_active(idx);
+                        let _ = self.handle_action(ctx, &ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Insert),
+                            ..Default::default()
+                        });
                     }
                 }
-                ctx.request_anim_frame();
+            }
+            Event::MouseDown(mouse_event) if mouse_event.button.is_right() => {
+                if let Some(idx) = self.does_point_collide(mouse_event.pos) {
+                    ctx.show_context_menu(self.build_menu_for_node(ctx, idx), mouse_event.pos);
+                } else {
+                    // global ctx menu here
+                }
+            }
+            Event::MouseUp(_) => {
+                self.last_mouse_down_data = None;
+            }
+            Event::MouseMove(mouse_event) => {
+                if let Some((Some(idx), pos, _last_translate)) = self.last_mouse_down_data {
+                    if idx != 0 {
+                        let delta = pos - mouse_event.pos;
+                        if delta.hypot() > DEFAULT_NODE_DRAG_THRESHOLD {
+                            let canvas_space_pos = Affine::from(self.scale).inverse() * (self.translate.inverse() * mouse_event.pos);
+                            let fg_idx = self.nodes.get(&idx).unwrap().fg_index.unwrap();
+                            self.graph.get_graph_mut()[fg_idx].data.is_anchor = true;
+                            self.graph.get_graph_mut()[fg_idx].data.x = canvas_space_pos.x;
+                            self.graph.get_graph_mut()[fg_idx].data.y = canvas_space_pos.y;
+                            self.animating = true;
+                        }
+                    }
+                } else if let Some((None, pos, last_translate)) = self.last_mouse_down_data {
+                    let delta = pos - mouse_event.pos;
+                    self.offset_x = last_translate.0 - delta.x;
+                    self.offset_y = last_translate.1 - delta.y;
+                }
             }
             Event::Wheel(event) => {
                 if event.mods.shift() {
@@ -1441,20 +1601,7 @@ impl Widget<()> for VimMapper {
                 ctx.request_anim_frame();
             }
             Event::Timer(event) => {
-                if Some(*event) == self.double_click_timer {
-                    ctx.set_handled();
-                    if self.double_click {
-                    } else if !self.is_dragging {
-                        if let Some(point) = self.last_click_point {
-                            if let Some(idx) = self.does_point_collide(point) {
-                                self.set_node_as_active(idx);
-                                self.scroll_node_into_view(idx);
-                            }
-                        }
-                    }
-                    self.double_click_timer = None;
-                    self.double_click = false;
-                } else if Some(*event) == self.animation_timer_token {
+                if Some(*event) == self.animation_timer_token {
                     ctx.set_handled();
                     if let Some(delta) = self.largest_node_movement {
                         if delta < ANIMATION_MOVEMENT_THRESHOLD {
@@ -1511,7 +1658,7 @@ impl Widget<()> for VimMapper {
             LifeCycle::HotChanged(is_hot) => {
                 //Cache is_hot values
                 self.is_hot = *is_hot;
-                self.set_dragging(false, None);
+                self.last_mouse_down_data = None;
             },
             _ => {
             }
@@ -1678,8 +1825,8 @@ impl Widget<()> for VimMapper {
                     }
                     ctx.transform(Affine::from(self.translate));
                     ctx.transform(Affine::from(self.scale));
-                    ctx.transform(Affine::from(TranslateScale::new(-1.0*(label_size.to_vec2())/2.0, 1.0)));
-                    ctx.transform(Affine::from(TranslateScale::new(active_node_pos, 1.0)));
+                    ctx.transform(Affine::translate(-1.0*(label_size.to_vec2())/2.0));
+                    ctx.transform(Affine::translate(active_node_pos));
                     ctx.fill(label_size.to_rect(), &self.config.get_color(VMColor::NodeBackgroundColor).unwrap());
                     self.input_manager.text_input.paint(ctx, &self.config, self.debug_data);
                 });
@@ -1720,7 +1867,11 @@ impl Widget<()> for VimMapper {
         }
 
         //Paint debug dump
-        // if self.debug_data {
+        if self.debug_data {
+            if let Some((_, pos, _)) = self.last_mouse_down_data {
+                ctx.fill(Circle::new(pos, 1.), &Color::RED);
+            }
+        }
         //     if let Some(idx) = self.get_active_node_idx() {
         //         ctx.with_save(|ctx| {
         //             ctx.transform(Affine::from(self.translate));

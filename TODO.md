@@ -18,13 +18,18 @@
 - [x] Add functionality to split tree to external
 - [x] Add functionality to split tree to new tab
 - [x] Implement cross-tab cut/paste registers 
-- [ ] Add VMGraphClip rotation and translation logic
-- [ ] Add node insertion between any active and target nodes
+- [x] Add VMGraphClip rotation and translation logic
+- [x] Add node insertion between any active and target nodes
 - [ ] Implement KeybindType::String for KeybindMode::Sheet
-- [ ] Implement new KeybindMode::RegisterSelect
-- [ ] Remove and replace mouse logic
-- [ ] Implement context menu for node operations via mouse
-    - [ ] Implement mouse node dragging
+- [ ] Implement node and tree yank
+- [x] Remove and replace mouse logic
+- [x] Implement context menu for node operations via mouse
+    - [x] Implement mouse node dragging
+- [ ] Implement sheet context menu
+    - [ ] add external node at mouse click point
+    - [ ] paste external at mouse click point
+    - [ ] paste into new tab
+- [ ] Implement tab context menu
 - [ ] Zoom from canvas center point rather than origin
 
 ### Minor
@@ -32,13 +37,15 @@
 - [x] Fix delete to end of word leaving cursor in the wrong position when word is at end of string
 - [x] Add functionality to save active_idx in each tab
 - [x] Ensure any node deletion activates a convenient neighbor node instead of the root
-- [ ] Reposition mode indicators, prompts, and input
+- [x] Reposition mode indicators, prompts, and input
+- [ ] Fix brand new nodes sometimes not registering clicks
 
 ## Deferred Tasks
 ### Major
 - [ ] Implement global and local counts
 - [ ] Implement visual mode
 - [ ] Implement :commands
+- [ ] Implement new KeybindMode::RegisterSelect
 
 ### Minor
 - [ ] Rewrite Delete/Change OuterN to delete empty pairs

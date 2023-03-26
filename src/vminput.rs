@@ -39,17 +39,17 @@ pub enum Action {
     InsertNewNode,
     CreateNewNodeAndEdit,
     CreateNewExternalNode,
-    IncreaseActiveNodeMass,
-    DecreaseActiveNodeMass,
-    ResetActiveNodeMass,
-    ToggleAnchorActiveNode,
+    IncreaseNodeMass,
+    DecreaseNodeMass,
+    ResetNodeMass,
+    ToggleNodeAnchor,
     ActivateTargetedNode,
     EditActiveNodeSelectAll,
     EditActiveNodeAppend,
     EditActiveNodeInsert,
-    SnipActiveNode,
+    SnipNode,
     DeleteNodeTree,
-    DeleteActiveNode,
+    AttemptNodeDeletion,
     DeleteTargetNode,
     YankNodeTree,
     PasteNodeTree,
@@ -623,7 +623,7 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::DeleteActiveNode,
+                            action: Action::AttemptNodeDeletion,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
@@ -635,7 +635,7 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::SnipActiveNode,
+                            action: Action::SnipNode,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
@@ -921,7 +921,7 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::DecreaseActiveNodeMass,
+                            action: Action::DecreaseNodeMass,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
@@ -933,7 +933,7 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::IncreaseActiveNodeMass,
+                            action: Action::IncreaseNodeMass,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
@@ -945,7 +945,7 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::ResetActiveNodeMass,
+                            action: Action::ResetNodeMass,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
@@ -957,7 +957,7 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::ToggleAnchorActiveNode,
+                            action: Action::ToggleNodeAnchor,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
@@ -995,7 +995,7 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::ToggleAnchorActiveNode,
+                            action: Action::ToggleNodeAnchor,
                             ..Default::default()
                         }),
                         Some(ActionPayload {
