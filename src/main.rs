@@ -931,6 +931,9 @@ impl Widget<AppState> for VMCanvas {
                     self.tab_bar.event(ctx, event, &mut (), env);
                 } else if let Some(tab) = self.tabs.get_mut(self.active_tab) {
                     let inner = &mut tab.vm;
+                    if let Some(register) = self.graph_clip_registers.get("0") {
+                        inner.widget_mut().default_paste_register_count = register.get_graph().node_count();
+                    }
                     inner.event(ctx, event, &mut (), env);
                 }
             }
@@ -1086,7 +1089,7 @@ impl Widget<AppState> for VMCanvas {
 }
 
 #[derive(Data, Clone)]
-struct AppState {
+pub struct AppState {
     menu_visible: bool,
     save_state: VMSaveState,
     dialog_input_text: String,

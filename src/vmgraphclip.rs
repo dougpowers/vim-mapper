@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use vm_force_graph_rs::{Node, NodeData, DefaultNodeIdx, EdgeData};
 use petgraph::{stable_graph::StableUnGraph, visit::{EdgeRef, IntoEdgeReferences}};
 
-use crate::{vmnode::VMNode, vimmapper::VimMapper, VMTab, constants::SET_REGISTER, vmconfig::VMConfigVersion4};
+use crate::{vmnode::VMNode, vimmapper::VimMapper, VMTab, constants::SET_REGISTER, vmconfig::VMConfigVersion4, vminput::KeybindMode};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VMGraphClip {
@@ -128,6 +128,11 @@ impl VMGraphClip {
                     user_data: new_index,
                 });
                 let mut vm_node = self.nodes.get(&node.data.user_data).unwrap().clone();
+                if let Some(mark) = vm_node.mark.clone() {
+                    if mark.contains(char::is_numeric) {
+                        vm_node.mark = None;
+                    }
+                }
                 vm_node.index = new_index;
                 vm_node.is_active = false;
                 vm_node.fg_index = Some(new_fg_index);
@@ -174,6 +179,7 @@ impl VMGraphClip {
                 }
             }
             target.build_target_list_from_neighbors(external_node);
+            target.input_manager.set_keybind_mode(KeybindMode::Move);
         }
         target.animating = true;
     }

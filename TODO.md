@@ -25,11 +25,11 @@
 - [x] Remove and replace mouse logic
 - [x] Implement context menu for node operations via mouse
     - [x] Implement mouse node dragging
-- [ ] Implement sheet context menu
+- [x] Implement sheet context menu
     - [ ] add external node at mouse click point
     - [ ] paste external at mouse click point
-    - [ ] paste into new tab
-- [ ] Implement tab context menu
+    - [x] paste into new tab
+- [x] Implement tab context menu
 - [ ] Zoom from canvas center point rather than origin
 
 ### Minor

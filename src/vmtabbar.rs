@@ -1,6 +1,6 @@
-use druid::{Size, Widget, piet::{PietTextLayout, Text, TextLayoutBuilder, TextLayout},Color, RenderContext, Rect, Point, FontFamily, Event, Command, Target};
+use druid::{Size, Widget, piet::{PietTextLayout, Text, TextLayoutBuilder, TextLayout},Color, RenderContext, Rect, Point, FontFamily, Event, Command, Target, Menu, MenuItem};
 
-use crate::{vmconfig::{VMConfigVersion4, VMColor}, vminput::{ActionPayload, Action}};
+use crate::{vmconfig::{VMConfigVersion4, VMColor}, vminput::{ActionPayload, Action}, AppState};
 use crate::constants::*;
 
 pub struct VMTabBar {
@@ -43,12 +43,50 @@ impl VMTabBar {
         }
         self.active_tab = active_tab;
     }
+
+    fn build_menu(&mut self, tab_index: usize) -> Menu<AppState> {
+        let mut menu = Menu::<AppState>::empty();
+        menu = menu.entry(
+            MenuItem::new("New Tab").command(Command::new(EXECUTE_ACTION,
+                ActionPayload {
+                    action: Action::CreateNewTab,
+                    tab_index: Some(tab_index),
+                    ..Default::default()
+                },
+                Target::Global
+            ))
+        );
+        menu = menu.entry(
+            MenuItem::new("Rename Tab").command(Command::new(EXECUTE_ACTION,
+                ActionPayload {
+                    action: Action::OpenRenameTabInput,
+                    tab_index: Some(tab_index),
+                    ..Default::default()
+                },
+                Target::Global
+            ))
+        );
+        if self.tabs.len() > 1 {
+            menu = menu.separator();
+            menu = menu.entry(
+                MenuItem::new("Delete Tab").command(Command::new(EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::OpenDeleteTabPrompt,
+                        tab_index: Some(tab_index),
+                        ..Default::default()
+                    },
+                    Target::Global
+                ))
+            );
+        }
+        return menu;
+    }
 }
 
 impl Widget<()> for VMTabBar {
     fn event(&mut self, ctx: &mut druid::EventCtx, event: &druid::Event, _data: &mut (), _env: &druid::Env) {
         match event {
-            Event::MouseDown(mouse_event) => {
+            Event::MouseDown(mouse_event) if mouse_event.button.is_left() => {
                 for index in 0..self.tabs.len() {
                     let x_min = *&self.tabs[0..index].iter().fold(0., |acc, v| {
                         return acc + v.2.unwrap().width + TAB_BAR_LABEL_PADDING_X*2.;
@@ -64,6 +102,17 @@ impl Widget<()> for VMTabBar {
                             },
                             Target::Global
                         ));
+                    }
+                }
+            },
+            Event::MouseDown(mouse_event) if mouse_event.button.is_right() => {
+                for index in 0..self.tabs.len() {
+                    let x_min = *&self.tabs[0..index].iter().fold(0., |acc, v| {
+                        return acc + v.2.unwrap().width + TAB_BAR_LABEL_PADDING_X*2.;
+                    });
+                    let x_max = x_min + self.tabs[index].2.unwrap().width + TAB_BAR_LABEL_PADDING_X*2.;
+                    if mouse_event.pos.x > x_min && mouse_event.pos.x < x_max {
+                        ctx.show_context_menu(self.build_menu(index), mouse_event.pos);
                     }
                 }
             },

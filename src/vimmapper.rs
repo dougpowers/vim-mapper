@@ -19,7 +19,7 @@ use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
 use vm_force_graph_rs::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::prelude::*;
-use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, Menu, MenuItem};
+use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, Menu, MenuItem, Key};
 use regex::Regex;
 use std::collections::{HashMap};
 use std::f64::consts::*;
@@ -100,6 +100,9 @@ pub struct VimMapper {
     pub(crate) input_manager: VMInputManager,
 
     pub(crate) last_mouse_down_data: Option<(Option<u32>, Point, (f64, f64))>,
+    //A value set by VMCanvas on every delegated click informing the VimMapper of how many nodes are in
+    // the default register. (Used to label the context menu);
+    pub(crate) default_paste_register_count: usize,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -157,6 +160,7 @@ impl<'a> Default for VimMapper {
             root_nodes: HashMap::new(),
             input_manager: VMInputManager::new(),
             last_mouse_down_data: None,
+            default_paste_register_count: 0,
         };
         let root_fg_index = root_node.fg_index.unwrap();
         mapper.nodes.insert(0, root_node);
@@ -301,14 +305,14 @@ impl<'a> VimMapper {
         }
     }
 
-    fn build_menu_for_node(&mut self, _ctx: &EventCtx, idx: u32) -> Menu<AppState> {
+    pub fn build_menu_for_node(&mut self, _ctx: &EventCtx, idx: u32) -> Menu<AppState> {
         let delete_count = self.get_node_deletion_count(idx);
         let node = self.nodes.get(&idx);
         if let Some(node) = node {
             let mut menu: Menu<AppState> = Menu::empty();
             let neighbor_count = self.graph.get_graph().neighbors(node.fg_index.unwrap()).collect::<Vec<_>>().len();
             menu = menu.entry(
-                MenuItem::new("Add Child").command(Command::new(
+                MenuItem::new("Add Child Node").command(Command::new(
                     EXECUTE_ACTION,
                     ActionPayload {
                         action: Action::CreateNewNode,
@@ -330,14 +334,22 @@ impl<'a> VimMapper {
                 );
             }
             menu = menu.entry(
-                MenuItem::new("Paste Nodes").command(Command::new(
+                MenuItem::new(
+                    if self.default_paste_register_count > 2 {
+                        format!("Paste-Append {} Nodes", self.default_paste_register_count)
+                    } else if self.default_paste_register_count == 1 {
+                        "Paste 1 Node".to_string()
+                    } else {
+                        "No Nodes to Paste".to_string()
+                    }
+                ).command(Command::new(
                     EXECUTE_ACTION,
                     ActionPayload {
                         action: Action::PasteNodeTree,
                         index: Some(idx),
                         ..Default::default()
                     },
-                    Target::Global))
+                    Target::Global)).enabled(self.default_paste_register_count > 0)
             );
             menu = menu.separator();
             if neighbor_count <= 2 {
@@ -411,6 +423,56 @@ impl<'a> VimMapper {
         } else {
             return Menu::<AppState>::empty();
         }
+    }
+
+    pub fn build_menu_for_sheet(&mut self, _ctx: &EventCtx) -> Menu<AppState> {
+        let mut menu: Menu<AppState> = Menu::empty();
+        menu = menu.entry(
+            MenuItem::new("Add External Node").command(Command::new(
+                EXECUTE_ACTION,
+                ActionPayload {
+                    action: Action::CreateNewExternalNode,
+                    ..Default::default()
+                },
+                Target::Global))
+        );
+        menu = menu.entry(
+            MenuItem::new(
+                if self.default_paste_register_count > 2 {
+                    format!("Paste {} Nodes as External", self.default_paste_register_count)
+                } else if self.default_paste_register_count == 1 {
+                    "Paste 1 Node as External".to_string()
+                } else {
+                    "No Nodes to Paste".to_string()
+                }
+            ).command(Command::new(
+                EXECUTE_ACTION,
+                ActionPayload {
+                    action: Action::PasteNodeTreeExternal,
+                    ..Default::default()
+                },
+                Target::Global)).enabled(self.default_paste_register_count > 0)
+        );
+        if self.default_paste_register_count > 0 {
+            menu = menu.entry(
+                MenuItem::new(
+                    if self.default_paste_register_count > 2 {
+                        format!("Paste {} Nodes in New Tab", self.default_paste_register_count)
+                    } else if self.default_paste_register_count == 1 {
+                        "Paste 1 Node in New Tab".to_string()
+                    } else {
+                        "No Nodes to Paste".to_string()
+                    }
+                ).command(Command::new(
+                    EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::PasteNodeTreeAsTab,
+                        ..Default::default()
+                    },
+                    Target::Global)).enabled(self.default_paste_register_count > 0)
+            );
+        }
+        return menu;
     }
 
     pub fn target_node_if_listed(&mut self, target: u32) -> Result<(), String> {
@@ -1483,7 +1545,16 @@ impl Widget<()> for VimMapper {
                 ctx.request_paint();
             }
             Event::MouseDown(mouse_event) if mouse_event.button.is_left() => {
-                if mouse_event.count == 1 {
+                if self.input_manager.get_keybind_mode() == KeybindMode::Move {
+                    ctx.submit_command(Command::new(EXECUTE_ACTION,
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Sheet),
+                            ..Default::default()
+                        },
+                        Target::Global
+                    ))    
+                } else if mouse_event.count == 1 {
                     match self.input_manager.get_keybind_mode() {
                         KeybindMode::Edit |
                         KeybindMode::Insert |
@@ -1586,17 +1657,49 @@ impl Widget<()> for VimMapper {
                 }
             }
             Event::MouseDown(mouse_event) if mouse_event.button.is_right() => {
-                if let Some(idx) = self.does_point_collide(mouse_event.pos) {
+                if self.input_manager.get_keybind_mode() == KeybindMode::Move {
+                    ctx.submit_command(Command::new(EXECUTE_ACTION,
+                        ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Sheet),
+                            ..Default::default()
+                        },
+                        Target::Global
+                    ))    
+                } else if let Some(idx) = self.does_point_collide(mouse_event.pos) {
                     ctx.show_context_menu(self.build_menu_for_node(ctx, idx), mouse_event.pos);
                 } else {
                     // global ctx menu here
+                    ctx.show_context_menu(self.build_menu_for_sheet(ctx), mouse_event.pos);
                 }
             }
             Event::MouseUp(_) => {
                 self.last_mouse_down_data = None;
             }
             Event::MouseMove(mouse_event) => {
-                if let Some((Some(idx), pos, _last_translate)) = self.last_mouse_down_data {
+                if self.input_manager.get_keybind_mode() == KeybindMode::Move && self.last_mouse_down_data == None {
+                    self.last_mouse_down_data = Some((self.get_active_node_idx(), mouse_event.pos, (self.offset_x, self.offset_y)));
+                }
+                if self.input_manager.get_keybind_mode() == KeybindMode::Move {
+                    if let None = self.last_mouse_down_data {
+                        self.last_mouse_down_data = Some((self.get_active_node_idx(), mouse_event.pos, (self.offset_x, self.offset_y)));
+                    } else if let Some((None, _, _)) = self.last_mouse_down_data {
+                        self.last_mouse_down_data = Some((self.get_active_node_idx(), mouse_event.pos, (self.offset_x, self.offset_y)));
+                    }
+                    if let Some((Some(idx), pos, _last_translate)) = self.last_mouse_down_data {
+                        if idx != 0 {
+                            let delta = pos - mouse_event.pos;
+                            if delta.hypot() > DEFAULT_NODE_DRAG_THRESHOLD {
+                                let canvas_space_pos = Affine::from(self.scale).inverse() * (self.translate.inverse() * mouse_event.pos);
+                                let fg_idx = self.nodes.get(&idx).unwrap().fg_index.unwrap();
+                                self.graph.get_graph_mut()[fg_idx].data.is_anchor = true;
+                                self.graph.get_graph_mut()[fg_idx].data.x = canvas_space_pos.x;
+                                self.graph.get_graph_mut()[fg_idx].data.y = canvas_space_pos.y;
+                                self.animating = true;
+                            }
+                        }
+                    }
+                } else if let Some((Some(idx), pos, _last_translate)) = self.last_mouse_down_data {
                     if idx != 0 {
                         let delta = pos - mouse_event.pos;
                         if delta.hypot() > DEFAULT_NODE_DRAG_THRESHOLD {
@@ -1617,7 +1720,7 @@ impl Widget<()> for VimMapper {
             Event::Wheel(event) => {
                 if event.mods.shift() {
                     self.offset_x -= event.wheel_delta.to_point().x;
-                } else if event.mods.ctrl() || event.buttons.has_right() {
+                } else if event.mods.ctrl() {
                     if event.wheel_delta.to_point().y < 0.0 {
                         self.scale = self.scale.clone()*TranslateScale::scale(1.25);
                     } else {

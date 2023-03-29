@@ -1482,6 +1482,9 @@ impl VMInputManager {
     pub fn new() -> VMInputManager {
         let mut vim = VMInputManager {
             mode: KeybindMode::Sheet,
+            mode_label: String::from("<sheet>"),
+            input_string: String::from(""),
+            mode_prompt: String::from(""),
             ..Default::default()
         };
 
