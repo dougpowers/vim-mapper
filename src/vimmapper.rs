@@ -118,7 +118,7 @@ impl<'a> Default for VimMapper {
         let mut root_node = VMNode {
             label: DEFAULT_ROOT_LABEL.to_string(),
             index: 0,
-            is_active: false,
+            is_active: true,
             ..Default::default()
         };
         // Capture the DefaultNodeIdx and store it in the VMNode. This allows nodes to refer to the 
@@ -168,51 +168,52 @@ impl<'a> Default for VimMapper {
 #[allow(dead_code)]
 impl<'a> VimMapper {
     pub fn new(config: VMConfigVersion4) -> VimMapper {
-        let mut graph = <ForceGraph<u32, u32>>::new(
-            DEFAULT_SIMULATION_PARAMETERS
-        );
-        //The default node. Is always at index 0 and position (0.0, 0.0).
-        let mut root_node = VMNode {
-            label: DEFAULT_ROOT_LABEL.to_string(),
-            index: 0,
-            mark: Some("0".to_string()),
-            is_active: false,
-            ..Default::default()
-        };
-        // Capture the DefaultNodeIdx and store it in the VMNode. This allows nodes to refer to the 
-        // bare ForceGraph to remove themselves.
-        root_node.fg_index = Some(graph.add_node(NodeData 
-            { x: 0.0, 
-            y: 0.0, 
-            is_anchor: true, 
-            user_data: 0, 
-            mass: DEFAULT_NODE_MASS, 
-            ..Default::default() 
-        }));
-        let mut mapper = VimMapper {
-            graph: graph, 
-            animating: true,
-            nodes: HashMap::with_capacity(50),
-            //Account for the already-added root node
-            node_idx_count: 1,
-            translate: DEFAULT_TRANSLATE,
-            scale: DEFAULT_SCALE,
-            offset_x: DEFAULT_OFFSET_X,
-            offset_y: DEFAULT_OFFSET_Y,
-            target_node_idx: None,
-            target_node_list: vec![],
-            is_hot: true,
-            debug_data: false,
-            debug_visuals: false,
-            largest_node_movement: None,
-            canvas_rect: None,
-            config,
-            node_render_mode: NodeRenderMode::AllEnabled,
-            animation_timer_token: None,
-            ..Default::default()
-        };
-        mapper.nodes.insert(0, root_node);
-        mapper
+        // let mut graph = <ForceGraph<u32, u32>>::new(
+        //     DEFAULT_SIMULATION_PARAMETERS
+        // );
+        // //The default node. Is always at index 0 and position (0.0, 0.0).
+        // let mut root_node = VMNode {
+        //     label: DEFAULT_ROOT_LABEL.to_string(),
+        //     index: 0,
+        //     mark: Some("0".to_string()),
+        //     is_active: false,
+        //     ..Default::default()
+        // };
+        // // Capture the DefaultNodeIdx and store it in the VMNode. This allows nodes to refer to the 
+        // // bare ForceGraph to remove themselves.
+        // root_node.fg_index = Some(graph.add_node(NodeData 
+        //     { x: 0.0, 
+        //     y: 0.0, 
+        //     is_anchor: true, 
+        //     user_data: 0, 
+        //     mass: DEFAULT_NODE_MASS, 
+        //     ..Default::default() 
+        // }));
+        // let mut mapper = VimMapper {
+        //     graph: graph, 
+        //     animating: true,
+        //     nodes: HashMap::with_capacity(50),
+        //     //Account for the already-added root node
+        //     node_idx_count: 1,
+        //     translate: DEFAULT_TRANSLATE,
+        //     scale: DEFAULT_SCALE,
+        //     offset_x: DEFAULT_OFFSET_X,
+        //     offset_y: DEFAULT_OFFSET_Y,
+        //     target_node_idx: None,
+        //     target_node_list: vec![],
+        //     is_hot: true,
+        //     debug_data: false,
+        //     debug_visuals: false,
+        //     largest_node_movement: None,
+        //     canvas_rect: None,
+        //     config,
+        //     node_render_mode: NodeRenderMode::AllEnabled,
+        //     animation_timer_token: None,
+        //     ..Default::default()
+        // };
+        // mapper.nodes.insert(0, root_node);
+        // mapper
+        VimMapper::default()
     }
 
     pub fn get_nodes(&self) -> &HashMap<u32, VMNode> {
@@ -932,7 +933,10 @@ impl<'a> VimMapper {
             let affine_translate = Affine::translate(self.translate.as_tuple().0);
             let node = item.1;
             let node_pos = &self.get_node_pos(node.index).clone();
-            let size = self.enabled_layouts[&node.fg_index.unwrap()].size();
+            let mut size = self.enabled_layouts[&node.fg_index.unwrap()].size();
+            if size.width < DEFAULT_MIN_NODE_WIDTH_DATA {
+                size.width = DEFAULT_MIN_NODE_WIDTH_DATA;
+            }
             let mut rect = size.to_rect();
             let border = DEFAULT_BORDER_WIDTH*self.scale.as_tuple().1;
             rect = rect.inflate(border*2.0,border*2.0);
@@ -957,6 +961,10 @@ impl<'a> VimMapper {
         let mut layout: PietTextLayout;
         let mut font_size = DEFAULT_LABEL_FONT_SIZE;
         let max_width = NODE_LABEL_MAX_CONSTRAINTS.0;
+
+        if bc.max().width < DEFAULT_MIN_NODE_WIDTH_DATA {
+            return Err(format!("Cannot build label smaller than {}", DEFAULT_MIN_NODE_WIDTH_DATA));
+        }
 
         if let Ok(layout) = factory.new_text_layout(text.clone())
         .font(FontFamily::SANS_SERIF, font_size)
