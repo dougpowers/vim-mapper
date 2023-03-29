@@ -168,52 +168,9 @@ impl<'a> Default for VimMapper {
 #[allow(dead_code)]
 impl<'a> VimMapper {
     pub fn new(config: VMConfigVersion4) -> VimMapper {
-        // let mut graph = <ForceGraph<u32, u32>>::new(
-        //     DEFAULT_SIMULATION_PARAMETERS
-        // );
-        // //The default node. Is always at index 0 and position (0.0, 0.0).
-        // let mut root_node = VMNode {
-        //     label: DEFAULT_ROOT_LABEL.to_string(),
-        //     index: 0,
-        //     mark: Some("0".to_string()),
-        //     is_active: false,
-        //     ..Default::default()
-        // };
-        // // Capture the DefaultNodeIdx and store it in the VMNode. This allows nodes to refer to the 
-        // // bare ForceGraph to remove themselves.
-        // root_node.fg_index = Some(graph.add_node(NodeData 
-        //     { x: 0.0, 
-        //     y: 0.0, 
-        //     is_anchor: true, 
-        //     user_data: 0, 
-        //     mass: DEFAULT_NODE_MASS, 
-        //     ..Default::default() 
-        // }));
-        // let mut mapper = VimMapper {
-        //     graph: graph, 
-        //     animating: true,
-        //     nodes: HashMap::with_capacity(50),
-        //     //Account for the already-added root node
-        //     node_idx_count: 1,
-        //     translate: DEFAULT_TRANSLATE,
-        //     scale: DEFAULT_SCALE,
-        //     offset_x: DEFAULT_OFFSET_X,
-        //     offset_y: DEFAULT_OFFSET_Y,
-        //     target_node_idx: None,
-        //     target_node_list: vec![],
-        //     is_hot: true,
-        //     debug_data: false,
-        //     debug_visuals: false,
-        //     largest_node_movement: None,
-        //     canvas_rect: None,
-        //     config,
-        //     node_render_mode: NodeRenderMode::AllEnabled,
-        //     animation_timer_token: None,
-        //     ..Default::default()
-        // };
-        // mapper.nodes.insert(0, root_node);
-        // mapper
-        VimMapper::default()
+        let mut vm = VimMapper::default();
+        vm.config = config;
+        vm
     }
 
     pub fn get_nodes(&self) -> &HashMap<u32, VMNode> {
