@@ -38,6 +38,7 @@
 - [x] Add functionality to save active_idx in each tab
 - [x] Ensure any node deletion activates a convenient neighbor node instead of the root
 - [x] Reposition mode indicators, prompts, and input
+- [x] Change single click on node to target if it's in the target list
 - [ ] Fix brand new nodes sometimes not registering clicks
 
 ## Deferred Tasks

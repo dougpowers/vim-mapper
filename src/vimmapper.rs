@@ -343,7 +343,7 @@ impl<'a> VimMapper {
         }
     }
 
-    fn build_menu_for_node(&mut self, ctx: &EventCtx, idx: u32) -> Menu<AppState> {
+    fn build_menu_for_node(&mut self, _ctx: &EventCtx, idx: u32) -> Menu<AppState> {
         let delete_count = self.get_node_deletion_count(idx);
         let node = self.nodes.get(&idx);
         if let Some(node) = node {
@@ -462,7 +462,8 @@ impl<'a> VimMapper {
                 return Ok(());
             }
         }
-        return Err(String::from("specified node not in target list"));
+        // return Err(String::from("specified node not in target list"));
+        return Err(format!("Index {} is not in target list", target));
     }
 
     pub fn get_target_list_length(&self) -> usize {
@@ -1518,31 +1519,94 @@ impl Widget<()> for VimMapper {
             }
             Event::MouseDown(mouse_event) if mouse_event.button.is_left() => {
                 if mouse_event.count == 1 {
-                    if let Some(idx) = self.does_point_collide(mouse_event.pos) {
-                        if let Some(active_idx) = self.get_active_node_idx() {
-                            if active_idx != idx {
-                                self.set_node_as_active(idx);
-                                self.last_mouse_down_data = Some((Some(idx), mouse_event.pos, (self.offset_x, self.offset_y)));
+                    match self.input_manager.get_keybind_mode() {
+                        KeybindMode::Edit |
+                        KeybindMode::Insert |
+                        KeybindMode::Visual => {
+                            if let Some(idx) = self.does_point_collide(mouse_event.pos) {
+                                if let Some(active_idx) = self.get_active_node_idx() {
+                                    if let Some(target_idx) = self.get_target_node_idx() {
+                                        if idx != active_idx {
+                                            let _ = self.handle_action(ctx, &ActionPayload {
+                                                action: Action::ChangeMode,
+                                                mode: Some(KeybindMode::Sheet),
+                                                ..Default::default()
+                                            });
+                                            self.last_mouse_down_data = Some((Some(idx), mouse_event.pos, (self.offset_x, self.offset_y)));
+                                            if target_idx == idx {
+                                                self.set_node_as_active(idx);
+                                                let _ = self.target_node_if_listed(active_idx);
+                                            } else if let Ok(_) = self.target_node_if_listed(idx) {
+
+                                            } else {
+                                                self.set_node_as_active(idx);
+                                            }
+                                        } else {
+                                            //handle text input click location here
+                                        }
+                                    } else {
+                                        if idx != active_idx {
+                                            let _ = self.handle_action(ctx, &ActionPayload {
+                                                action: Action::ChangeMode,
+                                                mode: Some(KeybindMode::Sheet),
+                                                ..Default::default()
+                                            });
+                                            self.last_mouse_down_data = Some((Some(idx), mouse_event.pos, (self.offset_x, self.offset_y)));
+                                            if let Ok(_) = self.target_node_if_listed(idx) {
+
+                                            } else {
+                                                self.set_node_as_active(idx);
+                                            }
+                                        } else {
+                                            //handle text input click location here
+                                        }
+                                    }
+                                } else {
+                                    let _ = self.handle_action(ctx, &ActionPayload {
+                                        action: Action::ChangeMode,
+                                        mode: Some(KeybindMode::Sheet),
+                                        ..Default::default()
+                                    });
+                                    self.last_mouse_down_data = Some((Some(idx), mouse_event.pos, (self.offset_x, self.offset_y)));
+                                    self.set_node_as_active(idx);
+                                }
+                            } else {
                                 let _ = self.handle_action(ctx, &ActionPayload {
                                     action: Action::ChangeMode,
                                     mode: Some(KeybindMode::Sheet),
                                     ..Default::default()
                                 });
-                            } else {
-                                if self.input_manager.get_keybind_mode() == KeybindMode::Insert {
-                                    //Handle cursor click logic here
+                                self.last_mouse_down_data = Some((None, mouse_event.pos, (self.offset_x, self.offset_y)));
+                            }
+
+                        }
+                        _ => {
+                            if let Some(idx) = self.does_point_collide(mouse_event.pos) {
+                                self.last_mouse_down_data = Some((Some(idx), mouse_event.pos, (self.offset_x, self.offset_y)));
+                                if let Some(active_idx) = self.get_active_node_idx() {
+                                    if let Some(target_idx) = self.get_target_node_idx() {
+                                        if target_idx == idx {
+                                            self.set_node_as_active(idx);
+                                            let _ = self.target_node_if_listed(active_idx);
+                                        } else if let Ok(_) = self.target_node_if_listed(idx) {
+
+                                        } else {
+                                            self.set_node_as_active(idx);
+                                        }
+                                    } else {
+                                        if let Ok(_) = self.target_node_if_listed(idx) {
+                                            let _ = self.target_node_if_listed(active_idx);
+                                         } else {
+                                            self.set_node_as_active(idx);
+                                        }
+                                    }
                                 } else {
-                                    self.last_mouse_down_data = Some((Some(idx), mouse_event.pos, (self.offset_x, self.offset_y)));
+                                    self.set_node_as_active(idx);
                                 }
+                            } else {
+                                self.last_mouse_down_data = Some((None, mouse_event.pos, (self.offset_x, self.offset_y)));
                             }
                         }
-                    } else {
-                        self.last_mouse_down_data = Some((None, mouse_event.pos, (self.offset_x, self.offset_y)));
-                        let _ = self.handle_action(ctx, &ActionPayload {
-                            action: Action::ChangeMode,
-                            mode: Some(KeybindMode::Sheet),
-                            ..Default::default()
-                        });
                     }
                 } else if mouse_event.count == 2 {
                     self.last_mouse_down_data = None;
