@@ -22,6 +22,7 @@
 - [x] Add node insertion between any active and target nodes
 - [ ] Implement KeybindType::String for KeybindMode::Sheet
 - [ ] Implement node and tree yank
+- [x] Implement text cursor placement on label click
 - [x] Remove and replace mouse logic
 - [x] Implement context menu for node operations via mouse
     - [x] Implement mouse node dragging

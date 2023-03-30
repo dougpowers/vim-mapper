@@ -521,6 +521,14 @@ impl<'a> VMTextInput {
         return self.index;
     }
 
+    pub fn get_index_at_point(&self, point: Point) -> Result<usize, ()> {
+        let htp = self.text_layout.as_ref().unwrap().hit_test_point(point);
+        if htp.is_inside {
+            return Ok(htp.idx);
+        }
+        return Err(());
+    }
+
     pub fn layout(&mut self, ctx: &mut LayoutCtx, config: &VMConfigVersion4) {
         let layout = VimMapper::build_label_layout_for_constraints(
             ctx.text(), 
@@ -558,23 +566,6 @@ impl<'a> VMTextInput {
                     ctx.fill(debug_layout.size().to_rect(), &Color::BLUE);
                 });
                 ctx.draw_text(&debug_layout, Point::new(rect.x0, rect.y1));
-                // let mut index: usize = 0;
-                // loop {
-                //     if let Some(next_index) = self.text.next_word_offset(index) {
-                //         index = next_index;
-                //     } else {
-                //         break;
-                //     }
-                //     let rect = self.get_line_cursor_bounds(index);
-                //     ctx.fill(
-                //         rect,
-                //         &Color::RED
-                //     );
-                //     if index == self.text.len() {
-                //         break;
-                //     }
-                // }
-
             }
             ctx.draw_text(layout, Point {x: 0., y: 0.});
         }

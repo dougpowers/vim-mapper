@@ -14,12 +14,11 @@
 
 use common_macros::hash_set;
 use druid::kurbo::{Line, TranslateScale, Circle};
-use druid::menu::MenuEntry;
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
 use vm_force_graph_rs::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::prelude::*;
-use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, Menu, MenuItem, Key};
+use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, Menu, MenuItem};
 use regex::Regex;
 use std::collections::{HashMap};
 use std::f64::consts::*;
@@ -974,6 +973,18 @@ impl<'a> VimMapper {
         collided_index
     }
 
+    pub fn screen_point_to_label_point(&mut self, point: Point) -> Option<(u32, Point)> {
+        if let Some(idx) = self.does_point_collide(point) {
+            let canvas_space_pos = Affine::from(self.scale).inverse() * (self.translate.inverse() * point);
+            let label_pos = self.get_node_pos(idx);
+            let fg_idx = self.nodes.get(&idx).unwrap().fg_index.unwrap();
+            let label_offset = self.enabled_layouts.get(&fg_idx).unwrap().size().to_vec2() / 2.;
+            // tracing::debug!("{}", canvas_space_pos-label_pos+label_size);
+            return Some((idx, canvas_space_pos-label_pos+label_offset));
+        }
+        return None;
+    }
+
     //Loop over node label generation until it fits within a set of BoxConstraints. Wraps the contents
     // once and then, if it still doesn't fit, reduce the font until it does.
     pub fn build_label_layout_for_constraints(factory: &mut PietText, text: String, bc: BoxConstraints, color: &Color) -> Result<PietTextLayout, String> {
@@ -1579,6 +1590,14 @@ impl Widget<()> for VimMapper {
                                             }
                                         } else {
                                             //handle text input click location here
+                                            if let Some((hit_idx, point)) = self.screen_point_to_label_point(mouse_event.pos) {
+                                                let index = self.input_manager.text_input.get_index_at_point(point);
+                                                if let Ok(index) = index {
+                                                    if hit_idx == idx {
+                                                        let _ = self.input_manager.text_input.set_cursor(Some(index));
+                                                    }
+                                                }
+                                            }
                                         }
                                     } else {
                                         if idx != active_idx {
@@ -1595,6 +1614,14 @@ impl Widget<()> for VimMapper {
                                             }
                                         } else {
                                             //handle text input click location here
+                                            if let Some((hit_idx, point)) = self.screen_point_to_label_point(mouse_event.pos) {
+                                                let index = self.input_manager.text_input.get_index_at_point(point);
+                                                if let Ok(index) = index {
+                                                    if hit_idx == idx {
+                                                        let _ = self.input_manager.text_input.set_cursor(Some(index));
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 } else {
