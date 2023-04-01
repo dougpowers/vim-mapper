@@ -14,7 +14,7 @@
 #![allow(dead_code)]
 use std::{collections::{HashMap, HashSet}};
 
-use druid::{WidgetPod, EventCtx, Command, Target, Vec2, Affine};
+use druid::{WidgetPod, EventCtx, Command, Target, Vec2, Affine, Point};
 use serde::{Deserialize, Serialize};
 use vm_force_graph_rs::{Node, NodeData, DefaultNodeIdx, EdgeData};
 use petgraph::{stable_graph::StableUnGraph, visit::{EdgeRef, IntoEdgeReferences}};
@@ -104,7 +104,7 @@ impl VMGraphClip {
         return &mut self.nodes;
     }
 
-    pub fn append_node_clip(&self, target: &mut VimMapper, target_idx: Option<u32>, _register: String) {
+    pub fn append_node_clip(&self, target: &mut VimMapper, target_idx: Option<u32>, _register: String, pos: Option<Point>) {
         let mut trans_map: HashMap<DefaultNodeIdx, DefaultNodeIdx> = HashMap::new(); 
         if let Some(target_idx) = target_idx {
             let target_node = &target.graph.get_graph()[target.nodes.get(&target_idx).unwrap().fg_index.unwrap()];
@@ -148,14 +148,19 @@ impl VMGraphClip {
             let external_node = target.add_external_node(self.nodes.get(&self.graph[root_node].data.user_data).unwrap().label.clone()).unwrap();
             let external_fg_index = target.get_nodes().get(&external_node).unwrap().fg_index.unwrap();
             target.set_node_as_active(external_node);
+            if let Some(point) = pos {
+                tracing::debug!("adding external paste to right click position");
+                target.graph.get_graph_mut()[external_fg_index].data.x = point.x;
+                target.graph.get_graph_mut()[external_fg_index].data.y = point.y;
+            }
             trans_map.insert(root_node, target.get_nodes().get(&external_node).unwrap().fg_index.unwrap());
             for old_fg_index in self.graph.node_indices() {
                 if old_fg_index != root_node {
                     let node = self.graph[old_fg_index].clone();
                     let new_index = target.increment_node_idx();
                     let new_fg_index = target.graph.add_node(NodeData {
-                        x: node.data.x,
-                        y: node.data.y,
+                        x: if let Some(point) = pos { point.x + node.data.x } else { node.data.x },
+                        y: if let Some(point) = pos { point.y + node.data.y } else { node.data.y },
                         mass: node.data.mass,
                         repel_distance: node.data.repel_distance,
                         is_anchor: node.data.is_anchor,
@@ -179,7 +184,9 @@ impl VMGraphClip {
                 }
             }
             target.build_target_list_from_neighbors(external_node);
-            target.input_manager.set_keybind_mode(KeybindMode::Move);
+            if pos.is_none() {
+                target.input_manager.set_keybind_mode(KeybindMode::Move);
+            }
         }
         target.animating = true;
     }

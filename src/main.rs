@@ -843,11 +843,11 @@ impl Widget<AppState> for VMCanvas {
                 self.graph_clip_registers.insert(register_name.clone(), graph_clip.clone());
             }
             Event::Command(command) if command.is(GET_REGISTER) => {
-                let (register_name, paste_external) = command.get_unchecked(GET_REGISTER);
+                let (register_name, paste_external, external_point) = command.get_unchecked(GET_REGISTER);
                 if let Some(graph_clip) = self.graph_clip_registers.get(register_name) {
                     if let Some(tab) = self.tabs.get(self.active_tab) {
                         ctx.submit_command(Command::new(OFFER_REGISTER,
-                            (register_name.clone(), graph_clip.clone(), *paste_external),
+                            (register_name.clone(), graph_clip.clone(), *paste_external, *external_point),
                             Target::Widget(tab.vm.id())
                         ));
                     }

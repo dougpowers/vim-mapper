@@ -15,7 +15,7 @@
 
 use std::{path::PathBuf};
 
-use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, RawMods, Data, text::EditableText, Target, Command};
+use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, RawMods, Data, text::EditableText, Target, Command, Point};
 use unicode_segmentation::UnicodeSegmentation;
 use bitflags::bitflags;
 
@@ -213,6 +213,7 @@ pub struct ActionPayload {
     pub save_state: Option<VMSaveState>,
     pub dialog_params: Option<VMDialogParams>,
     pub path: Option<PathBuf>,
+    pub pos: Option<Point>,
 }
 
 impl Default for ActionPayload {
@@ -228,6 +229,7 @@ impl Default for ActionPayload {
             save_state: None,
             dialog_params: None,
             path: None,
+            pos: None,
         }
     }
 }

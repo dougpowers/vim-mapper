@@ -15,7 +15,7 @@
 
 use std::time::Duration;
 
-use druid::{kurbo::TranslateScale, Selector, Vec2};
+use druid::{kurbo::TranslateScale, Selector, Vec2, Point};
 use vm_force_graph_rs::SimulationParameters;
 use crate::{vminput::ActionPayload, vmgraphclip::VMGraphClip};
 
@@ -104,9 +104,9 @@ pub const EXECUTE_ACTION: Selector<ActionPayload> = Selector::<ActionPayload>::n
 
 pub const SET_REGISTER: Selector<(String, VMGraphClip)> = Selector::<(String, VMGraphClip)>::new("set-register");
 
-pub const GET_REGISTER: Selector<(String, bool)> = Selector::<(String, bool)>::new("get-register");
+pub const GET_REGISTER: Selector<(String, bool, Option<Point>)> = Selector::<(String, bool, Option<Point>)>::new("get-register");
 
-pub const OFFER_REGISTER: Selector<(String, VMGraphClip, bool)> = Selector::<(String, VMGraphClip, bool)>::new("offer-register");
+pub const OFFER_REGISTER: Selector<(String, VMGraphClip, bool, Option<Point>)> = Selector::<(String, VMGraphClip, bool, Option<Point>)>::new("offer-register");
 
 pub const CANCEL_CHANGES: Selector = Selector::new("cancel-changes");
 

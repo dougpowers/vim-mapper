@@ -99,6 +99,7 @@ pub struct VimMapper {
     pub(crate) input_manager: VMInputManager,
 
     pub(crate) last_mouse_down_data: Option<(Option<u32>, Point, (f64, f64))>,
+    pub(crate) last_menu_pos: Point,
     //A value set by VMCanvas on every delegated click informing the VimMapper of how many nodes are in
     // the default register. (Used to label the context menu);
     pub(crate) default_paste_register_count: usize,
@@ -159,6 +160,7 @@ impl<'a> Default for VimMapper {
             root_nodes: HashMap::new(),
             input_manager: VMInputManager::new(),
             last_mouse_down_data: None,
+            last_menu_pos: Point::new(0.,0.),
             default_paste_register_count: 0,
         };
         let root_fg_index = root_node.fg_index.unwrap();
@@ -424,13 +426,14 @@ impl<'a> VimMapper {
         }
     }
 
-    pub fn build_menu_for_sheet(&mut self, _ctx: &EventCtx) -> Menu<AppState> {
+    pub fn build_menu_for_sheet(&mut self, _ctx: &EventCtx, pos: Option<Point>) -> Menu<AppState> {
         let mut menu: Menu<AppState> = Menu::empty();
         menu = menu.entry(
             MenuItem::new("Add External Node").command(Command::new(
                 EXECUTE_ACTION,
                 ActionPayload {
                     action: Action::CreateNewExternalNode,
+                    pos: if let Some(point) = pos { Some(self.screen_point_to_canvas_point(point)) } else { None }, 
                     ..Default::default()
                 },
                 Target::Global))
@@ -448,6 +451,7 @@ impl<'a> VimMapper {
                 EXECUTE_ACTION,
                 ActionPayload {
                     action: Action::PasteNodeTreeExternal,
+                    pos: if let Some(point) = pos { Some(self.screen_point_to_canvas_point(point)) } else { None }, 
                     ..Default::default()
                 },
                 Target::Global)).enabled(self.default_paste_register_count > 0)
@@ -973,16 +977,27 @@ impl<'a> VimMapper {
         collided_index
     }
 
-    pub fn screen_point_to_label_point(&mut self, point: Point) -> Option<(u32, Point)> {
+    pub fn screen_point_to_canvas_point(&self, point: Point) -> Point {
+        let canvas_space_pos = Affine::from(self.scale).inverse() * (self.translate.inverse() * point);
+        return canvas_space_pos;
+    }
+
+    pub fn screen_point_to_label_point(&mut self, point: Point) -> (Option<u32>, Point) {
         if let Some(idx) = self.does_point_collide(point) {
             let canvas_space_pos = Affine::from(self.scale).inverse() * (self.translate.inverse() * point);
             let label_pos = self.get_node_pos(idx);
             let fg_idx = self.nodes.get(&idx).unwrap().fg_index.unwrap();
             let label_offset = self.enabled_layouts.get(&fg_idx).unwrap().size().to_vec2() / 2.;
             // tracing::debug!("{}", canvas_space_pos-label_pos+label_size);
-            return Some((idx, canvas_space_pos-label_pos+label_offset));
+            return (Some(idx), canvas_space_pos-label_pos+label_offset);
+        } else {
+            let canvas_space_pos = Affine::from(self.scale).inverse() * (self.translate.inverse() * point);
+            return (None, canvas_space_pos);
         }
-        return None;
+    }
+
+    pub fn zoom_canvas(&mut self, factor: f64, center_point: Option<Point>) {
+        self.scale = self.scale.clone()*TranslateScale::scale(factor);
     }
 
     //Loop over node label generation until it fits within a set of BoxConstraints. Wraps the contents
@@ -1181,15 +1196,22 @@ impl<'a> VimMapper {
                 if let Some(_) = self.get_active_node_idx() {
                     if let Some(new_idx) = self.add_external_node(format!("New External Node")) {
                         self.set_node_as_active(new_idx);
-                        ctx.submit_command(Command::new(
-                            EXECUTE_ACTION,
-                            ActionPayload {
-                                action: Action::ChangeMode,
-                                mode: Some(KeybindMode::Move),
-                                ..Default::default()
-                            },
-                            Target::Global
-                        ));
+                        if let Some(point) = payload.pos {
+                            let node = self.nodes.get(&new_idx).unwrap().fg_index.unwrap();
+                            self.graph.get_graph_mut()[node].data.x = self.screen_point_to_canvas_point(point).x;
+                            self.graph.get_graph_mut()[node].data.y = self.screen_point_to_canvas_point(point).y;
+                            ctx.request_layout();
+                        } else {
+                            ctx.submit_command(Command::new(
+                                EXECUTE_ACTION,
+                                ActionPayload {
+                                    action: Action::ChangeMode,
+                                    mode: Some(KeybindMode::Move),
+                                    ..Default::default()
+                                },
+                                Target::Global
+                            ));
+                        }
                     }
                 }
                 return Ok(());
@@ -1354,7 +1376,7 @@ impl<'a> VimMapper {
                 }
                 if let Some(_) = self.get_active_node_idx() {
                     ctx.submit_command(Command::new(GET_REGISTER,
-                        ("0".to_string(), false),
+                        ("0".to_string(), false, None),
                         Target::Global
                     ));
                     return Ok(());
@@ -1363,9 +1385,15 @@ impl<'a> VimMapper {
                 }
             }
             Action::PasteNodeTreeExternal => {
-                ctx.submit_command(Command::new(GET_REGISTER,
-                ("0".to_string(), true),
-                Target::Global));
+                if let Some(point) = payload.pos {
+                    ctx.submit_command(Command::new(GET_REGISTER,
+                    ("0".to_string(), true, Some(point)),
+                    Target::Global));
+                } else {
+                    ctx.submit_command(Command::new(GET_REGISTER,
+                    ("0".to_string(), true, None),
+                    Target::Global));
+                }
                 return Ok(());
             }
             Action::IncreaseNodeMass => {
@@ -1499,11 +1527,11 @@ impl<'a> VimMapper {
                 return Ok(());
             }
             Action::ZoomOut => {
-                self.scale = self.scale.clone()*TranslateScale::scale(payload.float.unwrap());
+                self.zoom_canvas(payload.float.unwrap(), None);
                 return Ok(());
             }
             Action::ZoomIn => {
-                self.scale = self.scale.clone()*TranslateScale::scale(payload.float.unwrap());
+                self.zoom_canvas(payload.float.unwrap(), None);
                 return Ok(());
             },
             Action::AcceptNodeText => {
@@ -1590,7 +1618,7 @@ impl Widget<()> for VimMapper {
                                             }
                                         } else {
                                             //handle text input click location here
-                                            if let Some((hit_idx, point)) = self.screen_point_to_label_point(mouse_event.pos) {
+                                            if let (Some(hit_idx), point) = self.screen_point_to_label_point(mouse_event.pos) {
                                                 let index = self.input_manager.text_input.get_index_at_point(point);
                                                 if let Ok(index) = index {
                                                     if hit_idx == idx {
@@ -1614,7 +1642,7 @@ impl Widget<()> for VimMapper {
                                             }
                                         } else {
                                             //handle text input click location here
-                                            if let Some((hit_idx, point)) = self.screen_point_to_label_point(mouse_event.pos) {
+                                            if let (Some(hit_idx), point) = self.screen_point_to_label_point(mouse_event.pos) {
                                                 let index = self.input_manager.text_input.get_index_at_point(point);
                                                 if let Ok(index) = index {
                                                     if hit_idx == idx {
@@ -1694,10 +1722,12 @@ impl Widget<()> for VimMapper {
                         Target::Global
                     ))    
                 } else if let Some(idx) = self.does_point_collide(mouse_event.pos) {
+                    self.last_menu_pos = mouse_event.pos;
                     ctx.show_context_menu(self.build_menu_for_node(ctx, idx), mouse_event.pos);
                 } else {
                     // global ctx menu here
-                    ctx.show_context_menu(self.build_menu_for_sheet(ctx), mouse_event.pos);
+                    self.last_menu_pos = mouse_event.pos;
+                    ctx.show_context_menu(self.build_menu_for_sheet(ctx, Some(mouse_event.pos)), mouse_event.pos);
                 }
             }
             Event::MouseUp(_) => {
@@ -1744,18 +1774,18 @@ impl Widget<()> for VimMapper {
                     self.offset_y = last_translate.1 - delta.y;
                 }
             }
-            Event::Wheel(event) => {
-                if event.mods.shift() {
-                    self.offset_x -= event.wheel_delta.to_point().x;
-                } else if event.mods.ctrl() {
-                    if event.wheel_delta.to_point().y < 0.0 {
-                        self.scale = self.scale.clone()*TranslateScale::scale(1.25);
+            Event::Wheel(mouse_event) => {
+                if mouse_event.mods.shift() {
+                    self.offset_x -= mouse_event.wheel_delta.to_point().x;
+                } else if mouse_event.mods.ctrl() {
+                    if mouse_event.wheel_delta.to_point().y < 0.0 {
+                        self.zoom_canvas(1.25, Some(mouse_event.pos));
                     } else {
-                        self.scale = self.scale.clone()*TranslateScale::scale(0.75);
+                        self.zoom_canvas(0.75, Some(mouse_event.pos));
                     }
                 } else {
-                    self.offset_y -= event.wheel_delta.to_point().y;
-                    self.offset_x -= event.wheel_delta.to_point().x;
+                    self.offset_y -= mouse_event.wheel_delta.to_point().y;
+                    self.offset_x -= mouse_event.wheel_delta.to_point().x;
                 }
                 ctx.request_anim_frame();
             }
@@ -1782,11 +1812,11 @@ impl Widget<()> for VimMapper {
             }
             Event::Command(command) if command.is(OFFER_REGISTER) && !ctx.is_handled() => {
                 if let Some(active_idx) = self.get_active_node_idx() {
-                    let (register, graph_clip, is_external) = command.get_unchecked(OFFER_REGISTER).clone();
+                    let (register, graph_clip, is_external, external_point) = command.get_unchecked(OFFER_REGISTER).clone();
                     if !is_external {
-                        graph_clip.append_node_clip(self, Some(active_idx), register);
+                        graph_clip.append_node_clip(self, Some(active_idx), register, None);
                     } else {
-                        graph_clip.append_node_clip(self, None, register);
+                        graph_clip.append_node_clip(self, None, register, external_point);
                     }
                 }
             }
