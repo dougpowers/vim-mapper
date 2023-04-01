@@ -31,7 +31,10 @@
     - [x] paste external at mouse click point
     - [x] paste into new tab
 - [x] Implement tab context menu
-- [ ] Zoom from canvas center point rather than origin
+- [x] Zoom from canvas center point rather than origin
+- [ ] Change zoom to vec of uniform scales
+- [ ] refactor vm_force_graph_rs deletion tree building logic
+- [ ] determine what permanently halts animation on HP Spectre x360
 
 ### Minor
 - [x] Fix partial matches being falsely reported

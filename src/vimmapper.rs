@@ -982,13 +982,17 @@ impl<'a> VimMapper {
         return canvas_space_pos;
     }
 
+    pub fn canvas_point_to_screen_point(&self, point: Point) -> Point {
+        let screen_space_pos = Affine::from(self.scale) * (self.translate * point);
+        return screen_space_pos
+    }
+
     pub fn screen_point_to_label_point(&mut self, point: Point) -> (Option<u32>, Point) {
         if let Some(idx) = self.does_point_collide(point) {
             let canvas_space_pos = Affine::from(self.scale).inverse() * (self.translate.inverse() * point);
             let label_pos = self.get_node_pos(idx);
             let fg_idx = self.nodes.get(&idx).unwrap().fg_index.unwrap();
             let label_offset = self.enabled_layouts.get(&fg_idx).unwrap().size().to_vec2() / 2.;
-            // tracing::debug!("{}", canvas_space_pos-label_pos+label_size);
             return (Some(idx), canvas_space_pos-label_pos+label_offset);
         } else {
             let canvas_space_pos = Affine::from(self.scale).inverse() * (self.translate.inverse() * point);
@@ -997,7 +1001,26 @@ impl<'a> VimMapper {
     }
 
     pub fn zoom_canvas(&mut self, factor: f64, center_point: Option<Point>) {
-        self.scale = self.scale.clone()*TranslateScale::scale(factor);
+        // let scale_factor = self.scale.as_tuple().1;
+        let point1: Point;
+        let point2: Point;
+        // let mut str1 = "".to_string();
+        // let mut str2 = "".to_string();
+        if let Some(point) = center_point {
+            point1 = self.screen_point_to_canvas_point(point);
+            // str1 = format!("Point at {} at scale {}", point1, scale_factor);
+            self.scale = self.scale.clone()*TranslateScale::scale(factor);
+            let scale_factor = self.scale.as_tuple().1;
+            point2 = self.screen_point_to_canvas_point(point);
+            // str2 = format!("Point at {} at scale {}", point2, scale_factor);
+            let delta = self.canvas_point_to_screen_point(point2) - self.canvas_point_to_screen_point(point1);
+            // tracing::debug!("\n{}\n{}\nDelta {}", str1, str2, delta);
+            self.offset_x += delta.x;
+            self.offset_y += delta.y;
+        } else {
+            self.scale = self.scale.clone()*TranslateScale::scale(factor);
+            // let scale_factor = self.scale.as_tuple().1;
+        }
     }
 
     //Loop over node label generation until it fits within a set of BoxConstraints. Wraps the contents
@@ -1527,11 +1550,13 @@ impl<'a> VimMapper {
                 return Ok(());
             }
             Action::ZoomOut => {
-                self.zoom_canvas(payload.float.unwrap(), None);
+                let center_point = Point::new(self.canvas_rect.unwrap().width()/2., self.canvas_rect.unwrap().height()/2.);
+                self.zoom_canvas(payload.float.unwrap(), Some(center_point));
                 return Ok(());
             }
             Action::ZoomIn => {
-                self.zoom_canvas(payload.float.unwrap(), None);
+                let center_point = Point::new(self.canvas_rect.unwrap().width()/2., self.canvas_rect.unwrap().height()/2.);
+                self.zoom_canvas(payload.float.unwrap(), Some(center_point));
                 return Ok(());
             },
             Action::AcceptNodeText => {
@@ -1899,7 +1924,7 @@ impl Widget<()> for VimMapper {
 
     fn paint(&mut self, ctx: &mut PaintCtx, _data: &(), _env: &Env) {
         let vec = ctx.size();
-        self.translate = TranslateScale::new((vec.to_vec2()/2.0)+Vec2::new(self.offset_x, self.offset_y), 1.0);
+        self.translate = TranslateScale::new((vec.to_vec2()/2.)+Vec2::new(self.offset_x, self.offset_y), 1.0);
         let ctx_size = ctx.size();
         let ctx_rect = ctx_size.to_rect();
         self.canvas_rect = Some(ctx_rect.clone());
@@ -2058,8 +2083,11 @@ impl Widget<()> for VimMapper {
         //Paint debug dump
         if self.debug_data {
             if let Some((_, pos, _)) = self.last_mouse_down_data {
-                ctx.fill(Circle::new(pos, 1.), &Color::RED);
+                ctx.fill(Circle::new(pos, 5.), &Color::RED);
             }
+            let mut point = Point::new(0.,0.);
+            point = (point.to_vec2() + self.translate.as_tuple().0).to_point();
+            ctx.fill(Circle::new(point, 5.), &Color::FUCHSIA);
         }
         //     if let Some(idx) = self.get_active_node_idx() {
         //         ctx.with_save(|ctx| {
