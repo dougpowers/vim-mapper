@@ -52,6 +52,7 @@ pub enum Action {
     AttemptNodeDeletion,
     DeleteTargetNode,
     YankNodeTree,
+    YankNode,
     PasteNodeTree,
     PasteNodeTreeExternal,
     PasteNodeTreeAsTab,
@@ -158,23 +159,6 @@ impl Default for TextAction {
     }
 }
 
-// #[allow(dead_code)]
-// #[derive(Data, Clone, Copy, PartialEq, Debug)]
-// pub enum KeybindMode {
-//     Start,
-//     Dialog,
-//     Sheet,
-//     Edit,
-//     Visual,
-//     Insert,
-//     Jump,
-//     Mark,
-//     Move,
-//     SearchedSheet,
-//     SearchEnter,
-//     Global,
-// }
-
 bitflags! {
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
     pub struct KeybindMode: u32 {
@@ -247,9 +231,16 @@ struct Keybind {
     motion: Option<TextMotion>,
     obj: Option<TextObj>,
     next: Option<BuildState>,
+    subcommands: Option<Vec<Subcommand>>,
     accepts_inner_count: Option<bool>,
     accepts_outer_count: Option<bool>,
     mode: KeybindMode,
+}
+
+#[derive(Clone, Debug)]
+struct Subcommand {
+    string: String,
+    action_payloads: Vec<Option<ActionPayload>>,
 }
 
 impl Default for Keybind {
@@ -263,6 +254,7 @@ impl Default for Keybind {
             operation: None,
             motion: None,
             next: None,
+            subcommands: None,
             accepts_inner_count: None,
             accepts_outer_count: None,
             obj: None,
@@ -277,6 +269,7 @@ pub enum BuildState {
     AwaitOperator,
     AwaitInnerCount,
     AwaitTarget,
+    AwaitSubcommand,
     AwaitCharacter,
     Complete,
 }
@@ -290,6 +283,7 @@ pub struct VMInputManager {
     outer_count: String,
     accepts_outer_count: Option<bool>,
     operation: Option<TextOperation>,
+    subcommands: Option<Vec<Subcommand>>,
     payloads: Option<Vec<Option<ActionPayload>>>,
     inner_count: String,
     accepts_inner_count: Option<bool>,
@@ -517,14 +511,13 @@ impl Default for VMInputManager {
                     kb_type: KeybindType::Key, 
                     key: Some(Key::Character(String::from("a"))),
                     modifiers: None, 
-                    action_payloads: vec![Some(
-                        ActionPayload {
+                    action_payloads: vec![
+                        Some(ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::Insert),
                             ..Default::default()
-                    }),
-                    Some(
-                        ActionPayload {
+                        }),
+                        Some(ActionPayload {
                             action: Action::ExecuteTextAction,
                             text_action: Some(TextAction { 
                                 operation: TextOperation::None, 
@@ -535,8 +528,8 @@ impl Default for VMInputManager {
                                 character_string: None,
                             }),
                             ..Default::default()
-                        }
-                    )],
+                        })
+                    ],
                     mode: (KeybindMode::Edit | KeybindMode::Sheet),
 					..Default::default()
                 },
@@ -1369,25 +1362,85 @@ impl Default for VMInputManager {
                     kb_type: KeybindType::String,
                     string: Some("j".to_string()),
                     operation: Some(TextOperation::None),
-                    accepts_outer_count: Some(false),
-                    accepts_inner_count: Some(false),
-                    next: Some(BuildState::AwaitTarget),
+                    subcommands: Some(vec![
+                        Subcommand{
+                            string: "j".to_string(),
+                            action_payloads: vec![Some(
+                                ActionPayload {
+                                    action: Action::AcceptNodeText,
+                                    ..Default::default()
+                                }),
+                                Some(ActionPayload {
+                                    action: Action::ChangeMode,
+                                    mode: Some(KeybindMode::Edit),
+                                    ..Default::default()
+                                }
+                            )],
+                        },
+                    ]),
+                    next: Some(BuildState::AwaitSubcommand),
                     mode: KeybindMode::Insert,
                     ..Default::default()
                 },
-                Keybind {
-                    kb_type: KeybindType::String,
-                    string: Some("j".to_string()),
+                Keybind { 
+                    kb_type: KeybindType::String, 
+                    string: Some("g".to_string()),
+                    operation: Some(TextOperation::None),
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::ChangeMode,
-                            mode: Some(KeybindMode::Edit),
+                            action: Action::CenterNode,
+                            index: Some(0),
                             ..Default::default()
+                    })],
+                    subcommands: Some(vec![
+                        Subcommand {
+                            string: "g".to_string(),
+                            action_payloads: vec![Some(
+                                ActionPayload {
+                                    action: Action::CenterActiveNode,
+                                    index: Some(0),
+                                    ..Default::default()
+                                }
+                            )]
                         }
-                    )],
-                    next: Some(BuildState::Complete),
-                    mode: KeybindMode::Insert,
-                    ..Default::default()
+                    ]),
+                    next: Some(BuildState::AwaitSubcommand),
+                    mode: KeybindMode::Sheet,
+					..Default::default()
+                },
+                Keybind { 
+                    kb_type: KeybindType::String, 
+                    string: Some("y".to_string()),
+                    operation: Some(TextOperation::None),
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::CenterNode,
+                            index: Some(0),
+                            ..Default::default()
+                    })],
+                    subcommands: Some(vec![
+                        Subcommand {
+                            string: "y".to_string(),
+                            action_payloads: vec![Some(
+                                ActionPayload {
+                                    action: Action::YankNodeTree,
+                                    ..Default::default()
+                                }
+                            )]
+                        },
+                        Subcommand {
+                            string: "i".to_string(),
+                            action_payloads: vec![Some(
+                                ActionPayload {
+                                    action: Action::YankNode,
+                                    ..Default::default()
+                                }
+                            )],
+                        }
+                    ]),
+                    next: Some(BuildState::AwaitSubcommand),
+                    mode: KeybindMode::Sheet,
+					..Default::default()
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
@@ -1427,6 +1480,7 @@ impl Default for VMInputManager {
                     ..Default::default()
                 },
             ],
+            subcommands: None,
         };
 
         for (od, cd) in ACCEPTED_DELIMITERS {
@@ -1559,6 +1613,9 @@ impl VMInputManager {
             },
             BuildState::Complete => {
                 return self.process_keybind_string("".to_string());
+            },
+            BuildState::AwaitSubcommand => {
+                return self.process_keybind_string(string);
             }
         }
     }
@@ -1576,6 +1633,7 @@ impl VMInputManager {
                                     self.accepts_inner_count = keybind.accepts_inner_count;
                                     self.text_motion = keybind.motion.clone();
                                     self.operation = Some(operation);
+                                    self.subcommands = keybind.subcommands.clone();
                                     if Some(BuildState::Complete) == keybind.next {
                                         return Some(Ok(self.build_text_action()));
                                     } else if let Some(state) = keybind.next {
@@ -1653,6 +1711,15 @@ impl VMInputManager {
             return Some(Ok(self.build_text_action()));
         } else if self.build_state == BuildState::Complete {
             return Some(Ok(self.build_text_action()));
+        } else if self.build_state == BuildState::AwaitSubcommand {
+            if let Some(subcommands) = &self.subcommands {
+                for subcommand in subcommands {
+                    if subcommand.string == string {
+                        self.payloads = Some(subcommand.action_payloads.clone());
+                        return Some(Ok(self.build_text_action()));
+                    }
+                }
+            }
         }
         return Some(Err(()));
     }
@@ -1759,12 +1826,13 @@ impl VMInputManager {
                         if Some(true) == self.accepts_outer_count && self.outer_count.len() > 0 {
                             text_action.outer_count = Some(self.outer_count.parse::<usize>().unwrap());
                         }
-
                         payload.text_action = Some(text_action);
                         self.clear_build();
                         return vec![Some(payload)]
-                    } else if let Some(payloads) = &self.payloads {
-                        return payloads.clone();
+                    } else if self.payloads.is_some() {
+                        let payloads = self.payloads.clone().unwrap();
+                        self.clear_build();
+                        return payloads;
                     }
                 }
             }
@@ -1829,20 +1897,23 @@ impl VMInputManager {
                         }
                     }
                 }
-                if let Key::Character(character) = key_event.key {
-                    if character == String::from(" ") {
+                if let Key::Character(character) = &key_event.key {
+                    self.input_string += &character;
+                    self.set_timeout_revert_mode(Some(self.mode));
+                    let ret = self.build_keybind_string(character.clone());
+                    if let Some(Ok(payloads)) = ret {
+                        return payloads;
+                    } else if let None = ret {
                         return vec![None];
-                    } else {
-                        self.set_timeout_revert_mode(Some(self.mode.clone()));
-                        self.input_string += &character;
-                        if let Some(Ok(payloads)) = self.build_keybind_string(character) {
-                            return payloads;
-                        } else {
+                    } else if let Some(Err(_)) = ret {
+                        self.clear_build();
+                        if self.input_string.len() >= 1 {
+                            self.clear_build();
                             return vec![None];
                         }
                     }
                 }
-                if let Key::Escape = key_event.key {
+                if let Key::Escape = &key_event.key {
                     self.clear_build();
                     return vec![None];
                 }
@@ -2033,14 +2104,14 @@ impl VMInputManager {
                             action: Action::AcceptNodeText,
                             ..Default::default()    
                             }),
-                            Some(ActionPayload {
-                            action: Action::ExecuteTextAction,
-                            text_action: Some(TextAction {
-                                text_motion: Some(TextMotion::BackwardCharacter),
-                                    ..Default::default()
-                                }),
-                            ..Default::default()
-                            }),
+                            // Some(ActionPayload {
+                            // action: Action::ExecuteTextAction,
+                            // text_action: Some(TextAction {
+                            //     text_motion: Some(TextMotion::BackwardCharacter),
+                            //         ..Default::default()
+                            //     }),
+                            // ..Default::default()
+                            // }),
                             Some(ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::Edit),
@@ -2294,6 +2365,7 @@ impl VMInputManager {
     }
 
     pub fn clear_build(&mut self) {
+        self.clear_build_timeout();
         self.input_string = String::new();
         self.payloads = None;
         self.build_state = BuildState::AwaitOuterCount;

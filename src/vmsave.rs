@@ -61,6 +61,7 @@ pub struct VMTabSave {
     scale: f64,
     offset_x: f64,
     offset_y: f64,
+    zoom_index: Option<usize>,
 }
 
 impl From<VMSaveVersion4> for VMSaveVersion5 {
@@ -77,7 +78,8 @@ impl From<VMSaveVersion4> for VMSaveVersion5 {
                     translate: save.translate, 
                     scale: save.scale, 
                     offset_x: save.offset_x, 
-                    offset_y: save.offset_y 
+                    offset_y: save.offset_y,
+                    zoom_index: Some(0),
                 }
             ],
             active_tab: 0,
@@ -237,6 +239,7 @@ impl VMSaveSerde {
                 config: config.clone(),
                 node_render_mode: NodeRenderMode::AllEnabled,
                 root_nodes: tab.root_nodes,
+                zoom_level_index: if let Some(index) = tab.zoom_index { index } else { 0 },
                 ..Default::default()
             };
             vms.push(VMTab {vm: WidgetPod::new(vm), tab_name: tab.tab_name});
@@ -274,6 +277,7 @@ impl VMSaveSerde {
                 offset_x: vm.get_offset_x(),
                 offset_y: vm.get_offset_y(),
                 root_nodes: vm.root_nodes.clone(),
+                zoom_index: Some(vm.zoom_level_index),
             };
             tabs.push(save)
         }

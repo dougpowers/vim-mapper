@@ -149,7 +149,6 @@ impl VMGraphClip {
             let external_fg_index = target.get_nodes().get(&external_node).unwrap().fg_index.unwrap();
             target.set_node_as_active(external_node);
             if let Some(point) = pos {
-                tracing::debug!("adding external paste to right click position");
                 target.graph.get_graph_mut()[external_fg_index].data.x = point.x;
                 target.graph.get_graph_mut()[external_fg_index].data.y = point.y;
             }

@@ -14,11 +14,11 @@
 
 use common_macros::hash_set;
 use druid::kurbo::{Line, TranslateScale, Circle};
-use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
+use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText, TextAttribute};
 use druid::piet::PietTextLayout;
 use vm_force_graph_rs::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::prelude::*;
-use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, Menu, MenuItem};
+use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, Menu, MenuItem, FontWeight};
 use regex::Regex;
 use std::collections::{HashMap};
 use std::f64::consts::*;
@@ -103,6 +103,8 @@ pub struct VimMapper {
     //A value set by VMCanvas on every delegated click informing the VimMapper of how many nodes are in
     // the default register. (Used to label the context menu);
     pub(crate) default_paste_register_count: usize,
+    
+    pub(crate) zoom_level_index: usize,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -121,6 +123,7 @@ impl<'a> Default for VimMapper {
         let mut root_node = VMNode {
             label: DEFAULT_ROOT_LABEL.to_string(),
             index: 0,
+            mark: Some("0".to_string()),
             is_active: true,
             ..Default::default()
         };
@@ -162,6 +165,7 @@ impl<'a> Default for VimMapper {
             last_mouse_down_data: None,
             last_menu_pos: Point::new(0.,0.),
             default_paste_register_count: 0,
+            zoom_level_index: 0,
         };
         let root_fg_index = root_node.fg_index.unwrap();
         mapper.nodes.insert(0, root_node);
@@ -1001,25 +1005,23 @@ impl<'a> VimMapper {
     }
 
     pub fn zoom_canvas(&mut self, factor: f64, center_point: Option<Point>) {
-        // let scale_factor = self.scale.as_tuple().1;
         let point1: Point;
         let point2: Point;
-        // let mut str1 = "".to_string();
-        // let mut str2 = "".to_string();
         if let Some(point) = center_point {
+            if factor < 1. {
+                if self.zoom_level_index != 0 {self.zoom_level_index -= 1;}
+            } else if factor > 1. {
+                if self.zoom_level_index < ZOOM_LEVELS.len()-1 {self.zoom_level_index += 1;}
+            }
             point1 = self.screen_point_to_canvas_point(point);
-            // str1 = format!("Point at {} at scale {}", point1, scale_factor);
-            self.scale = self.scale.clone()*TranslateScale::scale(factor);
-            let scale_factor = self.scale.as_tuple().1;
+            let scale_factor_1 = self.scale.as_tuple().1;
+            self.scale = TranslateScale::scale(ZOOM_LEVELS[self.zoom_level_index]);
+            let scale_factor_2 = self.scale.as_tuple().1;
+            tracing::debug!("{} -> {}", scale_factor_1, scale_factor_2);
             point2 = self.screen_point_to_canvas_point(point);
-            // str2 = format!("Point at {} at scale {}", point2, scale_factor);
             let delta = self.canvas_point_to_screen_point(point2) - self.canvas_point_to_screen_point(point1);
-            // tracing::debug!("\n{}\n{}\nDelta {}", str1, str2, delta);
             self.offset_x += delta.x;
             self.offset_y += delta.y;
-        } else {
-            self.scale = self.scale.clone()*TranslateScale::scale(factor);
-            // let scale_factor = self.scale.as_tuple().1;
         }
     }
 
@@ -1165,7 +1167,6 @@ impl<'a> VimMapper {
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                     },
                     Some(KeybindMode::Sheet) => {
-                        // self.input_manager.text_input.cursor_to_start();
                         self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                     },
@@ -1597,7 +1598,8 @@ impl Widget<()> for VimMapper {
         // for the widget to be truly hidden and uninteractable. 
         match event {
             Event::AnimFrame(_interval) => {
-                if self.is_hot && self.animating {
+                // if self.is_hot && self.animating {
+                if self.animating {
                     self.largest_node_movement = Some(self.graph.update(DEFAULT_UPDATE_DELTA));
                     if self.largest_node_movement < Some(ANIMATION_MOVEMENT_THRESHOLD) && self.animation_timer_token == None {
                         // self.animating = false;
@@ -1873,6 +1875,7 @@ impl Widget<()> for VimMapper {
                 //Cache is_hot values
                 self.is_hot = *is_hot;
                 self.last_mouse_down_data = None;
+                ctx.request_anim_frame();
             },
             _ => {
             }
@@ -2082,60 +2085,21 @@ impl Widget<()> for VimMapper {
 
         //Paint debug dump
         if self.debug_data {
-            if let Some((_, pos, _)) = self.last_mouse_down_data {
-                ctx.fill(Circle::new(pos, 5.), &Color::RED);
-            }
-            let mut point = Point::new(0.,0.);
-            point = (point.to_vec2() + self.translate.as_tuple().0).to_point();
-            ctx.fill(Circle::new(point, 5.), &Color::FUCHSIA);
-        }
-        //     if let Some(idx) = self.get_active_node_idx() {
-        //         ctx.with_save(|ctx| {
-        //             ctx.transform(Affine::from(self.translate));
-        //             ctx.transform(Affine::from(self.scale));
-        //             let node_pos = self.get_node_pos(idx);
-        //             ctx.transform(Affine::translate(node_pos));
-        //             let line = Line::new(Point::ORIGIN, (Vec2::from_angle(self.last_traverse_angle)*100.).to_point());
-        //             ctx.stroke(line, &Color::BLUE, 5.);
-        //             let mut red = 60;
-        //             for i in &self.target_node_list {
-        //                 let target_node_pos = self.get_node_pos(*i);
-        //                 let angle = Vec2::from_angle(Vec2::new(target_node_pos.x-node_pos.x, target_node_pos.y-node_pos.y).atan2());
-        //                 let offset = angle.dot(Vec2::from_angle(self.last_traverse_angle).normalize()).acos().abs();
-        //                 ctx.stroke(Line::new(Point::ORIGIN, (angle*150.).to_point()), &Color::rgb8(red, 0, 0), 5.);
-        //                 let text = ctx.text().new_text_layout(format!("{:.3}", offset)).text_color(Color::WHITE).build().unwrap();
-        //                 ctx.draw_text(&text, VEC_ORIGIN.lerp(angle*150., 0.5).to_point());
-        //                 red += 195/self.target_node_list.len() as u8;
-        //             }
-        //         });
-        //         let active_fg_index = self.nodes.get(&idx).unwrap().fg_index.unwrap();
-        //         let component = self.graph.get_node_component(active_fg_index);
-        //         let current_root = self.root_nodes.get(&component).unwrap();
-        //         let text = format!(
-        //                 "Is Animating: {:?}\nLarget Node Movement: {:?}\nRoots: {:?}\nRemoval List: {:?}\nCurrent Component:{:?}", 
-        //                 self.animating,
-        //                 self.largest_node_movement,
-        //                 self.root_nodes,
-        //                 self.graph.get_node_removal_tree(active_fg_index, *current_root),
-        //                 component,
-        //         );
-        //         let layout = ctx.text().new_text_layout(text)
-        //             .font(FontFamily::SANS_SERIF, 12.)
-        //             .text_color(Color::RED)
-        //             .max_width(ctx.size().width/1.3)
-        //             .build();
+            let debug_text = format!(
+                "Animating: {}\nAnimation timer: {:?}\nIs hot:{}",
+                self.animating,
+                self.animation_timer_token,
+                self.is_hot,
+            );
+            let debug_layout = ctx.text().new_text_layout(debug_text)
+            .font(FontFamily::SANS_SERIF, 16.)
+            .text_color(self.config.get_color(VMColor::ComposeIndicatorTextColor).expect("Couldn't get indicator color"))
+            .default_attribute(FontWeight::BOLD)
+            .build()
+            .unwrap();
 
-        //         if let Ok(text) = layout {
-        //             ctx.with_save(|ctx| {
-        //                 let canvas_size = ctx.size();
-        //                 let layout_size = text.size();
-        //                 let point = Point::new(canvas_size.width-layout_size.width-50., canvas_size.height-layout_size.height-50.);
-        //                 ctx.fill(Rect::new(point.x, point.y, point.x+layout_size.width, point.y+layout_size.height), &Color::rgba8(255,255,255,200));
-        //                 ctx.draw_text(&text, point);
-        //             });
-        //         }
-        //     }
-        // }
+            ctx.draw_text(&debug_layout, Point::new(ctx_rect.x1-debug_layout.size().width-40., ctx_rect.y1-debug_layout.size().height-40.));
+        }
     }
 }
 

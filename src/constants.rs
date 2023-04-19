@@ -15,6 +15,7 @@
 
 use std::time::Duration;
 
+
 use druid::{kurbo::TranslateScale, Selector, Vec2, Point};
 use vm_force_graph_rs::SimulationParameters;
 use crate::{vminput::ActionPayload, vmgraphclip::VMGraphClip};
@@ -46,7 +47,7 @@ pub const DEFAULT_SIMULATION_PARAMETERS: SimulationParameters = SimulationParame
 };
 
 pub const DEFAULT_MIN_NODE_WIDTH_DATA: f64 = 40.;
-pub const DEFUALT_TEXT_CURSOR_WIDTH: f64 = 2.;
+pub const DEFUALT_TEXT_CURSOR_WIDTH: f64 = 1.5;
 
 pub const DEFAULT_MASS_INCREASE_AMOUNT: f64 = 2.;
 pub const ANIMATION_MOVEMENT_THRESHOLD: f64 = 0.1;
@@ -88,7 +89,7 @@ pub const DEFAULT_OFFSET_Y: f64 = 0.;
 
 //Default amount of padding to add when scrolling a given rect into view;
 pub const DEFAULT_SCROLL_PADDING: f64 = 20.;
-
+pub const ZOOM_LEVELS: [f64; 13] = [2.25, 2., 1.75, 1.5, 1.25, 1., 0.85, 0.70, 0.5, 0.33, 0.25, 0.16, 0.1];
 pub const DEFAULT_SCALE: TranslateScale = TranslateScale::new(
     Vec2::new(0., 0.), 1.
 );

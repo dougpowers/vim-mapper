@@ -20,7 +20,7 @@
 - [x] Implement cross-tab cut/paste registers 
 - [x] Add VMGraphClip rotation and translation logic
 - [x] Add node insertion between any active and target nodes
-- [ ] Implement KeybindType::String for KeybindMode::Sheet
+- [x] Implement KeybindType::String for KeybindMode::Sheet
 - [ ] Implement node and tree yank
 - [x] Implement text cursor placement on label click
 - [x] Remove and replace mouse logic
@@ -32,9 +32,14 @@
     - [x] paste into new tab
 - [x] Implement tab context menu
 - [x] Zoom from canvas center point rather than origin
-- [ ] Change zoom to vec of uniform scales
+- [x] Change zoom to vec of uniform scales
+- [x] Implement array-based zoom levels
+    - [x] refine zoom levels to make them smoother and more uniform
+    - [x] fix extreme zoom levels scrolling the canvas absurdly offscreen
 - [ ] refactor vm_force_graph_rs deletion tree building logic
-- [ ] determine what permanently halts animation on HP Spectre x360
+- [x] determine what permanently halts animation on HP Spectre x360
+- [ ] Stop node from resizing and repositioning during text entry
+- [ ] Add merge tab feature, placing root node tree into register before deleting tab
 
 ### Minor
 - [x] Fix partial matches being falsely reported
@@ -44,6 +49,10 @@
 - [x] Reposition mode indicators, prompts, and input
 - [x] Change single click on node to target if it's in the target list
 - [x] Fix brand new nodes sometimes not registering clicks
+- [ ] Add `A` and `I` keybinds for Sheet mode to skip to Insert mode at beginning and end of text
+- [ ] Add `C-J` and `C-K` to Move mode
+- [ ] Handle `Alt-F12` globally and dispatch to all tabs
+- [ ] Fix default zoom index
 
 ## Deferred Tasks
 ### Major
