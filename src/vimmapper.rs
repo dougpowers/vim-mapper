@@ -677,7 +677,7 @@ impl<'a> VimMapper {
         if let Some(node) = self.nodes.get(&idx) {
             let node_component = self.graph.get_node_component(node.fg_index.unwrap());
             let component_root = *self.root_nodes.get(&node_component).unwrap();
-            let (removal_set, _remainder) = self.graph.get_node_removal_tree(
+            let (removal_set, _remainder) = self.graph.get_node_descendant_tree(
                 self.nodes.get(&idx).unwrap().fg_index.unwrap(), component_root);
             return removal_set.len();
         } else {
@@ -751,7 +751,7 @@ impl<'a> VimMapper {
         if let Some(node) = &self.nodes.get(&idx) {
             let node_component = self.graph.get_node_component(node.fg_index.unwrap());
             let component_root = *self.root_nodes.get(&node_component).unwrap();
-            let (removal_list, _) = self.graph.get_node_removal_tree(node.fg_index.unwrap(), component_root);
+            let (removal_list, _) = self.graph.get_node_descendant_tree(node.fg_index.unwrap(), component_root);
             VMGraphClip::dispatch(ctx, &self, &removal_list, node.fg_index.unwrap(), &"0".to_string());
             return Ok(());
         }
@@ -767,9 +767,7 @@ impl<'a> VimMapper {
             self.animating = true;
             let node_component = self.graph.get_node_component(node.fg_index.unwrap());
             let component_root = *self.root_nodes.get(&node_component).unwrap();
-            tracing::debug!("Cutting node {:?} on component {} with calculated root {:?}", node.fg_index.unwrap(), node_component, component_root);
-            let (removal_list, remainder) = self.graph.get_node_removal_tree(node.fg_index.unwrap(), component_root);
-            // let mut graph_clip = VMGraphClip::new();
+            let (removal_list, remainder) = self.graph.get_node_descendant_tree(node.fg_index.unwrap(), component_root);
             VMGraphClip::dispatch(ctx, &self, &removal_list, node.fg_index.unwrap(), &"0".to_string());
             if self.is_node_root(idx) {
                 for fg_idx in removal_list {

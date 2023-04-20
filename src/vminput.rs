@@ -668,8 +668,8 @@ impl Default for VMInputManager {
                     modifiers: Some(Modifiers::CONTROL), 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::ZoomIn,
-                            float: Some(1.25),
+                            action: Action::ZoomOut,
+                            float: Some(0.75),
                             ..Default::default()
                     })],
                     mode: (KeybindMode::Sheet | KeybindMode::Move | KeybindMode::Edit),
@@ -707,8 +707,8 @@ impl Default for VMInputManager {
                     modifiers: Some(Modifiers::CONTROL), 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::ZoomOut,
-                            float: Some(0.75),
+                            action: Action::ZoomIn,
+                            float: Some(1.25),
                             ..Default::default()
                     })],
                     mode: (KeybindMode::Sheet | KeybindMode::Move | KeybindMode::Edit),

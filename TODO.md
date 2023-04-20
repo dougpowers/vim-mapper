@@ -39,7 +39,7 @@
 - [x] Stop node from resizing and repositioning during text entry
 - [x] Implement node and tree yank
 - [x] Fix tab context delete option always deleting the active tab
-- [ ] refactor vm_force_graph_rs deletion tree building logic
+- [x] refactor vm_force_graph_rs deletion tree building logic
 
 ### Minor
 - [x] Fix partial matches being falsely reported

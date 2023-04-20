@@ -247,7 +247,7 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
     //     }
     // }
 
-    pub fn get_node_removal_tree(&mut self, from: NodeIndex, root: NodeIndex) -> (HashSet<NodeIndex>, Option<NodeIndex>) {
+    pub fn get_node_descendant_tree(&mut self, from: NodeIndex, root: NodeIndex) -> (HashSet<NodeIndex>, Option<NodeIndex>) {
         let mut bfs = petgraph::visit::Bfs::new(&self.graph, from);
         let mut removal_set: HashSet<NodeIndex> = HashSet::new();
         let mut remainder: Option<NodeIndex> = None;
@@ -255,34 +255,27 @@ impl<UserNodeData: std::fmt::Debug + std::marker::Sync + std::marker::Send, User
         if !self.are_nodes_connected(from, root) {
             return (removal_set, None);
         }
-        if let Some(node) = bfs.next(&self.graph) {
-            removal_set.insert(node);
-        }
-        let mut root_index: Option<usize> = None;
-        for (i, k) in bfs.stack.iter().enumerate() {
-            if *k == root {
-                root_index = Some(i);
-            }
-        }
-        if let Some(idx) = root_index {
-            bfs.stack.remove(idx);
-        } else if self.get_node_component(root) == 0 {
-            let mut index_and_length: (Option<usize>, usize) = (None, std::usize::MAX);
-            for (i, k) in bfs.stack.iter().enumerate() {
-                let path = all_simple_paths::<Vec<_>, _>(&self.graph, *k, root, 0, None).collect::<Vec<_>>();
-                if path.len() == 0 {
-                    println!("{:?}", self.get_components());
-                } else if path[0].len() < index_and_length.1 {
-                    index_and_length = (Some(i), path[0].len());
-                }
-            }
-            if let Some(idx) = index_and_length.0 {
-                remainder = Some(*bfs.stack.get(idx).unwrap());
-                bfs.stack.remove(idx);
-            }
-        }
-        while let Some(idx) = bfs.next(&self.graph) {
-            removal_set.insert(idx);
+        if from != root {
+            //Passed node is a non-root member of its component
+            //Get path from passed node to root
+            let paths: Vec<_> = all_simple_paths::<Vec<_>, _>(&self.graph,
+                from, 
+                root, 
+                0, 
+                None).collect();
+            //Get first step on path from node to root and store is as remainder
+            remainder = Some(paths[0][1]);
+            //Add node to the removal list
+            removal_set.insert(from);
+            //Step the search forward
+            bfs.next(&self.graph);
+            //Remove the remainder from the search to constrict it to only descendant nodes
+            bfs.stack.remove(bfs.stack.iter().position(|v| {*v == remainder.unwrap()}).unwrap());
+            //Get all descendants and add them to the removal set
+            while let Some(next) = bfs.next(&self.graph) {removal_set.insert(next);}
+        } else {
+            //Collect the entire component into the removal set 
+            while let Some(next) = bfs.next(&self.graph) {removal_set.insert(next);}
         }
         (removal_set, remainder)
     }
