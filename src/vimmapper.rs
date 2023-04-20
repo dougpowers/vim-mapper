@@ -18,7 +18,7 @@ use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
 use vm_force_graph_rs::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::prelude::*;
-use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, Menu, MenuItem, FontWeight};
+use druid::{Color, FontFamily, Affine, Point, Vec2, Rect, TimerToken, Command, Target, Menu, MenuItem, FontWeight, MouseButton};
 use regex::Regex;
 use std::collections::{HashMap};
 use std::f64::consts::*;
@@ -99,6 +99,7 @@ pub struct VimMapper {
     pub(crate) input_manager: VMInputManager,
 
     pub(crate) last_mouse_down_data: Option<(Option<u32>, Point, (f64, f64))>,
+    pub(crate) zoomed_while_right_click: bool,
     pub(crate) last_menu_pos: Point,
     //A value set by VMCanvas on every delegated click informing the VimMapper of how many nodes are in
     // the default register. (Used to label the context menu);
@@ -166,6 +167,7 @@ impl<'a> Default for VimMapper {
             last_menu_pos: Point::new(0.,0.),
             default_paste_register_count: 0,
             zoom_level_index: DEFAULT_ZOOM_INDEX,
+            zoomed_while_right_click: false,
         };
         let root_fg_index = root_node.fg_index.unwrap();
         mapper.nodes.insert(0, root_node);
@@ -310,7 +312,7 @@ impl<'a> VimMapper {
         }
     }
 
-    pub fn build_menu_for_node(&mut self, _ctx: &EventCtx, idx: u32) -> Menu<AppState> {
+    pub fn build_context_for_node(&mut self, _ctx: &EventCtx, idx: u32) -> Menu<AppState> {
         let delete_count = self.get_node_deletion_count(idx);
         let node = self.nodes.get(&idx);
         if let Some(node) = node {
@@ -459,7 +461,7 @@ impl<'a> VimMapper {
         }
     }
 
-    pub fn build_menu_for_sheet(&mut self, _ctx: &EventCtx, pos: Option<Point>) -> Menu<AppState> {
+    pub fn build_context_for_sheet(&mut self, _ctx: &EventCtx, pos: Option<Point>) -> Menu<AppState> {
         let mut menu: Menu<AppState> = Menu::empty();
         menu = menu.entry(
             MenuItem::new("Add External Node").command(Command::new(
@@ -1799,23 +1801,27 @@ impl Widget<()> for VimMapper {
                     }
                 }
             }
-            Event::MouseDown(mouse_event) if mouse_event.button.is_right() => {
-                if self.input_manager.get_keybind_mode() == KeybindMode::Move {
-                    ctx.submit_command(Command::new(EXECUTE_ACTION,
-                        ActionPayload {
-                            action: Action::ChangeMode,
-                            mode: Some(KeybindMode::Sheet),
-                            ..Default::default()
-                        },
-                        Target::Global
-                    ))    
-                } else if let Some(idx) = self.does_point_collide(mouse_event.pos) {
-                    self.last_menu_pos = mouse_event.pos;
-                    ctx.show_context_menu(self.build_menu_for_node(ctx, idx), mouse_event.pos);
+            Event::MouseUp(mouse_event) if mouse_event.button.is_right() => {
+                if !self.zoomed_while_right_click {
+                    if self.input_manager.get_keybind_mode() == KeybindMode::Move {
+                        ctx.submit_command(Command::new(EXECUTE_ACTION,
+                            ActionPayload {
+                                action: Action::ChangeMode,
+                                mode: Some(KeybindMode::Sheet),
+                                ..Default::default()
+                            },
+                            Target::Global
+                        ))    
+                    } else if let Some(idx) = self.does_point_collide(mouse_event.pos) {
+                        self.last_menu_pos = mouse_event.pos;
+                        ctx.show_context_menu(self.build_context_for_node(ctx, idx), mouse_event.pos);
+                    } else {
+                        // global ctx menu here
+                        self.last_menu_pos = mouse_event.pos;
+                        ctx.show_context_menu(self.build_context_for_sheet(ctx, Some(mouse_event.pos)), mouse_event.pos);
+                    }
                 } else {
-                    // global ctx menu here
-                    self.last_menu_pos = mouse_event.pos;
-                    ctx.show_context_menu(self.build_menu_for_sheet(ctx, Some(mouse_event.pos)), mouse_event.pos);
+                    self.zoomed_while_right_click = false;
                 }
             }
             Event::MouseUp(_) => {
@@ -1865,7 +1871,8 @@ impl Widget<()> for VimMapper {
             Event::Wheel(mouse_event) => {
                 if mouse_event.mods.shift() {
                     self.offset_x -= mouse_event.wheel_delta.to_point().x;
-                } else if mouse_event.mods.ctrl() {
+                } else if mouse_event.mods.ctrl() || (mouse_event.buttons.contains(MouseButton::Right) && mouse_event.buttons.count() == 1) {
+                    self.zoomed_while_right_click = true;
                     if mouse_event.wheel_delta.to_point().y < 0.0 {
                         self.zoom_canvas(0.75, Some(mouse_event.pos));
                     } else {
