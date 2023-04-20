@@ -670,7 +670,7 @@ impl VMDialog {
         }
     }
 
-    pub fn make_delete_node_prompt_dialog_params(count: usize, remove_idx: u32) -> VMDialogParams {
+    pub fn make_cut_node_prompt_dialog_params(count: usize, remove_idx: u32) -> VMDialogParams {
         VMDialogParams {
             buttons: vec![
                 (
@@ -684,10 +684,10 @@ impl VMDialog {
                     false
                 ),
                 (
-                    format!("Delete {} nodes", count),
+                    format!("Cut {} nodes", count),
                     vec![
                         ActionPayload {
-                            action: Action::DeleteNodeTree,
+                            action: Action::CutNodeTree,
                             index: Some(remove_idx),
                             ..Default::default()
                         }
@@ -697,14 +697,14 @@ impl VMDialog {
             ],
             prompts: vec![
                 (
-                    format!("Do you want to delete this node and {} descendants?", count-1),
+                    format!("Do you want to cut this node and {} descendants?", count-1),
                     Some(VMColor::AlertColor)
                 )
             ],
         }
     }
 
-    pub fn make_delete_tab_prompt_dialog_params() -> VMDialogParams {
+    pub fn make_delete_tab_prompt_dialog_params(tab_idx: usize) -> VMDialogParams {
         VMDialogParams {
             buttons: vec![
                 (
@@ -722,6 +722,7 @@ impl VMDialog {
                     vec![
                         ActionPayload {
                             action: Action::DeleteTab,
+                            tab_index: Some(tab_idx),
                             ..Default::default()
                         }
                     ],

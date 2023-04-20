@@ -239,7 +239,7 @@ impl VMSaveSerde {
                 config: config.clone(),
                 node_render_mode: NodeRenderMode::AllEnabled,
                 root_nodes: tab.root_nodes,
-                zoom_level_index: if let Some(index) = tab.zoom_index { index } else { 0 },
+                zoom_level_index: if let Some(index) = tab.zoom_index { index } else { DEFAULT_ZOOM_INDEX },
                 ..Default::default()
             };
             vms.push(VMTab {vm: WidgetPod::new(vm), tab_name: tab.tab_name});

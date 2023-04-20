@@ -47,10 +47,10 @@ pub enum Action {
     EditActiveNodeSelectAll,
     EditActiveNodeAppend,
     EditActiveNodeInsert,
-    SnipNode,
-    DeleteNodeTree,
+    CutNode,
+    CutNodeTree,
     AttemptNodeDeletion,
-    DeleteTargetNode,
+    CutTargetNode,
     YankNodeTree,
     YankNode,
     PasteNodeTree,
@@ -88,6 +88,7 @@ pub enum Action {
     PrintToLogInfo,
     CreateNewTab,
     OpenNewTabInput,
+    DeleteActiveTab,
     DeleteTab,
     OpenDeleteTabPrompt,
     RenameTab,
@@ -582,7 +583,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                         }
                     )],
-                    mode: KeybindMode::Edit,
+                    mode: (KeybindMode::Edit | KeybindMode::Sheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -609,7 +610,7 @@ impl Default for VMInputManager {
                             ..Default::default()
                         }
                     )],
-                    mode: KeybindMode::Edit,
+                    mode: (KeybindMode::Edit | KeybindMode::Sheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -630,7 +631,7 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::SnipNode,
+                            action: Action::CutNode,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
@@ -642,7 +643,7 @@ impl Default for VMInputManager {
                     modifiers: None, 
                     action_payloads: vec![Some(
                         ActionPayload {
-                            action: Action::DeleteTargetNode,
+                            action: Action::CutTargetNode,
                             ..Default::default()
                     })],
                     mode: KeybindMode::Sheet,
@@ -671,7 +672,7 @@ impl Default for VMInputManager {
                             float: Some(1.25),
                             ..Default::default()
                     })],
-                    mode: KeybindMode::Sheet,
+                    mode: (KeybindMode::Sheet | KeybindMode::Move | KeybindMode::Edit),
 					..Default::default()
                 },
                 Keybind { 
@@ -710,7 +711,7 @@ impl Default for VMInputManager {
                             float: Some(0.75),
                             ..Default::default()
                     })],
-                    mode: KeybindMode::Sheet,
+                    mode: (KeybindMode::Sheet | KeybindMode::Move | KeybindMode::Edit),
 					..Default::default()
                 },
                 Keybind { 
@@ -1420,6 +1421,15 @@ impl Default for VMInputManager {
                     })],
                     subcommands: Some(vec![
                         Subcommand {
+                            string: "i".to_string(),
+                            action_payloads: vec![Some(
+                                ActionPayload {
+                                    action: Action::YankNode,
+                                    ..Default::default()
+                                }
+                            )],
+                        },
+                        Subcommand {
                             string: "y".to_string(),
                             action_payloads: vec![Some(
                                 ActionPayload {
@@ -1428,15 +1438,6 @@ impl Default for VMInputManager {
                                 }
                             )]
                         },
-                        Subcommand {
-                            string: "i".to_string(),
-                            action_payloads: vec![Some(
-                                ActionPayload {
-                                    action: Action::YankNode,
-                                    ..Default::default()
-                                }
-                            )],
-                        }
                     ]),
                     next: Some(BuildState::AwaitSubcommand),
                     mode: KeybindMode::Sheet,
@@ -1861,6 +1862,8 @@ impl VMInputManager {
             return vec![None];
         }
 
+        // tracing::debug!("{:?}", key_event.key);
+
         match self.mode {
             KeybindMode::Start => {
                 let keybinds = self.keybinds.clone();
@@ -1884,19 +1887,6 @@ impl VMInputManager {
             KeybindMode::Sheet => {
                 self.set_new_revert_timeout(ctx);
                 let keybinds = self.keybinds.clone();
-                for keybind in keybinds {
-                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode.intersects(self.mode | KeybindMode::Global)) {
-                        if let Some(mods) = keybind.modifiers {
-                            if key_event.mods == mods {
-                                self.clear_revert_timeout();
-                                return keybind.action_payloads.clone();
-                            }
-                        } else if key_event.mods == RawMods::None || key_event.mods == RawMods::Shift {
-                            self.clear_revert_timeout();
-                            return keybind.action_payloads.clone();
-                        }
-                    }
-                }
                 if let Key::Character(character) = &key_event.key {
                     self.input_string += &character;
                     self.set_timeout_revert_mode(Some(self.mode));
@@ -1910,6 +1900,19 @@ impl VMInputManager {
                         if self.input_string.len() >= 1 {
                             self.clear_build();
                             return vec![None];
+                        }
+                    }
+                }
+                for keybind in keybinds {
+                    if Some(key_event.key.clone()) == keybind.key && (keybind.mode.intersects(self.mode | KeybindMode::Global)) {
+                        if let Some(mods) = keybind.modifiers {
+                            if key_event.mods == mods {
+                                self.clear_revert_timeout();
+                                return keybind.action_payloads.clone();
+                            }
+                        } else if key_event.mods == RawMods::None || key_event.mods == RawMods::Shift {
+                            self.clear_revert_timeout();
+                            return keybind.action_payloads.clone();
                         }
                     }
                 }
@@ -2104,14 +2107,6 @@ impl VMInputManager {
                             action: Action::AcceptNodeText,
                             ..Default::default()    
                             }),
-                            // Some(ActionPayload {
-                            // action: Action::ExecuteTextAction,
-                            // text_action: Some(TextAction {
-                            //     text_motion: Some(TextMotion::BackwardCharacter),
-                            //         ..Default::default()
-                            //     }),
-                            // ..Default::default()
-                            // }),
                             Some(ActionPayload {
                             action: Action::ChangeMode,
                             mode: Some(KeybindMode::Edit),

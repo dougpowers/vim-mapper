@@ -63,6 +63,7 @@ struct VMCanvas {
     take_focus: bool,
     start_input_manager: VMInputManager,
     graph_clip_registers: HashMap<String, VMGraphClip>,
+    debug_data: bool,
 }
 
 pub struct VMTab {
@@ -84,6 +85,7 @@ impl VMCanvas {
             take_focus: true,
             start_input_manager: VMInputManager::new(),
             graph_clip_registers: HashMap::new(),
+            debug_data: false,
         }
     }
 
@@ -148,6 +150,7 @@ impl VMCanvas {
         });
         self.active_tab = self.tabs.len() - 1;
         self.tabs[self.active_tab].vm.widget_mut().set_node_as_active(0);
+        self.tabs[self.active_tab].vm.widget_mut().debug_data = self.debug_data;
         ctx.children_changed();
         ctx.request_layout();
         ctx.set_handled();
@@ -155,16 +158,24 @@ impl VMCanvas {
         self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
     }
 
-    fn delete_current_tab(&mut self, ctx: &mut EventCtx) {
-        self.tabs.remove(self.active_tab);
-        if self.active_tab > self.tabs.len() - 1 {
-            self.active_tab = self.active_tab - 1;
+    fn delete_tab(&mut self, ctx: &mut EventCtx, tab_id: usize) {
+        if let Some(_) = self.tabs.get(tab_id) {
+            self.tabs.remove(tab_id);
+            if tab_id == self.active_tab {
+                if self.active_tab > self.tabs.len() - 1 {
+                    self.active_tab = self.active_tab - 1;
+                }
+            } else {
+                if self.active_tab > tab_id {
+                    self.active_tab -= 1;
+                }
+            }
+            ctx.children_changed();
+            ctx.request_layout();
+            ctx.set_handled();
+            let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+            self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
         }
-        ctx.children_changed();
-        ctx.request_layout();
-        ctx.set_handled();
-        let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
-        self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
     }
 
     fn new_dialog(config: &VMConfigVersion4, params: VMDialogParams) -> WidgetPod<String, Flex<String>> {
@@ -233,7 +244,7 @@ impl VMCanvas {
                     Action::CreateNewNode |
                     Action::CreateNewNodeAndEdit |
                     Action::CreateNewTab |
-                    Action::DeleteTab |
+                    Action::DeleteActiveTab |
                     Action::RenameTab |
                     Action::GoToNextTab |
                     Action::GoToPreviousTab |
@@ -246,9 +257,9 @@ impl VMCanvas {
                     Action::EditActiveNodeAppend |
                     Action::EditActiveNodeInsert |
                     Action::AttemptNodeDeletion |
-                    Action::SnipNode |
-                    Action::DeleteTargetNode |
-                    Action::DeleteNodeTree |
+                    Action::CutNode |
+                    Action::CutTargetNode |
+                    Action::CutNodeTree |
                     Action::PasteNodeTree |
                     Action::PasteNodeTreeAsTab |
                     Action::PasteNodeTreeExternal |
@@ -411,6 +422,20 @@ impl VMCanvas {
                     // inner.widget_mut().input_manager.clear_timeout();
                 }
                 match payload.action {
+                    Action::ToggleDebug => {
+                        #[cfg(debug_assertions)]
+                        {
+                            self.debug_data = !self.debug_data;
+                            for tab in &mut self.tabs {
+                                tab.vm.widget_mut().debug_data = self.debug_data;
+                            }
+                            return Ok(());
+                        }
+                        #[cfg(not(debug_assertions))]
+                        {
+                            return Ok(());
+                        }
+                    },
                     Action::GoToNextTab => {
                         if self.tabs.len() > 1 {
                             if let Some(_) = self.tabs.get_mut(self.active_tab + 1) {
@@ -503,12 +528,22 @@ impl VMCanvas {
                     },
                     Action::OpenDeleteTabPrompt => {
                         if self.tabs.len() > 1 {
-                            self.set_dialog(ctx, data, VMDialog::make_delete_tab_prompt_dialog_params(), true);
+                            if let Some(tab_index) = payload.tab_index {
+                                self.set_dialog(ctx, data, VMDialog::make_delete_tab_prompt_dialog_params(tab_index), true);
+                            } else {
+                                self.set_dialog(ctx, data, VMDialog::make_delete_tab_prompt_dialog_params(self.active_tab), true);
+                            }
                         }
                         return Ok(());
                     },
+                    Action::DeleteActiveTab => {
+                        self.delete_tab(ctx, self.active_tab);
+                        return Ok(());
+                    },
                     Action::DeleteTab => {
-                        self.delete_current_tab(ctx);
+                        if let Some(tab_index) = payload.tab_index {
+                            self.delete_tab(ctx, tab_index);
+                        }
                         return Ok(());
                     },
                     Action::PasteNodeTreeAsTab => {

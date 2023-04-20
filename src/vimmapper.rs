@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use common_macros::hash_set;
-use druid::kurbo::{Line, TranslateScale, Circle};
-use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText, TextAttribute};
+use druid::kurbo::{Line, TranslateScale};
+use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
 use druid::piet::PietTextLayout;
 use vm_force_graph_rs::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::prelude::*;
@@ -165,7 +165,7 @@ impl<'a> Default for VimMapper {
             last_mouse_down_data: None,
             last_menu_pos: Point::new(0.,0.),
             default_paste_register_count: 0,
-            zoom_level_index: 0,
+            zoom_level_index: DEFAULT_ZOOM_INDEX,
         };
         let root_fg_index = root_node.fg_index.unwrap();
         mapper.nodes.insert(0, root_node);
@@ -338,6 +338,33 @@ impl<'a> VimMapper {
                         Target::Global))
                 );
             }
+            menu = menu.separator();
+            menu = menu.entry(
+                MenuItem::new(
+                    "Yank Node"
+                ).command(Command::new(
+                    EXECUTE_ACTION,
+                    ActionPayload {
+                        action: Action::YankNode,
+                        index: Some(idx),
+                        ..Default::default()
+                    },
+                    Target::Global)
+                )
+            );
+            if delete_count > 1 {
+                menu = menu.entry(
+                    MenuItem::new(format!("Yank {} Nodes", delete_count)).command(Command::new(
+                        EXECUTE_ACTION,
+                        ActionPayload {
+                            action: Action::YankNodeTree,
+                            index: Some(idx),
+                            ..Default::default()
+                        },
+                        Target::Global))
+                );
+            };
+            menu = menu.separator();
             menu = menu.entry(
                 MenuItem::new(
                     if self.default_paste_register_count > 2 {
@@ -359,19 +386,19 @@ impl<'a> VimMapper {
             menu = menu.separator();
             if neighbor_count <= 2 {
                 menu = menu.entry(
-                    MenuItem::new("Snip Node").command(Command::new(
+                    MenuItem::new("Cut Node").command(Command::new(
                         EXECUTE_ACTION,
                         ActionPayload {
-                            action: Action::SnipNode,
+                            action: Action::CutNode,
                             index: Some(idx),
                             ..Default::default()
                         },
                         Target::Global))
                 );
             } 
-            if delete_count > 1 {
+            if delete_count > 1 && idx != 0 {
                 menu = menu.entry(
-                    MenuItem::new(format!("Delete {} Nodes", delete_count)).command(Command::new(
+                    MenuItem::new(format!("Cut {} Nodes", delete_count)).command(Command::new(
                         EXECUTE_ACTION,
                         ActionPayload {
                             action: Action::AttemptNodeDeletion,
@@ -381,7 +408,9 @@ impl<'a> VimMapper {
                         Target::Global))
                 );
             }
-            menu = menu.separator();
+            if !(delete_count > 1 || idx != 0) && !(neighbor_count <= 2) {
+                menu = menu.separator();
+            }
             menu = menu.entry(
                 MenuItem::new("⚓Toggle Anchor").command(Command::new(
                     EXECUTE_ACTION,
@@ -656,7 +685,7 @@ impl<'a> VimMapper {
         }
     }
 
-    pub fn snip_node(&mut self, idx: u32, ctx: &mut EventCtx) -> Result<u32, String> {
+    pub fn cut_node(&mut self, idx: u32, ctx: &mut EventCtx) -> Result<u32, String> {
         if let Some(node) = self.nodes.get(&idx) {
             let mut node_is_root: bool = false;
             for v in self.root_nodes.values() {
@@ -708,7 +737,28 @@ impl<'a> VimMapper {
     // nodes with a single edge (leaf nodes) can be deleted.
     // TODO: implement graph traversal to allow any node (save the root) to be deleted along with
     // its children. Will require a visual prompt for confirmation.
-    pub fn delete_node(&mut self, idx: u32, ctx: &mut EventCtx) -> Result<u32, String> {
+
+    pub fn yank_node(&self, idx: u32, ctx: &mut EventCtx) -> Result<(), String> {
+        if let Some(node) = &self.nodes.get(&idx) {
+            let removal_list = hash_set!(node.fg_index.unwrap());
+            VMGraphClip::dispatch(ctx, &self, &removal_list, node.fg_index.unwrap(), &"0".to_string());
+            return Ok(());
+        }
+        return Err(format!("Yank of single node {} failed.", idx));
+    }
+
+    pub fn yank_node_tree(&mut self, idx: u32, ctx: &mut EventCtx) -> Result<(), String> {
+        if let Some(node) = &self.nodes.get(&idx) {
+            let node_component = self.graph.get_node_component(node.fg_index.unwrap());
+            let component_root = *self.root_nodes.get(&node_component).unwrap();
+            let (removal_list, _) = self.graph.get_node_removal_tree(node.fg_index.unwrap(), component_root);
+            VMGraphClip::dispatch(ctx, &self, &removal_list, node.fg_index.unwrap(), &"0".to_string());
+            return Ok(());
+        }
+        return Err(format!("Yank of node tree {} failed.", idx));
+    }
+
+    pub fn cut_node_tree(&mut self, idx: u32, ctx: &mut EventCtx) -> Result<u32, String> {
         //Set animating to true to allow frozen sheets to adapt to new node
         if idx == 0 {
             return Err("Cannot delete root node!".to_string());
@@ -717,6 +767,7 @@ impl<'a> VimMapper {
             self.animating = true;
             let node_component = self.graph.get_node_component(node.fg_index.unwrap());
             let component_root = *self.root_nodes.get(&node_component).unwrap();
+            tracing::debug!("Cutting node {:?} on component {} with calculated root {:?}", node.fg_index.unwrap(), node_component, component_root);
             let (removal_list, remainder) = self.graph.get_node_removal_tree(node.fg_index.unwrap(), component_root);
             // let mut graph_clip = VMGraphClip::new();
             VMGraphClip::dispatch(ctx, &self, &removal_list, node.fg_index.unwrap(), &"0".to_string());
@@ -857,6 +908,12 @@ impl<'a> VimMapper {
             self.disabled_layouts.remove(&node.fg_index.unwrap());
             node.node_rect = Rect::new(0.,0.,0.,0.);
         });
+    }
+
+    pub fn invalidate_node_layout(&mut self, idx: DefaultNodeIdx) {
+        self.enabled_layouts.remove(&idx);
+        self.disabled_layouts.remove(&idx);
+        self.nodes.get_mut(&self.graph.get_graph()[idx].data.user_data).unwrap().node_rect = Rect::new(0.,0.,0.,0.);
     }
 
     pub fn increase_node_mass(&mut self, idx: u32) {
@@ -1014,10 +1071,7 @@ impl<'a> VimMapper {
                 if self.zoom_level_index < ZOOM_LEVELS.len()-1 {self.zoom_level_index += 1;}
             }
             point1 = self.screen_point_to_canvas_point(point);
-            let scale_factor_1 = self.scale.as_tuple().1;
             self.scale = TranslateScale::scale(ZOOM_LEVELS[self.zoom_level_index]);
-            let scale_factor_2 = self.scale.as_tuple().1;
-            tracing::debug!("{} -> {}", scale_factor_1, scale_factor_2);
             point2 = self.screen_point_to_canvas_point(point);
             let delta = self.canvas_point_to_screen_point(point2) - self.canvas_point_to_screen_point(point1);
             self.offset_x += delta.x;
@@ -1299,26 +1353,26 @@ impl<'a> VimMapper {
                 }
                 return Ok(());
             },
-            Action::DeleteNodeTree => {
+            Action::CutNodeTree => {
                 let idx = payload.index.unwrap();
-                if let Ok(idx) = self.delete_node(idx, ctx) {
+                if let Ok(idx) = self.cut_node_tree(idx, ctx) {
                     self.set_node_as_active(idx);
                     self.scroll_node_into_view(idx);
                 }
                 return Ok(());
             },
-            Action::SnipNode => {
+            Action::CutNode => {
                 if let Some(idx) = payload.index {
                     let neighbor_count = self.graph.get_graph().neighbors(self.nodes.get(&idx).unwrap().fg_index.unwrap()).count();
                     if neighbor_count > 2 {
                         return Err(());
                     } else if neighbor_count == 2 {
-                        if let Ok(idx) = self.snip_node(idx, ctx) {
+                        if let Ok(idx) = self.cut_node(idx, ctx) {
                             self.set_node_as_active(idx);
                             self.scroll_node_into_view(idx);
                         }
                     } else {
-                        if let Ok(idx) = self.delete_node(idx, ctx) {
+                        if let Ok(idx) = self.cut_node_tree(idx, ctx) {
                             self.set_node_as_active(idx);
                             self.scroll_node_into_view(idx);
                         }
@@ -1328,12 +1382,12 @@ impl<'a> VimMapper {
                     if neighbor_count > 2 {
                         return Err(());
                     } else if neighbor_count == 2 {
-                        if let Ok(idx) = self.snip_node(active_idx, ctx) {
+                        if let Ok(idx) = self.cut_node(active_idx, ctx) {
                             self.set_node_as_active(idx);
                             self.scroll_node_into_view(idx);
                         }
                     } else {
-                        if let Ok(idx) = self.delete_node(active_idx, ctx) {
+                        if let Ok(idx) = self.cut_node_tree(active_idx, ctx) {
                             self.set_node_as_active(idx);
                             self.scroll_node_into_view(idx);
                         }
@@ -1348,7 +1402,7 @@ impl<'a> VimMapper {
                         return Ok(());
                     }
                     if count <= 1 {
-                        if let Ok(idx) = self.delete_node(remove_idx, ctx) {
+                        if let Ok(idx) = self.cut_node_tree(remove_idx, ctx) {
                             self.set_node_as_active(idx);
                             self.scroll_node_into_view(idx);
                         }
@@ -1359,7 +1413,7 @@ impl<'a> VimMapper {
                             EXECUTE_ACTION,
                             ActionPayload {
                                 action: Action::CreateDialog,
-                                dialog_params: Some(VMDialog::make_delete_node_prompt_dialog_params(count, remove_idx)),
+                                dialog_params: Some(VMDialog::make_cut_node_prompt_dialog_params(count, remove_idx)),
                                 ..Default::default()
                             },
                             Target::Global
@@ -1371,7 +1425,7 @@ impl<'a> VimMapper {
                         return Ok(());
                     }
                     if count <= 1 {
-                        if let Ok(idx) = self.delete_node(remove_idx, ctx) {
+                        if let Ok(idx) = self.cut_node_tree(remove_idx, ctx) {
                             self.set_node_as_active(idx);
                             self.scroll_node_into_view(idx);
                         }
@@ -1382,7 +1436,7 @@ impl<'a> VimMapper {
                             EXECUTE_ACTION,
                             ActionPayload {
                                 action: Action::CreateDialog,
-                                dialog_params: Some(VMDialog::make_delete_node_prompt_dialog_params(count, remove_idx)),
+                                dialog_params: Some(VMDialog::make_cut_node_prompt_dialog_params(count, remove_idx)),
                                 ..Default::default()
                             },
                             Target::Global
@@ -1391,9 +1445,25 @@ impl<'a> VimMapper {
                 }
                 return Ok(());
             }
-            Action::DeleteTargetNode => {
+            Action::CutTargetNode => {
                 return Ok(());
-            }
+            },
+            Action::YankNode => {
+                if let Some(yank_idx) = payload.index {
+                    let _ = self.yank_node(yank_idx, ctx);
+                } else if let Some(yank_idx) = self.get_active_node_idx() {
+                    let _ = self.yank_node(yank_idx, ctx);
+                }
+                return Ok(());
+            },
+            Action::YankNodeTree => {
+                if let Some(yank_idx) = payload.index {
+                    let _ = self.yank_node_tree(yank_idx, ctx);
+                } else if let Some(yank_idx) = self.get_active_node_idx() {
+                    let _ = self.yank_node_tree(yank_idx, ctx);
+                }
+                return Ok(());
+            },
             Action::PasteNodeTree => {
                 if let Some(idx) = payload.index {
                     self.set_node_as_active(idx);
@@ -1523,17 +1593,6 @@ impl<'a> VimMapper {
                 }
                 return Ok(());
             },
-            Action::ToggleDebug => {
-                #[cfg(debug_assertions)]
-                {
-                    self.debug_data = !self.debug_data;
-                    return Ok(());
-                }
-                #[cfg(not(debug_assertions))]
-                {
-                    return Ok(());
-                }
-            }
             Action::PanUp => {
                 self.offset_y += payload.float.unwrap();
                 return Ok(());
@@ -1562,8 +1621,12 @@ impl<'a> VimMapper {
             },
             Action::AcceptNodeText => {
                 if let Some(idx) = self.get_active_node_idx() {
-                    self.nodes.get_mut(&idx).unwrap().label = self.input_manager.text_input.text.clone();
-                    self.nodes.get_mut(&idx).unwrap().text_cursor_index = self.input_manager.text_input.get_cursor_index();
+                    let node = self.nodes.get_mut(&idx).unwrap();
+                    let node_fg = node.fg_index.unwrap();
+                    node.label = self.input_manager.text_input.text.clone();
+                    node.text_cursor_index = self.input_manager.text_input.get_cursor_index();
+                    self.invalidate_node_layout(node_fg);
+                    self.animating = true;
                 }
                 return Ok(());
             },
@@ -1806,9 +1869,9 @@ impl Widget<()> for VimMapper {
                     self.offset_x -= mouse_event.wheel_delta.to_point().x;
                 } else if mouse_event.mods.ctrl() {
                     if mouse_event.wheel_delta.to_point().y < 0.0 {
-                        self.zoom_canvas(1.25, Some(mouse_event.pos));
-                    } else {
                         self.zoom_canvas(0.75, Some(mouse_event.pos));
+                    } else {
+                        self.zoom_canvas(1.25, Some(mouse_event.pos));
                     }
                 } else {
                     self.offset_y -= mouse_event.wheel_delta.to_point().y;
@@ -1900,10 +1963,12 @@ impl Widget<()> for VimMapper {
                     &self.config.get_color(VMColor::LabelTextColor).ok().expect("Couldn't find label text color in config."),
                 ) {
                     self.enabled_layouts.insert(fg_node.index(), layout.clone());
-                    if layout.size().width < DEFAULT_MIN_NODE_WIDTH_DATA {
-                        fg_node.data.repel_distance = DEFAULT_MIN_NODE_WIDTH_DATA;
-                    } else {
-                        fg_node.data.repel_distance = layout.size().width;
+                    if !self.input_manager.get_keybind_mode().contains(KeybindMode::Insert) {
+                        if layout.size().width < DEFAULT_MIN_NODE_WIDTH_DATA {
+                            fg_node.data.repel_distance = DEFAULT_MIN_NODE_WIDTH_DATA;
+                        } else {
+                            fg_node.data.repel_distance = layout.size().width;
+                        }
                     }
                 } 
             }
@@ -1994,6 +2059,38 @@ impl Widget<()> for VimMapper {
             }
         });
 
+        if let Some(target_idx) = target_node {
+            let mut enabled = true;
+
+            if self.get_render_mode() == NodeRenderMode::OnlyTargetsEnabled {
+                enabled = if let Some(_) = self.target_node_list.iter().find(|idx| {
+                    if **idx == target_idx {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }) {
+                    true
+                } else {
+                    false
+                }
+            };
+            let target_node_pos = self.get_node_pos(target_idx);
+            let node = self.nodes.get_mut(&target_idx).unwrap();
+            node.paint_node(
+                        ctx, 
+                        0,
+                        &self.graph,
+                        enabled,
+                        if enabled {&self.enabled_layouts[&node.fg_index.unwrap()]} else {&self.disabled_layouts[&node.fg_index.unwrap()]},
+                        &self.config, 
+                        target_node, 
+                        target_node_pos,
+                        &self.translate, 
+                        &self.scale, 
+                        self.debug_data); 
+        }
+
         if let Some(active_idx) = active_node {
             let mut enabled = true;
 
@@ -2050,38 +2147,6 @@ impl Widget<()> for VimMapper {
             }
         }
 
-
-        if let Some(target_idx) = target_node {
-            let mut enabled = true;
-
-            if self.get_render_mode() == NodeRenderMode::OnlyTargetsEnabled {
-                enabled = if let Some(_) = self.target_node_list.iter().find(|idx| {
-                    if **idx == target_idx {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                }) {
-                    true
-                } else {
-                    false
-                }
-            };
-            let target_node_pos = self.get_node_pos(target_idx);
-            let node = self.nodes.get_mut(&target_idx).unwrap();
-            node.paint_node(
-                        ctx, 
-                        0,
-                        &self.graph,
-                        enabled,
-                        if enabled {&self.enabled_layouts[&node.fg_index.unwrap()]} else {&self.disabled_layouts[&node.fg_index.unwrap()]},
-                        &self.config, 
-                        target_node, 
-                        target_node_pos,
-                        &self.translate, 
-                        &self.scale, 
-                        self.debug_data); 
-        }
 
         //Paint debug dump
         if self.debug_data {

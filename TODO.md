@@ -21,7 +21,6 @@
 - [x] Add VMGraphClip rotation and translation logic
 - [x] Add node insertion between any active and target nodes
 - [x] Implement KeybindType::String for KeybindMode::Sheet
-- [ ] Implement node and tree yank
 - [x] Implement text cursor placement on label click
 - [x] Remove and replace mouse logic
 - [x] Implement context menu for node operations via mouse
@@ -36,10 +35,11 @@
 - [x] Implement array-based zoom levels
     - [x] refine zoom levels to make them smoother and more uniform
     - [x] fix extreme zoom levels scrolling the canvas absurdly offscreen
-- [ ] refactor vm_force_graph_rs deletion tree building logic
 - [x] determine what permanently halts animation on HP Spectre x360
-- [ ] Stop node from resizing and repositioning during text entry
-- [ ] Add merge tab feature, placing root node tree into register before deleting tab
+- [x] Stop node from resizing and repositioning during text entry
+- [x] Implement node and tree yank
+- [x] Fix tab context delete option always deleting the active tab
+- [ ] refactor vm_force_graph_rs deletion tree building logic
 
 ### Minor
 - [x] Fix partial matches being falsely reported
@@ -49,17 +49,19 @@
 - [x] Reposition mode indicators, prompts, and input
 - [x] Change single click on node to target if it's in the target list
 - [x] Fix brand new nodes sometimes not registering clicks
-- [ ] Add `A` and `I` keybinds for Sheet mode to skip to Insert mode at beginning and end of text
-- [ ] Add `C-J` and `C-K` to Move mode
-- [ ] Handle `Alt-F12` globally and dispatch to all tabs
-- [ ] Fix default zoom index
+- [x] Add `A` and `I` keybinds for Sheet mode to skip to Insert mode at beginning and end of text
+- [x] Add `C-J` and `C-K` to Move mode
+- [x] Handle `Alt-F12` globally and dispatch to all tabs
+- [x] Fix default zoom index
 
 ## Deferred Tasks
 ### Major
+- [ ] Add merge tab feature, placing root node tree into register before deleting tab
 - [ ] Implement global and local counts
 - [ ] Implement visual mode
 - [ ] Implement :commands
 - [ ] Implement new KeybindMode::RegisterSelect
+- [ ] Show context menu for active node on Key::ContextMenu press
 
 ### Minor
 - [ ] Rewrite Delete/Change OuterN to delete empty pairs
