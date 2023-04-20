@@ -40,6 +40,8 @@
 - [x] Implement node and tree yank
 - [x] Fix tab context delete option always deleting the active tab
 - [x] refactor vm_force_graph_rs deletion tree building logic
+- [ ] Rewrite vim-mapper.vmd
+- [ ] Rewrite README.md with modern template
 
 ### Minor
 - [x] Fix partial matches being falsely reported
@@ -62,6 +64,10 @@
 - [ ] Implement :commands
 - [ ] Implement new KeybindMode::RegisterSelect
 - [ ] Show context menu for active node on Key::ContextMenu press
+- [ ] Implement text registers
+    - [ ] Implement system copy/paste
+- [ ] Implement GraphClip registers
+- [ ] Implement external file tab imports
 
 ### Minor
 - [ ] Rewrite Delete/Change OuterN to delete empty pairs
