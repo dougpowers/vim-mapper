@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(dead_code)]
 
+#![allow(dead_code)]
 use std::{path::PathBuf};
 
 use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, RawMods, Data, text::EditableText, Target, Command, Point};
@@ -484,30 +484,6 @@ impl Default for VMInputManager {
                     mode: KeybindMode::Edit,
 					..Default::default()
                 },
-                // Keybind { 
-                //     kb_type: KeybindType::Key, 
-                //     key: Some(Key::Character(String::from("a"))),
-                //     modifiers: None, 
-                //     action_payloads: vec![Some(
-                //         ActionPayload {
-                //             action: Action::EditActiveNodeAppend,
-                //             ..Default::default()
-                //     })],
-                //     mode: KeybindMode::Sheet,
-				// 	..Default::default()
-                // },
-                // Keybind { 
-                //     kb_type: KeybindType::Key, 
-                //     key: Some(Key::Character(String::from("i"))),
-                //     modifiers: None, 
-                //     action_payloads: vec![Some(
-                //         ActionPayload {
-                //             action: Action::EditActiveNodeInsert,
-                //             ..Default::default()
-                //     })],
-                //     mode: KeybindMode::Sheet,
-				// 	..Default::default()
-                // },
                 Keybind { 
                     kb_type: KeybindType::Key, 
                     key: Some(Key::Character(String::from("a"))),
@@ -2305,7 +2281,7 @@ impl VMInputManager {
                         self.input_string += &character;
                         return vec![Some(ActionPayload {
                                 action: Action::SearchNodes,
-                                string: Some(self.input_string[1..].to_string()),
+                                string: Some(self.input_string.clone()),
                                 ..Default::default()
                             })]
                     } else {

@@ -42,6 +42,7 @@ pub enum VMColor {
     ComposeIndicatorTextColor,
     SheetBackgroundColor,
     DialogBackgroundColor,
+    StackBackgroundColor,
     AlertColor,
     ButtonLight,
     ButtonDark,
@@ -155,6 +156,7 @@ impl Default for VMConfigVersion4 {
         light_palette.insert(ComposeIndicatorTextColor, (255,0,0,255));
         light_palette.insert(SheetBackgroundColor, (255,255,255,255));
         light_palette.insert(DialogBackgroundColor, (128,128,128,70));
+        light_palette.insert(StackBackgroundColor, (128,128,128,140));
         light_palette.insert(AlertColor, (255,0,0,255));
         light_palette.insert(ButtonLight, (33,33,33,255));
         light_palette.insert(ButtonDark, (0,0,0,255));
@@ -179,6 +181,7 @@ impl Default for VMConfigVersion4 {
         dark_palette.insert(ComposeIndicatorTextColor, (255,0,0,255));
         dark_palette.insert(SheetBackgroundColor, (0,0,0,255));
         dark_palette.insert(DialogBackgroundColor, (128,128,128,70));
+        dark_palette.insert(StackBackgroundColor, (128,128,128,140));
         dark_palette.insert(AlertColor, (255,0,0,255));
         dark_palette.insert(ButtonLight, (33,33,33,255));
         dark_palette.insert(ButtonDark, (0,0,0,255));

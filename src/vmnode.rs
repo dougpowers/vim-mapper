@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 use druid::{Vec2, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
 use serde::{Serialize, Deserialize};
 use vm_force_graph_rs::{DefaultNodeIdx, ForceGraph};
@@ -77,6 +78,8 @@ impl VMNode {
         z_index: u32,
         graph: &ForceGraph<u32, u32>,
         enabled: bool,
+        //enable screen-space rect caching (don't do this if drawing as a list member) to avoid polluting the cache with incorrect coords
+        set_rect: bool,
         layout: &PietTextLayout,
         config: &VMConfigVersion4, 
         target: Option<u32>,
@@ -98,8 +101,10 @@ impl VMNode {
             ctx.transform(Affine::from(TranslateScale::new(pos, 1.0)));
             let rect = label_size.to_rect().inflate(DEFAULT_BORDER_WIDTH, DEFAULT_BORDER_WIDTH);
             let border = druid::piet::kurbo::RoundedRect::from_rect(rect, DEFAULT_BORDER_RADIUS);
-            //Cache this node's screen space-transformed rect
-            self.node_rect = ctx.current_transform().transform_rect_bbox(rect).clone();
+            //Cache this node's screen space-transformed rect (only if not drawn as a list member)
+            if set_rect {
+                self.node_rect = ctx.current_transform().transform_rect_bbox(rect).clone();
+            }
             let mut border_color = config.get_color(VMColor::NodeBorderColor).ok().expect("node border color not found in config");
             let mut border_width = DEFAULT_BORDER_WIDTH;
             if self.is_active {

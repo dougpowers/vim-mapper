@@ -11,10 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #![allow(dead_code)]
-
 use std::time::Duration;
-
 
 use druid::{kurbo::TranslateScale, Selector, Vec2, Point};
 use vm_force_graph_rs::SimulationParameters;
@@ -27,6 +26,11 @@ pub const DEFAULT_BORDER_WIDTH: f64 = 3.;
 pub const DEFAULT_ACTIVE_BORDER_WIDTH: f64 = 8.;
 pub const DEFAULT_TARGET_BORDER_WIDTH: f64 = 7.;
 pub const DEFAULT_BORDER_RADIUS: f64 = 5.;
+pub const DEFAULT_STACK_SPACING: f64 = 12.;
+pub const DEFAULT_STACK_PADDING: f64 = 4.;
+pub const DEFAULT_STACK_SCALE: f64 = 0.75;
+pub const DEFAULT_STACK_X_MARGIN: f64 = 10.;
+pub const DEFAULT_STACK_Y_MARGIN: f64 = 10.;
 pub const DEFAULT_MARK_BORDER_WIDTH: f64 = 1.5;
 pub const DEFAULT_EDGE_WIDTH: f64 = 3.;
 pub const DEFAULT_LABEL_FONT_SIZE: f64 = 20.;

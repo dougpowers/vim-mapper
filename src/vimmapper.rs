@@ -304,6 +304,17 @@ impl<'a> VimMapper {
                 }
             }
         }
+        self.target_node_list.sort_unstable_by(|a1, a2| {
+            let node1 = self.nodes.get(a1).unwrap();
+            let node2 = self.nodes.get(a2).unwrap();
+            if node1.fg_index.unwrap() > node2.fg_index.unwrap() {
+                return std::cmp::Ordering::Greater;
+            } else if node1.fg_index.unwrap() < node2.fg_index.unwrap() {
+                return std::cmp::Ordering::Less;
+            } else {
+                return std::cmp::Ordering::Equal;
+            }
+        });
         if self.target_node_list.len() > 0 {
             self.target_node_idx = Some(0);
             return Ok(());
@@ -2030,7 +2041,7 @@ impl Widget<()> for VimMapper {
 
         let active_node = self.get_active_node_idx();
 
-        //Draw nodes
+        //Draw nodes except active and target
         self.graph.visit_nodes(|fg_node| {
             let node = self.nodes.get_mut(&fg_node.data.user_data)
             .expect("Expected non-option node in paint loop.");
@@ -2052,6 +2063,7 @@ impl Widget<()> for VimMapper {
                         0,
                         &self.graph,
                         enabled,
+                        true,
                         if enabled {&self.enabled_layouts[&node.fg_index.unwrap()]} else {&self.disabled_layouts[&node.fg_index.unwrap()]},
                         &self.config, 
                         target_node, 
@@ -2087,6 +2099,7 @@ impl Widget<()> for VimMapper {
                         0,
                         &self.graph,
                         enabled,
+                        true,
                         if enabled {&self.enabled_layouts[&node.fg_index.unwrap()]} else {&self.disabled_layouts[&node.fg_index.unwrap()]},
                         &self.config, 
                         target_node, 
@@ -2120,6 +2133,7 @@ impl Widget<()> for VimMapper {
                         0,
                         &self.graph,
                         enabled,
+                        true,
                         if self.input_manager.get_keybind_mode() != KeybindMode::Insert && self.input_manager.get_keybind_mode() != KeybindMode::Edit {
                             if enabled {&self.enabled_layouts[&node.fg_index.unwrap()]} else {&self.disabled_layouts[&node.fg_index.unwrap()]}
                         } else {
@@ -2152,6 +2166,44 @@ impl Widget<()> for VimMapper {
             }
         }
 
+        if (KeybindMode::SearchEntry | KeybindMode::SearchedSheet).contains(self.input_manager.get_keybind_mode()) {
+            let mut y = DEFAULT_STACK_Y_MARGIN + TAB_BAR_HEIGHT - DEFAULT_TARGET_BORDER_WIDTH;
+            let x = DEFAULT_STACK_X_MARGIN;
+            let mut max_width: f64 = 0.;
+            let mut max_height: f64 = y;
+            for node in &self.target_node_list {
+                let node = self.nodes.get(node).unwrap().fg_index.unwrap();
+                let width = (self.enabled_layouts.get(&node).unwrap().size().width * DEFAULT_STACK_SCALE) + (2. * DEFAULT_TARGET_BORDER_WIDTH) + DEFAULT_STACK_Y_MARGIN;
+                max_height += (self.enabled_layouts.get(&node).unwrap().size().height * DEFAULT_STACK_SCALE) + DEFAULT_STACK_SPACING;
+                if width > max_width {
+                    max_width = width;
+                }
+            }
+
+            max_height += 2.*DEFAULT_STACK_PADDING;
+            ctx.fill(Rect::new(x, y, max_width, max_height), 
+                &self.config.get_color(VMColor::StackBackgroundColor).unwrap());
+
+            for node in &self.target_node_list {
+                let node = self.nodes.get_mut(node).unwrap();
+                let label_size = self.enabled_layouts[&node.fg_index.unwrap()].size().to_vec2();
+                node.paint_node(
+                    ctx, 
+                    0,
+                    &self.graph,
+                    true,
+                    false,
+                    &self.enabled_layouts[&node.fg_index.unwrap()],
+                    &self.config, 
+                    target_node, 
+                    label_size/2.,
+                    // &self.translate, 
+                    &TranslateScale::translate(Vec2 {x: x + DEFAULT_TARGET_BORDER_WIDTH, y: y + DEFAULT_TARGET_BORDER_WIDTH + DEFAULT_STACK_PADDING}),
+                    &TranslateScale::scale(DEFAULT_STACK_SCALE), 
+                    self.debug_data); 
+                y += (&self.enabled_layouts[&node.fg_index.unwrap()].size().height * DEFAULT_STACK_SCALE) + DEFAULT_STACK_SPACING;
+            }
+        }
 
         //Paint debug dump
         if self.debug_data {

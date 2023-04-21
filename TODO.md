@@ -40,6 +40,7 @@
 - [x] Implement node and tree yank
 - [x] Fix tab context delete option always deleting the active tab
 - [x] refactor vm_force_graph_rs deletion tree building logic
+- [ ] Add search list rendering
 - [ ] Rewrite vim-mapper.vmd
 - [ ] Rewrite README.md with modern template
 
@@ -55,6 +56,7 @@
 - [x] Add `C-J` and `C-K` to Move mode
 - [x] Handle `Alt-F12` globally and dispatch to all tabs
 - [x] Fix default zoom index
+- [x] Fix search term truncation
 
 ## Deferred Tasks
 ### Major
