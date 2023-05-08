@@ -41,7 +41,6 @@
 - [x] Fix tab context delete option always deleting the active tab
 - [x] refactor vm_force_graph_rs deletion tree building logic
 - [x] Add search list rendering
-- [ ] Implement visual mode
 - [ ] Rewrite vim-mapper.vmd
 - [ ] Rewrite README.md with modern template
 
@@ -58,9 +57,11 @@
 - [x] Handle `Alt-F12` globally and dispatch to all tabs
 - [x] Fix default zoom index
 - [x] Fix search term truncation
+- [x] Add double click text index selection for all nodes
 
 ## Deferred Tasks
 ### Major
+- [ ] Implement visual mode
 - [ ] Implement text registers
     - [ ] Implement system copy/paste
 - [ ] Add merge tab feature, placing root node tree into register before deleting tab

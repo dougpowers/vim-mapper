@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use common_macros::hash_set;
-use druid::kurbo::{Line, TranslateScale, Shape, RoundedRect};
+use druid::kurbo::{Line, TranslateScale};
 use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText, TextAttribute};
 use druid::piet::PietTextLayout;
 use vm_force_graph_rs::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
@@ -854,6 +854,7 @@ impl<'a> VimMapper {
         self.nodes.iter_mut().for_each(|item| {
             if item.1.index == idx {
                 item.1.is_active = true;
+                self.input_manager.text_input.text = item.1.label.clone();
             } else {
                 item.1.is_active = false;
             }
@@ -1063,7 +1064,8 @@ impl<'a> VimMapper {
 
     pub fn screen_point_to_label_point(&mut self, point: Point) -> (Option<u32>, Point) {
         if let Some(idx) = self.does_point_collide(point) {
-            let canvas_space_pos = Affine::from(self.scale).inverse() * (self.translate.inverse() * point);
+            // let canvas_space_pos = Affine::from(self.scale).inverse() * (self.translate.inverse() * point);
+            let canvas_space_pos = self.screen_point_to_canvas_point(point);
             let label_pos = self.get_node_pos(idx);
             let fg_idx = self.nodes.get(&idx).unwrap().fg_index.unwrap();
             let label_offset = self.enabled_layouts.get(&fg_idx).unwrap().size().to_vec2() / 2.;
@@ -1365,6 +1367,8 @@ impl<'a> VimMapper {
                     self.scroll_node_into_view(node_idx);
                     self.invalidate_node_layouts();
                     self.set_node_as_active(node_idx);
+                    self.input_manager.text_input.text = self.nodes.get(&node_idx).unwrap().label.clone();
+                    ctx.request_layout();
                     ctx.set_handled();
                 }
                 return Ok(());
@@ -1813,8 +1817,13 @@ impl Widget<()> for VimMapper {
                             mode: Some(KeybindMode::Insert),
                             ..Default::default()
                         });
+                        let (_, point) = self.screen_point_to_label_point(mouse_event.pos);
+                        if let Ok(index) = self.input_manager.text_input.get_index_at_point(point) {
+                            let _ = self.input_manager.text_input.set_cursor(Some(index));
+                        }
                     }
                 }
+                ctx.request_layout();
             }
             Event::MouseUp(mouse_event) if mouse_event.button.is_right() => {
                 if !self.zoomed_while_right_click {
