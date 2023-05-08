@@ -1064,19 +1064,21 @@ impl Widget<AppState> for VMCanvas {
         if let Some(tab) = self.tabs.get_mut(self.active_tab) {
             let inner = &mut tab.vm;
             inner.paint(ctx, &(), env);
-            let input_layout = ctx.text()
-                .new_text_layout(
-                    // self.input_managers[self.active_tab].get_string()
-                    format!("{}{}", inner.widget().input_manager.get_mode_prompt(), inner.widget().input_manager.get_string())
-                )
-                .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
-                .text_color( self.config.get_color(VMColor::ComposeIndicatorTextColor).ok().expect("compose indicator text color not found in config"))
-                .build().unwrap();
-            ctx.paint_with_z_index(100, move |ctx| {
-                ctx.draw_text(&input_layout, 
-                    (Point::new(0., ctx_size.height-input_layout.size().height).to_vec2() + DEFAULT_COMPOSE_INDICATOR_INSET).to_point()
-                );
-            });
+            if !inner.widget().input_manager.get_keybind_mode().contains(KeybindMode::SearchEntry) {
+                let input_layout = ctx.text()
+                    .new_text_layout(
+                        // self.input_managers[self.active_tab].get_string()
+                        format!("{}{}", inner.widget().input_manager.get_mode_prompt(), inner.widget().input_manager.get_string())
+                    )
+                    .font(FontFamily::SANS_SERIF, DEFAULT_COMPOSE_INDICATOR_FONT_SIZE)
+                    .text_color( self.config.get_color(VMColor::ComposeIndicatorTextColor).ok().expect("compose indicator text color not found in config"))
+                    .build().unwrap();
+                ctx.paint_with_z_index(100, move |ctx| {
+                    ctx.draw_text(&input_layout, 
+                        (Point::new(0., ctx_size.height-input_layout.size().height).to_vec2() + DEFAULT_COMPOSE_INDICATOR_INSET).to_point()
+                    );
+                });
+            }
             let mode_label = ctx.text()
                 .new_text_layout(
                     // self.input_managers[self.active_tab].get_string()

@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use common_macros::hash_set;
-use druid::kurbo::{Line, TranslateScale};
-use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText};
+use druid::kurbo::{Line, TranslateScale, Shape, RoundedRect};
+use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText, TextAttribute};
 use druid::piet::PietTextLayout;
 use vm_force_graph_rs::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::prelude::*;
@@ -106,6 +106,7 @@ pub struct VimMapper {
     pub(crate) default_paste_register_count: usize,
     
     pub(crate) zoom_level_index: usize,
+    pub(crate) search_string: String,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -168,6 +169,7 @@ impl<'a> Default for VimMapper {
             default_paste_register_count: 0,
             zoom_level_index: DEFAULT_ZOOM_INDEX,
             zoomed_while_right_click: false,
+            search_string: String::from(""),
         };
         let root_fg_index = root_node.fg_index.unwrap();
         mapper.nodes.insert(0, root_node);
@@ -1232,6 +1234,9 @@ impl<'a> VimMapper {
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                     },
                     Some(KeybindMode::Sheet) => {
+                        if let Some(idx) = self.get_active_node_idx() {
+                            self.build_target_list_from_neighbors(idx);
+                        }
                         self.input_manager.set_keybind_mode(payload.mode.unwrap());
                         self.set_render_mode(NodeRenderMode::AllEnabled);
                     },
@@ -1597,10 +1602,9 @@ impl<'a> VimMapper {
             }
             Action::SearchNodes => {
                 if let Some(string) = payload.string.clone() {
+                    self.search_string = string.clone();
                     if let Ok(_) = self.build_target_list_from_string(string) {
-
                     }
-                    // self.set_render_mode(NodeRenderMode::OnlyTargetsEnabled);
                 }
                 return Ok(());
             },
@@ -2166,42 +2170,115 @@ impl Widget<()> for VimMapper {
             }
         }
 
+
         if (KeybindMode::SearchEntry | KeybindMode::SearchedSheet).contains(self.input_manager.get_keybind_mode()) {
-            let mut y = DEFAULT_STACK_Y_MARGIN + TAB_BAR_HEIGHT - DEFAULT_TARGET_BORDER_WIDTH;
-            let x = DEFAULT_STACK_X_MARGIN;
-            let mut max_width: f64 = 0.;
-            let mut max_height: f64 = y;
-            for node in &self.target_node_list {
-                let node = self.nodes.get(node).unwrap().fg_index.unwrap();
-                let width = (self.enabled_layouts.get(&node).unwrap().size().width * DEFAULT_STACK_SCALE) + (2. * DEFAULT_TARGET_BORDER_WIDTH) + DEFAULT_STACK_Y_MARGIN;
-                max_height += (self.enabled_layouts.get(&node).unwrap().size().height * DEFAULT_STACK_SCALE) + DEFAULT_STACK_SPACING;
-                if width > max_width {
-                    max_width = width;
+            if self.get_target_list_length() == 0 {
+                let header_text = ctx.text().new_text_layout(
+                    format!("No results for \"{}\"", self.search_string)
+                )
+                .text_color(self.config.get_color(VMColor::LabelTextColor).expect("Couldn't get LabelTextColor"))
+                .font(FontFamily::SANS_SERIF, DEFAULT_SEARCH_TERM_FONT_SIZE)
+                .range_attribute(16..16+self.search_string.len(),
+                    if self.input_manager.get_keybind_mode().contains(KeybindMode::SearchEntry) {
+                        TextAttribute::Underline(true)
+                    } else {
+                        TextAttribute::Underline(false)
+                    }
+                )
+                .build().unwrap();
+                ctx.with_save(|ctx| {
+                    ctx.transform(Affine::translate(Point::new(DEFAULT_STACK_X_MARGIN, DEFAULT_STACK_Y_TOP_MARGIN + TAB_BAR_HEIGHT - DEFAULT_TARGET_BORDER_WIDTH).to_vec2()));
+                    let rect = header_text.size().to_rect().inflate(3., 3.);
+                    ctx.fill(rect,
+                        &self.config.get_color(VMColor::StackBackgroundColor).unwrap());
+                    ctx.stroke(
+                        rect.to_rounded_rect(DEFAULT_BORDER_RADIUS), 
+                        &self.config.get_color(VMColor::NodeBorderColor).expect("Could not get NodeBorderColor from config"), 
+                        DEFAULT_BORDER_WIDTH-1.);
+                    ctx.draw_text(&header_text, Point::ZERO);
+                });
+            } else {
+                let header_text = ctx.text().new_text_layout(
+                    format!("\"{}\" — ({}/{})", self.search_string, self.target_node_idx.unwrap()+1, self.get_target_list_length())
+                )
+                .text_color(self.config.get_color(VMColor::LabelTextColor).expect("Couldn't get LabelTextColor"))
+                .font(FontFamily::SANS_SERIF, DEFAULT_SEARCH_TERM_FONT_SIZE)
+                .range_attribute(1..1+self.search_string.len(),
+                    if self.input_manager.get_keybind_mode().contains(KeybindMode::SearchEntry) {
+                        TextAttribute::Underline(true)
+                    } else {
+                        TextAttribute::Underline(false)
+                    }
+                )
+                .build().unwrap();
+                let mut stack_target_y = 0.;
+                let mut y = header_text.size().height + DEFAULT_STACK_Y_TOP_MARGIN + TAB_BAR_HEIGHT - DEFAULT_TARGET_BORDER_WIDTH;
+                let mut max_height: f64 = y;
+                let x = DEFAULT_STACK_X_MARGIN;
+                let mut max_width: f64 = 0.;
+                for node_index in &self.target_node_list {
+                    let node = self.nodes.get(node_index).unwrap().fg_index.unwrap();
+                    let width = (self.enabled_layouts.get(&node).unwrap().size().width * DEFAULT_STACK_SCALE) + (2. * DEFAULT_TARGET_BORDER_WIDTH) + DEFAULT_STACK_Y_BOTTOM_MARGIN;
+                    max_height += (self.enabled_layouts.get(&node).unwrap().size().height * DEFAULT_STACK_SCALE) + DEFAULT_STACK_SPACING;
+                    if width > max_width {
+                        max_width = width;
+                    }
+                    if Some(*node_index) == target_node {
+                        stack_target_y = max_height;
+                    }
                 }
-            }
 
-            max_height += 2.*DEFAULT_STACK_PADDING;
-            ctx.fill(Rect::new(x, y, max_width, max_height), 
-                &self.config.get_color(VMColor::StackBackgroundColor).unwrap());
+                max_height += 2.*DEFAULT_STACK_PADDING;
+                let pane_rect = Rect::new(x, y, max_width, 
+                    if max_height > ctx_size.height {
+                        ctx_size.height - DEFAULT_STACK_Y_BOTTOM_MARGIN + 1.
+                    } else {
+                        max_height - DEFAULT_STACK_Y_BOTTOM_MARGIN + 1.
+                    }
+                );
+                ctx.with_save(|ctx| {
+                    ctx.transform(Affine::translate(Point::new(pane_rect.x0+3., pane_rect.y0-header_text.size().height-DEFAULT_STACK_PADDING*2.).to_vec2()));
+                    let rect = header_text.size().to_rect().inflate(3., 3.);
+                    ctx.fill(rect,
+                        &self.config.get_color(VMColor::StackBackgroundColor).unwrap());
+                    ctx.stroke(
+                        rect.to_rounded_rect(DEFAULT_BORDER_RADIUS), 
+                        &self.config.get_color(VMColor::NodeBorderColor).expect("Could not get NodeBorderColor from config"), 
+                        DEFAULT_BORDER_WIDTH-1.);
+                    ctx.draw_text(&header_text, Point::ZERO);
+                });
 
-            for node in &self.target_node_list {
-                let node = self.nodes.get_mut(node).unwrap();
-                let label_size = self.enabled_layouts[&node.fg_index.unwrap()].size().to_vec2();
-                node.paint_node(
-                    ctx, 
-                    0,
-                    &self.graph,
-                    true,
-                    false,
-                    &self.enabled_layouts[&node.fg_index.unwrap()],
-                    &self.config, 
-                    target_node, 
-                    label_size/2.,
-                    // &self.translate, 
-                    &TranslateScale::translate(Vec2 {x: x + DEFAULT_TARGET_BORDER_WIDTH, y: y + DEFAULT_TARGET_BORDER_WIDTH + DEFAULT_STACK_PADDING}),
-                    &TranslateScale::scale(DEFAULT_STACK_SCALE), 
-                    self.debug_data); 
-                y += (&self.enabled_layouts[&node.fg_index.unwrap()].size().height * DEFAULT_STACK_SCALE) + DEFAULT_STACK_SPACING;
+                ctx.with_save(|ctx| {
+                    ctx.fill(pane_rect, 
+                        &self.config.get_color(VMColor::StackBackgroundColor).unwrap());
+                    ctx.stroke(
+                        pane_rect.to_rounded_rect(DEFAULT_BORDER_RADIUS), 
+                        &self.config.get_color(VMColor::NodeBorderColor).expect("Could not get NodeBorderColor from config"), 
+                        DEFAULT_BORDER_WIDTH);
+                    ctx.clip(pane_rect.inflate(-2., -2.));
+                    for node_idx in &self.target_node_list {
+                        let node = self.nodes.get_mut(node_idx).unwrap();
+                        let label_size = self.enabled_layouts[&node.fg_index.unwrap()].size().to_vec2();
+                        node.paint_node(
+                            ctx, 
+                            0,
+                            &self.graph,
+                            true,
+                            false,
+                            &self.enabled_layouts[&node.fg_index.unwrap()],
+                            &self.config, 
+                            target_node, 
+                            label_size/2.,
+                            &TranslateScale::translate(Vec2 {
+                                x: x + DEFAULT_TARGET_BORDER_WIDTH,
+                                y: y + DEFAULT_TARGET_BORDER_WIDTH + DEFAULT_STACK_PADDING
+                                - if stack_target_y > ctx_size.height {(stack_target_y - ctx_size.height) + (DEFAULT_STACK_PADDING * 1.) + DEFAULT_STACK_Y_BOTTOM_MARGIN} else {DEFAULT_STACK_PADDING}
+                            }),
+                            &TranslateScale::scale(DEFAULT_STACK_SCALE), 
+                            self.debug_data); 
+                        y += (&self.enabled_layouts[&node.fg_index.unwrap()].size().height * DEFAULT_STACK_SCALE) + DEFAULT_STACK_SPACING;
+                    }
+                });
             }
         }
 
@@ -2220,7 +2297,7 @@ impl Widget<()> for VimMapper {
             .build()
             .unwrap();
 
-            ctx.draw_text(&debug_layout, Point::new(ctx_rect.x1-debug_layout.size().width-40., ctx_rect.y1-debug_layout.size().height-40.));
+            ctx.draw_text(&debug_layout, Point::new(ctx_rect.x1-debug_layout.size().width-40., ctx_rect.y1-debug_layout.size().height-60.));
         }
     }
 }

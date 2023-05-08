@@ -163,17 +163,17 @@ impl Default for TextAction {
 bitflags! {
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
     pub struct KeybindMode: u32 {
-        const Start =           0b00000001;
-        const Dialog =          0b00000010;
-        const Sheet =           0b00000100;
-        const Edit =            0b00001000;
-        const Visual =          0b00010000;
-        const Insert =          0b00100000;
-        const Jump =            0b01000000;
-        const Mark =            0b10000000;
-        const Move =            0b100000000;
-        const SearchedSheet =   0b1000000000;
-        const SearchEntry =     0b10000000000;
+        const Start =           0b000000000001;
+        const Dialog =          0b000000000010;
+        const Sheet =           0b000000000100;
+        const Edit =            0b000000001000;
+        const Visual =          0b000000010000;
+        const Insert =          0b000000100000;
+        const Jump =            0b000001000000;
+        const Mark =            0b000010000000;
+        const Move =            0b000100000000;
+        const SearchedSheet =   0b001000000000;
+        const SearchEntry =     0b010000000000;
         const Global =          0b100000000000;
     }
 }
@@ -635,7 +635,7 @@ impl Default for VMInputManager {
                             float: Some(DEFAULT_PAN_AMOUNT_SMALL),
                             ..Default::default()
                     })],
-                    mode: KeybindMode::Sheet,
+                    mode: (KeybindMode::Sheet | KeybindMode::SearchedSheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -648,7 +648,7 @@ impl Default for VMInputManager {
                             float: Some(0.75),
                             ..Default::default()
                     })],
-                    mode: (KeybindMode::Sheet | KeybindMode::Move | KeybindMode::Edit),
+                    mode: (KeybindMode::Sheet | KeybindMode::Move | KeybindMode::Edit | KeybindMode::SearchedSheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -661,7 +661,7 @@ impl Default for VMInputManager {
                             float: Some(DEFAULT_PAN_AMOUNT_LARGE),
                             ..Default::default()
                     })],
-                    mode: KeybindMode::Sheet,
+                    mode: (KeybindMode::Sheet | KeybindMode::SearchedSheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -674,7 +674,7 @@ impl Default for VMInputManager {
                             float: Some(DEFAULT_PAN_AMOUNT_SMALL),
                             ..Default::default()
                     })],
-                    mode: KeybindMode::Sheet,
+                    mode: (KeybindMode::Sheet | KeybindMode::SearchedSheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -687,7 +687,7 @@ impl Default for VMInputManager {
                             float: Some(1.25),
                             ..Default::default()
                     })],
-                    mode: (KeybindMode::Sheet | KeybindMode::Move | KeybindMode::Edit),
+                    mode: (KeybindMode::Sheet | KeybindMode::Move | KeybindMode::Edit | KeybindMode::SearchedSheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -700,7 +700,7 @@ impl Default for VMInputManager {
                             float: Some(DEFAULT_PAN_AMOUNT_LARGE),
                             ..Default::default()
                     })],
-                    mode: KeybindMode::Sheet,
+                    mode: (KeybindMode::Sheet | KeybindMode::SearchedSheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -713,7 +713,7 @@ impl Default for VMInputManager {
                             float: Some(DEFAULT_PAN_AMOUNT_SMALL),
                             ..Default::default()
                     })],
-                    mode: KeybindMode::Sheet,
+                    mode: (KeybindMode::Sheet | KeybindMode::SearchedSheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -726,7 +726,7 @@ impl Default for VMInputManager {
                             float: Some(DEFAULT_PAN_AMOUNT_LARGE),
                             ..Default::default()
                     })],
-                    mode: KeybindMode::Sheet,
+                    mode: (KeybindMode::Sheet | KeybindMode::SearchedSheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -739,7 +739,7 @@ impl Default for VMInputManager {
                             float: Some(DEFAULT_PAN_AMOUNT_SMALL),
                             ..Default::default()
                     })],
-                    mode: KeybindMode::Sheet,
+                    mode: (KeybindMode::Sheet | KeybindMode::SearchedSheet),
 					..Default::default()
                 },
                 Keybind { 
@@ -752,7 +752,7 @@ impl Default for VMInputManager {
                             float: Some(DEFAULT_PAN_AMOUNT_LARGE),
                             ..Default::default()
                     })],
-                    mode: KeybindMode::Sheet,
+                    mode: (KeybindMode::Sheet | KeybindMode::SearchedSheet),
 					..Default::default()
                 },
                 Keybind { 

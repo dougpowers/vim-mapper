@@ -40,7 +40,8 @@
 - [x] Implement node and tree yank
 - [x] Fix tab context delete option always deleting the active tab
 - [x] refactor vm_force_graph_rs deletion tree building logic
-- [ ] Add search list rendering
+- [x] Add search list rendering
+- [ ] Implement visual mode
 - [ ] Rewrite vim-mapper.vmd
 - [ ] Rewrite README.md with modern template
 
@@ -60,14 +61,13 @@
 
 ## Deferred Tasks
 ### Major
+- [ ] Implement text registers
+    - [ ] Implement system copy/paste
 - [ ] Add merge tab feature, placing root node tree into register before deleting tab
 - [ ] Implement global and local counts
-- [ ] Implement visual mode
 - [ ] Implement :commands
 - [ ] Implement new KeybindMode::RegisterSelect
 - [ ] Show context menu for active node on Key::ContextMenu press
-- [ ] Implement text registers
-    - [ ] Implement system copy/paste
 - [ ] Implement GraphClip registers
 - [ ] Implement external file tab imports
 
