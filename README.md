@@ -24,8 +24,8 @@ Vim-Mapper currently supports 64-bit Windows and Linux via GTK, GDK, and Cairo. 
 - Search functionality to quickly find and select specific nodes even in dense trees
 - Tabbed sheets to organize multiple unrelated trees in a single file and move nodes between them
 
-## 👩‍💻 Building LinkLocker for Yourself
-Vim-Mapper is Open Source Software licensed under the [Apache 2.0 Licence](https://www.apache.org/licenses/LICENSE-2.0.html). Feel free to modify, build, and redistribute Vim-Mapper. The build environment is currently configured for Windows and Linux. To build Vim-Mapper for MacOS, changes to the source code may need to be made. Support for MacOS is planned for future releases.
+## 👩‍💻 Building Vim-Mapper for Yourself
+Vim-Mapper is Open Source Software licensed under the [Apache 2.0 Licence](https://www.apache.org/licenses/LICENSE-2.0.html). Feel free to modify, build, and redistribute Vim-Mapper. The build environment is currently configured for Windows and Linux. To build Vim-Mapper for MacOS, changes to the source code may need to be made. Full support for MacOS is planned for future releases.
 
 First, install [rustup](https://rustup.rs).
 
