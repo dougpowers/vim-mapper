@@ -62,16 +62,16 @@ The current active node is outlined in blue. The current targeted child node is 
 
 Create a child to the active node by pressing `O`. To create and activate a child as well as switch to Insert mode, press `o`.
 
-To edit the active node, press `c` to enter Edit mode. This is analogous to vim's Normal mode. Many vim bindings to navigate and edit text are available in this mode.
+To edit the active node, press `c` to enter Edit mode. This is analogous to vim's Normal mode. Common vim bindings to navigate and edit text are available in this mode.
 
 When in Edit mode, press `i` or `a` to enter Insert mode. Press `I` or `A` to enter Insert mode and place the caret at the beginning or end of the text, respectively.
 
 To cut a node and its ancestors, press `d`. A confirmation dialog will be displayed if more than one node is to be removed. All cut nodes are automatically copied ("yanked") and can be pasted elsewhere if desired using `p`.
 
-For a full list of keybinds, please see [Keybindings](keybindings).
+For a full list of keybinds, please see [Keybindings](#keybindings).
 
 ### Mouse Operations
-Mouse operations are available in Vim-Mapper. Clicking and dragging an empty space will pan the sheet as will scrolling or holding `Shift` while scrolling. Holding `Control` and scrolling will zoom the sheet in or out. Right clicking an empty space will open a context menu for creating or pasting external nodes. 
+Though Vim-Mapper is intended to be used via the keyboard, mouse operations are available. Clicking and dragging an empty space will pan the sheet as will scrolling or holding `Shift` while scrolling. Holding `Control` and scrolling will zoom the sheet in or out. Right clicking an empty space will open a context menu for creating or pasting external nodes. 
 
 Nodes can be moved by dragging them around the screen. Nodes can be activated by left click and edited by double left click. The text caret can be moved by clicking on the text in Edit mode. Right clicking a node will open a context menu with various options.
 
