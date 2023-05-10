@@ -53,7 +53,7 @@ $ cargo build --release
 ```
 
 
-## Basic Vim-Mapper Usage
+## 📋 Basic Vim-Mapper Usage
 Vim-Mapper presents a simple interface. All new sheets will start with a single tab and a single node named "Root". Subsequent nodes will connect back to this root node. 
 
 Vim-Mapper starts in Sheet mode. Keys pressed in this mode will navigate and manipulate whole nodes or node trees. The sheet can be panned by pressing `h`, `j`, `k`, or `l`. Holding `Shift` while pressing these will pan by a larger amount. `Ctrl-k` and `Ctrl-j` will zoom the sheet in or out.
@@ -68,17 +68,19 @@ When in Edit mode, press `i` or `a` to enter Insert mode. Press `I` or `A` to en
 
 To cut a node and its ancestors, press `d`. A confirmation dialog will be displayed if more than one node is to be removed. All cut nodes are automatically copied ("yanked") and can be pasted elsewhere if desired using `p`.
 
-For a full list of keybinds, please see [Keybindings](#keybindings).
+For a full list of keybindings, please see [Keybindings](#keybindings).
 
 ### Mouse Operations
 Though Vim-Mapper is intended to be used via the keyboard, mouse operations are available. Clicking and dragging an empty space will pan the sheet as will scrolling or holding `Shift` while scrolling. Holding `Control` and scrolling will zoom the sheet in or out. Right clicking an empty space will open a context menu for creating or pasting external nodes. 
 
+On most Windows laptop tackpads, vertical and horizontal scrolling will pan the sheet and pinching will zoom the sheet.
+
 Nodes can be moved by dragging them around the screen. Nodes can be activated by left click and edited by double left click. The text caret can be moved by clicking on the text in Edit mode. Right clicking a node will open a context menu with various options.
 
 ### Terminal Usage
-When executed from a terminal, Vim-Mapper can open existing sheets by specifying a valid .vmd file as the first argument. 
+When invoked from a terminal, Vim-Mapper can open existing sheets by specifying a valid .vmd file as the first argument. 
 
-## Advanced features
+## ⚙ Advanced features
 ### Vim-Like Bindings and Modes
 Vim-Mapper, like Vim, is designed to be used by touch typists without movement of the fingers from the home row of the keyboard. As such, it uses modes to separate functionality and allow the same keys to be used for different functions. The current mode is shown in the bottom-right of the interface. 
 
@@ -101,7 +103,7 @@ Any node deletion operation is also a yank operation. This allows for quickly mo
 Press `p` to attach a yanked node or node tree to the active node. Press `P` to paste the node or node tree as a new external tree. Press `Ctrl-P` to paste the node or node tree into a new tab.
 
 > ❔*FAQ* - What about Vim-style registers?
-Vim-style registers are planned for future releases. Currently, only a single register is available for nodes.
+> _Vim-style registers are planned for future releases. Currently, only a single register is available for nodes._
 
 ### Tabs
 Vim-Mapper supports tabbed sheets. Press `Ctrl-T` to create a new tab. Press `Ctrl-Tab` and `Ctrl-Shift-Tab` to move between tabs. Press `Ctrl-Shift-T` to create a new tab with a prompt to enter a tab name. Press `Ctrl-R` to rename the active tab. Press `Ctrl-W` to delete a tab. This operation cannot be undone and will remove any nodes in that tab. Use yanks to move any desired nodes to other tabs before deleting a tab.
@@ -121,7 +123,7 @@ Nodes can be moved by pressing `` ` `` (backtick). This anchors the node and ena
 New root nodes ("externals") can be created with `Ctrl-Shift-o`. These appear on top of the root node in Mode mode. Move them using `hjkl` or `HJKL` and press `Enter` to place them. These nodes constitute a new "tree" that is unconnected and therefore not attracted to the default tree (though they will still repel each other). New root nodes will be assigned a numerical mark from 1 to 9, corresponding to their respective tree indices. These indices will shift to remain contiguous if an external is removed. External roots past index 9 are supported but will not be marked and can only be selected via the mouse or by [searching](#searching). If more than 10 trees are desired, consider creating a new tab.
 
 ### Marking
-Vim-Mapper allows the user to "mark" a non-root node with any non-numeric printable character. Press `m` to enter Mark mode then press any printable character to mark that node. Marking any non-root node with ` ` (space) will clear its mark. Press `'` (apostrophe) to enter Jump mode then press any non-numeric printable character to activate the node marked with that character.
+Vim-Mapper allows the user to "mark" a non-root node with any non-numeric printable character. Press `m` to enter Mark mode then press any printable character to mark that node. Marking any non-root node with `Space` will clear its mark. Press `'` (apostrophe) to enter Jump mode then press any non-numeric printable character to activate the node marked with that character.
 
 Root nodes will have an unchangeable numeric mark corresponding to the index of the component. This mark may change if external nodes are removed.
 
@@ -142,20 +144,21 @@ If the user feels comfortable with the keybindings provided, they can hide the "
 ### Changing UI Colors
 Vim-Mapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapper/vmconfig` on Windows and `~/.config/vim-mapper/vmconfig` on Linux. This file can be edited manually to change color values but this is only recommended for advanced users. New versions of Vim-Mapper may not persist these custom changes and malformed configurations may cause unintended behavior or crashes.
 
-## Keybindings
+## ⌨ Keybindings
 ### Sheet and Node Operations
 | **Key Combination** | **Mode**     | **Description**                                                                                                         |
 |---------------------|--------------|-------------------------------------------------------------------------------------------------------------------------|
-| Ctrl-N              | Any          | Create new sheet, discarding the current sheet                                                                          |
-| Ctrl-O              | Any          | Open an existing sheet, discarding the current sheet                                                                    |
-| Ctrl-S              | Any          | Save sheet                                                                                                              |
-| Ctrl-Shift-S        | Any          | Open a dialog to save sheet to specific file                                                                            |
-| Ctrl-T              | Sheet        | Create a new tab                                                                                                        |
-| Ctrl-Shift-T        | Sheet        | Create and name a new tab                                                                                               |
+| Ctrl-n              | Any          | Create new sheet, discarding the current sheet                                                                          |
+| Ctrl-o              | Any          | Open an existing sheet, discarding the current sheet                                                                    |
+| Ctrl-s              | Any          | Save sheet                                                                                                              |
+| Ctrl-Shift-s        | Any          | Open a dialog to save sheet to specific file                                                                            |
+| Alt-F4              | Any          | Close Vim-Mapper (displays a confirmation dialog if the sheet has unsaved changes)                                      |
+| Ctrl-t              | Sheet        | Create a new tab                                                                                                        |
+| Ctrl-Shift-t        | Sheet        | Create and name a new tab                                                                                               |
 | Ctrl-Tab            | Sheet        | Select the next tab                                                                                                     |
 | Ctrl-Shift-Tab      | Sheet        | Select the previous tab                                                                                                 |
-| Ctrl-R              | Sheet        | Rename the active tab                                                                                                   |
-| Ctrl-W              | Sheet        | Delete the active tab                                                                                                   |
+| Ctrl-r              | Sheet        | Rename the active tab                                                                                                   |
+| Ctrl-w              | Sheet        | Delete the active tab                                                                                                   |
 | Enter               | Sheet        | Set targeted child node as active                                                                                       |
 | n                   | Sheet        | Cycle clockwise target through child nodes                                                                              |
 | N                   | Sheet        | Cycle counter-clockwise through child nodes                                                                             |
@@ -163,14 +166,14 @@ Vim-Mapper stores its configuration in JSON format at `~/AppData/Roaming/vim-map
 | k / K               | Sheet        | Pan the viewport up by a little / a lot                                                                                 |
 | h / H               | Sheet        | Pan the viewport left by a little / a lot                                                                               |
 | l / L               | Sheet        | Pan the viewport right by a little / a lot                                                                              |
-| Ctrl-J              | Sheet        | Zoom the viewport out                                                                                                   |
-| Ctrl-K              | Sheet        | Zoom the viewport in                                                                                                    |
+| Ctrl-j              | Sheet        | Zoom the viewport out                                                                                                   |
+| Ctrl-k              | Sheet        | Zoom the viewport in                                                                                                    |
 | c                   | Sheet        | Enter Edit mode                                                                                                         |
 | I                   | Sheet        | Enter Insert mode, placing the caret at the beginning of the text                                                       |
 | A                   | Sheet        | Enter Insert mode, placing the caret at the end of the text                                                             |
 | o                   | Sheet        | Create new child node, set as active, and enter Insert mode                                                             |
 | O                   | Sheet        | Create new child node                                                                                                   |
-| Ctrl-Shift-O        | Sheet        | Create a new external root node and enter Move mode                                                                     |
+| Ctrl-Shift-o        | Sheet        | Create a new external root node and enter Move mode                                                                     |
 | i                   | Sheet        | Insert a new node between the active and target nodes                                                                   |
 | d                   | Sheet        | Cut node and any children radiating away from root (displays confirmation dialog if more than one node is to be removed)|
 | x                   | Sheet        | Cut a node with only two neighbors and join them together                                                               |
@@ -178,7 +181,7 @@ Vim-Mapper stores its configuration in JSON format at `~/AppData/Roaming/vim-map
 | yi                  | Sheet        | Yank a single node                                                                                                      |
 | p                   | Sheet        | Attached a yanked node or node tree to the active node                                                                  |
 | P                   | Sheet        | Paste a yanked node or node tree as a new external tree                                                                 |
-| Ctrl-P              | Sheet        | Paste a yanked node or node tree as a new tab                                                                           |
+| Ctrl-p              | Sheet        | Paste a yanked node or node tree as a new tab                                                                           |
 | gg                  | Sheet        | Center viewport on the active node                                                                                      |
 | G                   | Sheet        | Center viewport on the default root node                                                                                |
 | /                   | Sheet        | Enter Search mode                                                                                                       |
@@ -205,23 +208,42 @@ Vim-Mapper stores its configuration in JSON format at `~/AppData/Roaming/vim-map
 | Alt+F11             | Sheet, Start | Hide app menu                                                                                                           |
 
 ### Text Operations
-| **Key Combination** | **Mode**     | **Description**                                                                                                         |
-|---------------------|--------------|-------------------------------------------------------------------------------------------------------------------------|
-| Enter / Esc         | Edit         | Exit Edit mode and return to Sheet mode                                                                                |
-| i                   | Edit         | Enter Insert mode                                                                                                       |
-| a                   | Edit         | Enter Insert mode, advancing the carat one character to the right                                                       |
-| I                   | Edit         | Enter Insert mode, placing the carat at the beginning of the text                                                       |
-| A                   | Edit         | Enter Insert mode, placing the carat at the end of the text                                                             |
-| l / Right Arrow     | Edit         | Advance the carat one character to the right                                                                            |
-| h / Left Arrow      | Edit         | Advance the carat one character to the left                                                                             |
-| w                   | Edit         | Advance the carat to the beginning of the next word                                                                     |
-| e                   | Edit         | Advance the carat to the end of the next word                                                                           |
-|                     | Edit         |                                                                                                                         |
+| **Key Combination** | **Mode**       | **Description**                                                                                                         |
+|---------------------|----------------|-------------------------------------------------------------------------------------------------------------------------|
+| Enter / Esc         | Edit           | Exit Edit mode and return to Sheet mode                                                                                 |
+| i                   | Edit           | Enter Insert mode                                                                                                       |
+| a                   | Edit           | Enter Insert mode, advancing the carat one character to the right                                                       |
+| I                   | Edit           | Enter Insert mode, placing the carat at the beginning of the text                                                       |
+| A                   | Edit           | Enter Insert mode, placing the carat at the end of the text                                                             |
+| l / Right Arrow     | Edit (Movement)| Advance the carat one character to the right                                                                            |
+| h / Left Arrow      | Edit (Movement)| Advance the carat one character to the left                                                                             |
+| w                   | Edit (Movement)| Advance the carat to the beginning of the next word                                                                     |
+| e                   | Edit (Movement)| Advance the carat to the end of the next word                                                                           |
+| ^                   | Edit (Movement)| Move the carat to the beginning of the text                                                                             |
+| $                   | Edit (Movement)| Move the carat to the end of the text                                                                                   |
+| t<char\>            | Edit (Movement)| Move the carat to the next occurrence of <char\>                                                                        |
+| f<char\>            | Edit (Movement)| Move the carat past the next occurrence of <char\>                                                                      |
+| d<movement\>        | Edit           | Delete text from the current carat position to <movement\>                                                              |
+| di<delimiter\>      | Edit           | Delete text under the carat between two [delimiters](#delimiters)                                                       |
+| diw                 | Edit           | Delete the word underneath the carat and one leading or trailing whitespace character                                   |
+| c<movement\>        | Edit           | Delete text from the current carat position to <movement\> and enter Insert mode                                        |
+| ciw                 | Edit           | Delete the word underneath the carat and one leading or trailing whitespace character and enter Insert mode             |
+| ci<delimiter\>      | Edit           | Delete text under the carat between two [delimiters](#delimiters) and enter Insert mode                                 |
 
-## Acknowledgements
+> ❔*FAQ* - Where is my favorite vim command?
+> _Vim-Mapper is not intended for extensive text entry and therefore only emulates a subset of vim functionality. Currently, support for more movements and well as numerical counts, sentence objects, visual mode, and other operations is planned for future releases. However, fully emulating vim or even vi is outside the scope of the Vim-Mapper project._
+
+### ‼ Compatibility Warnings
+* As in vim, `dw` and `cw` are the same operation as `de` and `ce`, respectively.
+* Vim-Mapper currently uses the [unicode-segmentation](https://docs.rs/unicode-segmentation/1.10.1/unicode_segmentation/index.html) crate to determine words and whitespace. This behavior will differ in some ways to vim's words and WORDS.
+
+### Delimiters
+Vim-Mapper recognizes `"`, `'`, `[` and `]`, `(` and `)`, `<` and `>`, and `{` and `}` as valid delimiters.
+
+## 📣 Acknowledgements
 Vim-Mapper uses a forked version of the [force-graph-rs](https://github.com/t-mw/force-graph-rs) crate by [@tobmansf](https://twitter.com/tobmansf) to position and manage nodes. The [vm_force_graph_rs](https://github.com/dougpowers/vim-mapper/tree/main/vm-force-graph-rs) crate is not currently planned to be published on crates.io.
 
-## Contact
+## 📧 Contact
 Doug Powers - dougpowers@gmail.com - [LinkedIn](https://www.linkedin.com/in/douglas-powers-537380104)
 
 Project Link: [https://github.com/dougpowers/vim-mapper](https://github.com/dougpowers/vim-mapper)
