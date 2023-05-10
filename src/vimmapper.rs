@@ -14,7 +14,7 @@
 
 use common_macros::hash_set;
 use druid::kurbo::{Line, TranslateScale};
-use druid::piet::{ Text, TextLayoutBuilder, TextLayout, PietText, TextAttribute};
+use druid::piet::{Text, TextLayoutBuilder, TextLayout, PietText, TextAttribute};
 use druid::piet::PietTextLayout;
 use vm_force_graph_rs::{ForceGraph, NodeData, EdgeData, DefaultNodeIdx};
 use druid::widget::prelude::*;
@@ -32,8 +32,7 @@ use crate::constants::*;
 
 use crate::vmconfig::*;
 
-//VimMapper is the controller class for the graph implementation and UI. 
-
+//VimMapper is the controller class for the graph implementation and UI.
 pub struct VimMapper {
     //The ForceGraph is contained as a background object, shadowed by the the nodes and edges HashMaps.
     // The user_data structures provided are populated by the u32 index to the corresponding nodes and edges

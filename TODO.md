@@ -41,6 +41,7 @@
 - [x] Fix tab context delete option always deleting the active tab
 - [x] refactor vm_force_graph_rs deletion tree building logic
 - [x] Add search list rendering
+- [ ] Fix Edit mode cw and ce commands moving the carat incorrectly
 - [ ] Rewrite vim-mapper.vmd
 - [ ] Rewrite README.md with modern template
 
