@@ -104,7 +104,7 @@ Any node deletion operation is also a yank operation. This allows for quickly mo
 
 Press `p` to attach a yanked node or node tree to the active node. Press `P` to paste the node or node tree as a new external tree. Press `Ctrl-p` to paste the node or node tree into a new tab.
 
-> ❔*FAQ* - What about Vim-style registers?  
+> ❔**FAQ** - What about Vim-style registers?  
 > _Vim-style registers are planned for future releases. Currently, only a single register is available for nodes._
 
 ### Tabs
@@ -232,18 +232,22 @@ Vim-Mapper stores its configuration in JSON format at `~/AppData/Roaming/vim-map
 | ciw                 | Edit           | Delete the word underneath the carat and one leading or trailing whitespace character and enter Insert mode             |
 | ci<delimiter\>      | Edit           | Delete text under the carat between two [delimiters](#delimiters) and enter Insert mode                                 |
 
-> ❔*FAQ* - Where is my favorite vim command?  
+> ❔**FAQ** - Where is my favorite vim command?  
 > _Vim-Mapper is not intended for extensive text entry and therefore only emulates a subset of vim functionality. Currently, support for more movements and well as numerical counts, sentence objects, visual mode, and other operations is planned for future releases. However, fully emulating vim or even vi is outside the scope of the Vim-Mapper project._
 
-### ‼ Compatibility Warnings
+> ❔**FAQ** - What about text registers?  
+> _Text registers are planned for a future release._
+
+### ‼ Compatibility Warnings and Missing Features
 * As in vim, `dw` and `cw` are the same operation as `de` and `ce`, respectively.
 * Vim-Mapper currently uses the [unicode-segmentation](https://docs.rs/unicode-segmentation/1.10.1/unicode_segmentation/index.html) crate to determine words and whitespace. This behavior will differ in some ways to vim's words and WORDS.
+* While it does support Unicode, Vim-Mapper does not support non-LTR languages. Likewise, it does not support some IMEs.
 
 ### Delimiters
 Vim-Mapper recognizes `"`, `'`, `[` and `]`, `(` and `)`, `<` and `>`, and `{` and `}` as valid delimiters.
 
 ## 📣 Acknowledgements
-Vim-Mapper uses a forked version of the [force-graph-rs](https://github.com/t-mw/force-graph-rs) crate by [@tobmansf](https://twitter.com/tobmansf) to position and manage nodes. The [vm_force_graph_rs](https://github.com/dougpowers/vim-mapper/tree/main/vm-force-graph-rs) crate is not currently planned to be published on crates.io.
+Vim-Mapper uses a forked version of the [force-graph-rs](https://github.com/t-mw/force-graph-rs) crate by [@tobmansf](https://twitter.com/tobmansf) to position and manage nodes. The [vm-force-graph-rs](https://github.com/dougpowers/vim-mapper/tree/main/vm-force-graph-rs) crate is not currently planned to be published on crates.io.
 
 ## 📧 Contact
 Doug Powers - dougpowers@gmail.com - [LinkedIn](https://www.linkedin.com/in/douglas-powers-537380104)
