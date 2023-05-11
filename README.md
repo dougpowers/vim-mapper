@@ -1,9 +1,9 @@
 [](https://img.shields.io/github/license/dougpowers/vim-mapper)
 [![](https://img.shields.io/badge/LinkedIn-Douglas%20Powers-blue)](https://www.linkedin.com/in/douglas-powers-537380104/)
-<h2 align="center"><img src="https://raw.githubusercontent.com/dougpowers/vim-mapper/master/assets/web/logo.png" height="128"><br>VimMapper</h2>
+<h2 align="center"><img src="https://raw.githubusercontent.com/dougpowers/vim-mapper/master/assets/web/logo.png" height="128"></h2>
 <p align="center"><strong>Vim-Inspired Visual Graph Creation</strong></p>
 
-Vim-Mapper is a visual graph editor with vim-like keybindings. It uses a force-directed algorithm to dynamically position nodes. Its goal is to allow a user create a tree of text nodes for any purpose at the speed of thought without moving their hands from the home row of the keyboard.
+VimMapper is a visual graph editor with vim-like keybindings. It uses a force-directed algorithm to dynamically position nodes. Its goal is to allow a user create a tree of text nodes for any purpose at the speed of thought without moving their hands from the home row of the keyboard.
 
 ***
 
@@ -11,9 +11,9 @@ Vim-Mapper is a visual graph editor with vim-like keybindings. It uses a force-d
 - 📃 Refer to [TODO.md](TODO.md) for finished and upcoming features.
 
 ## 💾 Installation
-Vim-Mapper can be installed by going to the [releases](https://github.com/dougpowers/vim-mapper/releases) page and downloading the latest binaries for your operating system. 
+VimMapper can be installed by going to the [releases](https://github.com/dougpowers/vim-mapper/releases) page and downloading the latest binaries for your operating system. 
 
-Vim-Mapper currently supports 64-bit Windows natively and Linux via GTK, GDK, and Cairo. Most Linux distributions with GUIs include these libraries by default.
+VimMapper currently supports 64-bit Windows natively and Linux via GTK, GDK, and Cairo. Most Linux distributions with GUIs include these libraries by default.
 
 ## ☑ Features
 - Easy text node creation and navigation for rapid creation of related textual information
@@ -25,8 +25,8 @@ Vim-Mapper currently supports 64-bit Windows natively and Linux via GTK, GDK, an
 - Search functionality to quickly find and select specific nodes even in dense trees
 - Tabbed sheets to organize multiple unrelated trees in a single file and move nodes between them
 
-## 👩‍💻 Building Vim-Mapper for Yourself
-Vim-Mapper is Open Source Software licensed under the [Apache 2.0 Licence](https://www.apache.org/licenses/LICENSE-2.0.html). Feel free to modify, build, and redistribute Vim-Mapper. The build environment is currently configured for Windows and Linux. To build Vim-Mapper for MacOS, changes to the source code may need to be made. Full support for MacOS is planned for future releases.
+## 👩‍💻 Building VimMapper for Yourself
+VimMapper is Open Source Software licensed under the [Apache 2.0 Licence](https://www.apache.org/licenses/LICENSE-2.0.html). Feel free to modify, build, and redistribute Vim-Mapper. The build environment is currently configured for Windows and Linux. To build Vim-Mapper for MacOS, changes to the source code may need to be made. Full support for MacOS is planned for future releases.
 
 First, install [rustup](https://rustup.rs).
 
@@ -47,7 +47,7 @@ Clone the repository:
 $ git clone https://github.com/dougpowers/vim-mapper vim-mapper 
 ```
 
-Compile Vim-Mapper:
+Compile VimMapper:
 ```sh
 $ cd vim-mapper
 $ cargo build --release
@@ -56,10 +56,10 @@ $ cargo build --release
 Compiled binaries will be located in `./target/release/`.
 
 
-## 📋 Basic Vim-Mapper Usage
-Vim-Mapper presents a simple interface. All new sheets will start with a single tab and a single node named "Root". Subsequent nodes will connect back to this root node. 
+## 📋 Basic VimMapper Usage
+VimMapper presents a simple interface. All new sheets will start with a single tab and a single node named "Root". Subsequent nodes will connect back to this root node. 
 
-Vim-Mapper starts in Sheet mode. Keys pressed in this mode will navigate and manipulate whole nodes or node trees. The sheet can be panned by pressing `h`, `j`, `k`, or `l`. Holding `Shift` while pressing these will pan by a larger amount. `Ctrl-k` and `Ctrl-j` will zoom the sheet in or out.
+VimMapper starts in Sheet mode. Keys pressed in this mode will navigate and manipulate whole nodes or node trees. The sheet can be panned by pressing `h`, `j`, `k`, or `l`. Holding `Shift` while pressing these will pan by a larger amount. `Ctrl-k` and `Ctrl-j` will zoom the sheet in or out.
 
 The current active node is outlined in blue. The current targeted child node is outlined in light red. Press the `n` key to cycle target clockwise or `N` to cycle counter-clockwise. Press `Enter` to activate the targeted node.
 
@@ -74,20 +74,20 @@ To cut a node and its ancestors, press `d`. A confirmation dialog will be displa
 For a full list of keybindings, please see [Keybindings](#keybindings).
 
 ### Mouse Operations
-Though Vim-Mapper is intended to be used via the keyboard, mouse operations are available. Clicking and dragging an empty space will pan the sheet as will scrolling or holding `Shift` while scrolling. Holding `Control` and scrolling will zoom the sheet in or out. Right clicking an empty space will open a context menu for creating or pasting external nodes. 
+Though VimMapper is intended to be used via the keyboard, mouse operations are available. Clicking and dragging an empty space will pan the sheet as will scrolling or holding `Shift` while scrolling. Holding `Control` and scrolling will zoom the sheet in or out. Right clicking an empty space will open a context menu for creating or pasting external nodes. 
 
 On most Windows laptop tackpads, vertical and horizontal scrolling will pan the sheet and pinching will zoom the sheet.
 
 Nodes can be moved by dragging them around the screen. Nodes can be activated by left click and edited by double left click. The text caret can be moved by clicking on the text in Edit mode. Right clicking a node will open a context menu with various options.
 
 ### Terminal Usage
-When invoked from a terminal, Vim-Mapper can open existing sheets by specifying a valid .vmd file as the first argument. 
+When invoked from a terminal, VimMapper can open existing sheets by specifying a valid .vmd file as the first argument. 
 
 ## ⚙ Advanced features
 ### Vim-Like Bindings and Modes
-Vim-Mapper, like Vim, is designed to be used by touch typists without movement of the fingers from the home row of the keyboard. As such, it uses modes to separate functionality and allow the same keys to be used for different functions. The current mode is shown in the bottom-right of the interface. 
+VimMapper, like Vim, is designed to be used by touch typists without movement of the fingers from the home row of the keyboard. As such, it uses modes to separate functionality and allow the same keys to be used for different functions. The current mode is shown in the bottom-right of the interface. 
 
-Vim-Mapper includes the following modes:
+VimMapper includes the following modes:
 
 * Sheet - The default mode used for navigating between, yanking, and pasting nodes
 * Move - Accessed using `` ` ``. Allows movement of a single node around the sheet.
@@ -99,7 +99,7 @@ Vim-Mapper includes the following modes:
 * Jump - Accessed by press `'` (apostrophe). Pressing a non-numeric printable character after entering this mode will activate a node marked with that character. Pressing `0` will activate the default root node. Pressing `1`-`9` will jump to the root node of the corresponding tree index.
 
 ### Cutting, Yanking, and Pasting
-Vim-Mapper supports copying ("yanking" in vim parlance) and pasting of nodes and node trees. A node and all its descendants can be yanked by pressing `yy`. A single node can be yanked by pressing `yi`.
+VimMapper supports copying ("yanking" in vim parlance) and pasting of nodes and node trees. A node and all its descendants can be yanked by pressing `yy`. A single node can be yanked by pressing `yi`.
 
 Any node deletion operation is also a yank operation. This allows for quickly moving nodes or node trees around the sheet. Be aware of this behavior when performing yank and cut operations consecutively as yanked nodes in the clipboard may be inadvertently overwritten by deleted ones.
 
@@ -109,7 +109,7 @@ Press `p` to attach a yanked node or node tree to the active node. Press `P` to 
 > _Vim-style registers are planned for future releases. Currently, only a single register is available for nodes._
 
 ### Tabs
-Vim-Mapper supports tabbed sheets. Press `Ctrl-t` to create a new tab. Press `Ctrl-Tab` and `Ctrl-Shift-Tab` to move between tabs. Press `Ctrl-Shift-t` to create a new tab with a prompt to enter a tab name. Press `Ctrl-r` to rename the active tab. Press `Ctrl-w` to delete a tab. This operation cannot be undone and will remove any nodes in that tab. Use yanks to move any desired nodes to other tabs before deleting a tab.
+VimMapper supports tabbed sheets. Press `Ctrl-t` to create a new tab. Press `Ctrl-Tab` and `Ctrl-Shift-Tab` to move between tabs. Press `Ctrl-Shift-t` to create a new tab with a prompt to enter a tab name. Press `Ctrl-r` to rename the active tab. Press `Ctrl-w` to delete a tab. This operation cannot be undone and will remove any nodes in that tab. Use yanks to move any desired nodes to other tabs before deleting a tab.
 
 ### Node Snipping and Insertion
 A non-root node in a linear chain (one that has only two neighbors) can be cut and its neighbors joined by pressing `x`. 
@@ -117,7 +117,7 @@ A non-root node in a linear chain (one that has only two neighbors) can be cut a
 A node can be inserted between the active and target nodes by pressing `i`.
 
 ### Anchoring
-The root node of a Vim-Mapper sheet will be anchored by default and will not move in relation to any other node. All node trees must have at least 1 anchored node and Vim-Mapper will not allow a cut operation if any of the removed nodes are the sole anchored node in that component. New child nodes are, by default, unanchored. The anchoring state of any node can be toggled by pressing the `@` key. A "⚓" badge will appear on the node to indicate that it is anchored.
+The root node of a VimMapper sheet will be anchored by default and will not move in relation to any other node. All node trees must have at least 1 anchored node and Vim-Mapper will not allow a cut operation if any of the removed nodes are the sole anchored node in that component. New child nodes are, by default, unanchored. The anchoring state of any node can be toggled by pressing the `@` key. A "⚓" badge will appear on the node to indicate that it is anchored.
 
 ### Node Movement
 Nodes can be moved by pressing `` ` `` (backtick). This anchors the node and enables Move mode. Press `hjkl` or `HJKL` to move the node around the canvas. Pressing `@` will unanchor the node and exit Move mode. Pressing `Enter` will confirm the new position for the node and exit Move mode. Subsequently unanchoring the node will cause it once again to reposition itself relative to its connected and unconnected neighbor nodes.
@@ -126,7 +126,7 @@ Nodes can be moved by pressing `` ` `` (backtick). This anchors the node and ena
 New root nodes ("externals") can be created with `Ctrl-Shift-o`. These appear on top of the root node in Mode mode. Move them using `hjkl` or `HJKL` and press `Enter` to place them. These nodes constitute a new "tree" that is unconnected and therefore not attracted to the default tree (though they will still repel each other). New root nodes will be assigned a numerical mark from 1 to 9, corresponding to their respective tree indices. These indices will shift to remain contiguous if an external is removed. External roots past index 9 are supported but will not be marked and can only be selected via the mouse or by [searching](#searching). If more than 10 trees are desired, consider creating a new tab.
 
 ### Marking
-Vim-Mapper allows the user to "mark" a non-root node with any non-numeric printable character. Press `m` to enter Mark mode then press any printable character to mark that node. Marking any non-root node with `Space` will clear its mark. Press `'` (apostrophe) to enter Jump mode then press any non-numeric printable character to activate the node marked with that character.
+VimMapper allows the user to "mark" a non-root node with any non-numeric printable character. Press `m` to enter Mark mode then press any printable character to mark that node. Marking any non-root node with `Space` will clear its mark. Press `'` (apostrophe) to enter Jump mode then press any non-numeric printable character to activate the node marked with that character.
 
 Root nodes will have an unchangeable numeric mark corresponding to the index of the component. This mark may change if external nodes are removed.
 
@@ -136,16 +136,16 @@ Note the red `m` or `'` indicator in the bottom-left of the screen denoting that
 Nodes can be navigated to via a case-insensitive text search. Press `/` to enter Search mode and type a string to begin filtering through all non-active nodes. Results will be displayed in a pane on the left of the interface. Nodes that do not match will be grayed out on the sheet as the string is entered. Press `Enter` to enter Select mode and begin search result navigation. Press `n` or `N` to cycle through matched nodes and press `Enter` to select the desired match. If only one node matches the search string, pressing `Enter` will skip Select mode activate it directly.
 
 ### Mass
-Vim-Mapper nodes have a default "mass" which affects how much other nodes are repelled by it. Press the `+` or `-` keys to increment or decrement this mass for the active node. Press the `=` key to return the node to its default mass. A `+` or `-` badge will appear on the node if its mass is above or below the default.
+VimMapper nodes have a default "mass" which affects how much other nodes are repelled by it. Press the `+` or `-` keys to increment or decrement this mass for the active node. Press the `=` key to return the node to its default mass. A `+` or `-` badge will appear on the node if its mass is above or below the default.
 
 ### Color Scheme
-Vim-Mapper supports dark mode. It will attempt to detect the OS theme on first start-up. If this fails, press `Alt+F10` to toggle between dark mode and light mode. This preference will be saved.
+VimMapper supports dark mode. It will attempt to detect the OS theme on first start-up. If this fails, press `Alt+F10` to toggle between dark mode and light mode. This preference will be saved.
 
 ### Hiding the Main Menu
 The "File" menu can be hidden by pressing `Alt-F11`. This may make dark mode more complete and provide a cleaner interface in a maximized screen. This preference is saved.
 
 ### Changing UI Colors
-Vim-Mapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapper/vmconfig` on Windows and `~/.config/vim-mapper/vmconfig` on Linux. This file can be edited manually to change color values but this is only recommended for advanced users. New versions of Vim-Mapper may not persist these custom changes and malformed configurations may cause unintended behavior or crashes.
+VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapper/vmconfig` on Windows and `~/.config/vim-mapper/vmconfig` on Linux. This file can be edited manually to change color values but this is only recommended for advanced users. New versions of Vim-Mapper may not persist these custom changes and malformed configurations may cause unintended behavior or crashes.
 
 ## ⌨ Keybindings
 ### Sheet and Node Operations
@@ -155,7 +155,7 @@ Vim-Mapper stores its configuration in JSON format at `~/AppData/Roaming/vim-map
 | Ctrl-o              | Any          | Open an existing sheet, discarding the current sheet                                                                    |
 | Ctrl-s              | Any          | Save sheet                                                                                                              |
 | Ctrl-Shift-s        | Any          | Open a dialog to save sheet to specific file                                                                            |
-| Alt-F4              | Any          | Close Vim-Mapper (displays a confirmation dialog if the sheet has unsaved changes)                                      |
+| Alt-F4              | Any          | Close VimMapper (displays a confirmation dialog if the sheet has unsaved changes)                                      |
 | Ctrl-t              | Sheet        | Create a new tab                                                                                                        |
 | Ctrl-Shift-t        | Sheet        | Create and name a new tab                                                                                               |
 | Ctrl-Tab            | Sheet        | Select the next tab                                                                                                     |
@@ -234,21 +234,21 @@ Vim-Mapper stores its configuration in JSON format at `~/AppData/Roaming/vim-map
 | ci<delimiter\>      | Edit           | Delete text under the carat between two [delimiters](#delimiters) and enter Insert mode                                 |
 
 > ❔**FAQ** - Where is my favorite vim command?  
-> _Vim-Mapper is not intended for extensive text entry and therefore only emulates a subset of vim functionality. Currently, support for more movements and well as numerical counts, sentence objects, visual mode, and other operations is planned for future releases. However, fully emulating vim or even vi is outside the scope of the Vim-Mapper project._
+> _VimMapper is not intended for extensive text entry and therefore only emulates a subset of vim functionality. Currently, support for more movements and well as numerical counts, sentence objects, visual mode, and other operations is planned for future releases. However, fully emulating vim or even vi is outside the scope of the Vim-Mapper project._
 
 > ❔**FAQ** - What about text registers?  
 > _Text registers are planned for a future release._
 
 ### ‼ Compatibility Warnings and Missing Features
 * As in vim, `dw` and `cw` are the same operation as `de` and `ce`, respectively.
-* Vim-Mapper currently uses the [unicode-segmentation](https://docs.rs/unicode-segmentation/1.10.1/unicode_segmentation/index.html) crate to determine words and whitespace. This behavior will differ in some ways to vim's words and WORDS.
-* While it does support Unicode, Vim-Mapper does not support non-LTR languages. Likewise, it does not support some IMEs.
+* VimMapper currently uses the [unicode-segmentation](https://docs.rs/unicode-segmentation/1.10.1/unicode_segmentation/index.html) crate to determine words and whitespace. This behavior will differ in some ways to vim's words and WORDS.
+* While it does support Unicode, VimMapper does not support non-LTR languages. Likewise, it does not support some IMEs.
 
 ### Delimiters
-Vim-Mapper recognizes `"`, `'`, `[` and `]`, `(` and `)`, `<` and `>`, and `{` and `}` as valid delimiters.
+VimMapper recognizes `"`, `'`, `[` and `]`, `(` and `)`, `<` and `>`, and `{` and `}` as valid delimiters.
 
 ## 📣 Acknowledgements
-Vim-Mapper uses a forked version of the [force-graph-rs](https://github.com/t-mw/force-graph-rs) crate by [@tobmansf](https://twitter.com/tobmansf) to position and manage nodes. The [vm-force-graph-rs](https://github.com/dougpowers/vim-mapper/tree/main/vm-force-graph-rs) crate is not currently planned to be published on crates.io.
+VimMapper uses a forked version of the [force-graph-rs](https://github.com/t-mw/force-graph-rs) crate by [@tobmansf](https://twitter.com/tobmansf) to position and manage nodes. The [vm-force-graph-rs](https://github.com/dougpowers/vim-mapper/tree/main/vm-force-graph-rs) crate is not currently planned to be published on crates.io.
 
 ## 📧 Contact
 Doug Powers - dougpowers@gmail.com - [LinkedIn](https://www.linkedin.com/in/douglas-powers-537380104)
