@@ -1,9 +1,9 @@
 [](https://img.shields.io/github/license/dougpowers/vim-mapper)
 [![](https://img.shields.io/badge/LinkedIn-Douglas%20Powers-blue)](https://www.linkedin.com/in/douglas-powers-537380104/)
 <h2 align="center"><img src="https://raw.githubusercontent.com/dougpowers/vim-mapper/master/assets/web/logo.png" height="128"></h2>
-<p align="center"><strong>Vim-Inspired Visual Graph Creation</strong></p>
+<p align="center"><strong>Vim Inspired Visual Graph Creation</strong></p>
 
-VimMapper is a visual graph editor with vim-like keybindings. It uses a force-directed algorithm to dynamically position nodes. Its goal is to allow a user create a tree of text nodes for any purpose at the speed of thought without moving their hands from the home row of the keyboard.
+VimMapper is a visual graph editor with vim-like keybindings. It uses a force-directed algorithm to dynamically position nodes. Its goal is to allow a user create a tree of text nodes for any purpose at the speed of thought without manual positioning or moving their hands from the home row of the keyboard.
 
 ***
 
@@ -26,7 +26,7 @@ VimMapper currently supports 64-bit Windows natively and Linux via GTK, GDK, and
 - Tabbed sheets to organize multiple unrelated trees in a single file and move nodes between them
 
 ## 👩‍💻 Building VimMapper for Yourself
-VimMapper is Open Source Software licensed under the [Apache 2.0 Licence](https://www.apache.org/licenses/LICENSE-2.0.html). Feel free to modify, build, and redistribute Vim-Mapper. The build environment is currently configured for Windows and Linux. To build Vim-Mapper for MacOS, changes to the source code may need to be made. Full support for MacOS is planned for future releases.
+VimMapper is Open Source Software licensed under the [Apache 2.0 Licence](https://www.apache.org/licenses/LICENSE-2.0.html). Feel free to modify, build, and redistribute VimMapper. The build environment is currently configured for Windows and Linux. To build VimMapper for MacOS, changes to the source code may need to be made. Full support for MacOS is planned for future releases.
 
 First, install [rustup](https://rustup.rs).
 
@@ -117,7 +117,7 @@ A non-root node in a linear chain (one that has only two neighbors) can be cut a
 A node can be inserted between the active and target nodes by pressing `i`.
 
 ### Anchoring
-The root node of a VimMapper sheet will be anchored by default and will not move in relation to any other node. All node trees must have at least 1 anchored node and Vim-Mapper will not allow a cut operation if any of the removed nodes are the sole anchored node in that component. New child nodes are, by default, unanchored. The anchoring state of any node can be toggled by pressing the `@` key. A "⚓" badge will appear on the node to indicate that it is anchored.
+The root node of a VimMapper sheet will be anchored by default and will not move in relation to any other node. All node trees must have at least 1 anchored node and VimMapper will not allow a cut operation if any of the removed nodes are the sole anchored node in that component. New child nodes are, by default, unanchored. The anchoring state of any node can be toggled by pressing the `@` key. A ⚓ badge will appear on the node to indicate that it is anchored.
 
 ### Node Movement
 Nodes can be moved by pressing `` ` `` (backtick). This anchors the node and enables Move mode. Press `hjkl` or `HJKL` to move the node around the canvas. Pressing `@` will unanchor the node and exit Move mode. Pressing `Enter` will confirm the new position for the node and exit Move mode. Subsequently unanchoring the node will cause it once again to reposition itself relative to its connected and unconnected neighbor nodes.
@@ -126,7 +126,7 @@ Nodes can be moved by pressing `` ` `` (backtick). This anchors the node and ena
 New root nodes ("externals") can be created with `Ctrl-Shift-o`. These appear on top of the root node in Mode mode. Move them using `hjkl` or `HJKL` and press `Enter` to place them. These nodes constitute a new "tree" that is unconnected and therefore not attracted to the default tree (though they will still repel each other). New root nodes will be assigned a numerical mark from 1 to 9, corresponding to their respective tree indices. These indices will shift to remain contiguous if an external is removed. External roots past index 9 are supported but will not be marked and can only be selected via the mouse or by [searching](#searching). If more than 10 trees are desired, consider creating a new tab.
 
 ### Marking
-VimMapper allows the user to "mark" a non-root node with any non-numeric printable character. Press `m` to enter Mark mode then press any printable character to mark that node. Marking any non-root node with `Space` will clear its mark. Press `'` (apostrophe) to enter Jump mode then press any non-numeric printable character to activate the node marked with that character.
+VimMapper allows the user to "mark" a non-root node with any non-numeric printable character. Press `m` to enter Mark mode then press any printable character to mark the active node. Marking any non-root node with `Space` will clear its mark. Press `'` (apostrophe) to enter Jump mode then press any non-numeric printable character to activate the node marked with that character.
 
 Root nodes will have an unchangeable numeric mark corresponding to the index of the component. This mark may change if external nodes are removed.
 
@@ -145,7 +145,7 @@ VimMapper supports dark mode. It will attempt to detect the OS theme on first st
 The "File" menu can be hidden by pressing `Alt-F11`. This may make dark mode more complete and provide a cleaner interface in a maximized screen. This preference is saved.
 
 ### Changing UI Colors
-VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapper/vmconfig` on Windows and `~/.config/vim-mapper/vmconfig` on Linux. This file can be edited manually to change color values but this is only recommended for advanced users. New versions of Vim-Mapper may not persist these custom changes and malformed configurations may cause unintended behavior or crashes.
+VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapper/vmconfig` on Windows and `~/.config/vim-mapper/vmconfig` on Linux. This file can be edited manually to change color values but this is only recommended for advanced users. New versions of VimMapper may not persist these custom changes and malformed configurations may cause unintended behavior or crashes.
 
 ## ⌨ Keybindings
 ### Sheet and Node Operations
@@ -234,7 +234,7 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 | ci<delimiter\>      | Edit           | Delete text under the carat between two [delimiters](#delimiters) and enter Insert mode                                 |
 
 > ❔**FAQ** - Where is my favorite vim command?  
-> _VimMapper is not intended for extensive text entry and therefore only emulates a subset of vim functionality. Currently, support for more movements and well as numerical counts, sentence objects, visual mode, and other operations is planned for future releases. However, fully emulating vim or even vi is outside the scope of the Vim-Mapper project._
+> _VimMapper is not intended for extensive text entry and therefore only emulates a subset of vim functionality. Currently, support for more movements and well as numerical counts, sentence objects, visual mode, and other operations is planned for future releases. However, fully emulating vim or even vi is outside the scope of the VimMapper project._
 
 > ❔**FAQ** - What about text registers?  
 > _Text registers are planned for a future release._
