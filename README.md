@@ -1,6 +1,7 @@
 [](https://img.shields.io/github/license/dougpowers/vim-mapper)
 [![](https://img.shields.io/badge/LinkedIn-Douglas%20Powers-blue)](https://www.linkedin.com/in/douglas-powers-537380104/)
-# Vim-Mapper - Vim-inspired visual graph creation
+<h2 align="center"><img src="https://raw.githubusercontent.com/dougpowers/vim-mapper/master/assets/web/logo.png" height="128"><br>VimMapper</h2>
+<p align="center"><strong>Vim-Inspired Visual Graph Creation</strong></p>
 
 Vim-Mapper is a visual graph editor with vim-like keybindings. It uses a force-directed algorithm to dynamically position nodes. Its goal is to allow a user create a tree of text nodes for any purpose at the speed of thought without moving their hands from the home row of the keyboard.
 

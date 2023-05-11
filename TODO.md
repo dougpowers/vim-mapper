@@ -1,4 +1,20 @@
-## Current Tasks
+## Future Features
+### Major
+- [ ] Implement visual mode
+- [ ] Implement text registers
+    - [ ] Implement system copy/paste
+- [ ] Add merge tab feature, placing root node tree into register before deleting tab
+- [ ] Implement global and local counts
+- [ ] Implement :commands
+- [ ] Implement new KeybindMode::RegisterSelect
+- [ ] Show context menu for active node on Key::ContextMenu press
+- [ ] Implement GraphClip registers
+- [ ] Implement external file tab imports
+
+### Minor
+- [ ] Rewrite Delete/Change OuterN to delete empty pairs
+
+## Past Tasks
 ### Major
 - [x] Implement one input manager per tab
 - [x] Implement sheets in tabs
@@ -59,19 +75,3 @@
 - [x] Fix default zoom index
 - [x] Fix search term truncation
 - [x] Add double click text index selection for all nodes
-
-## Deferred Tasks
-### Major
-- [ ] Implement visual mode
-- [ ] Implement text registers
-    - [ ] Implement system copy/paste
-- [ ] Add merge tab feature, placing root node tree into register before deleting tab
-- [ ] Implement global and local counts
-- [ ] Implement :commands
-- [ ] Implement new KeybindMode::RegisterSelect
-- [ ] Show context menu for active node on Key::ContextMenu press
-- [ ] Implement GraphClip registers
-- [ ] Implement external file tab imports
-
-### Minor
-- [ ] Rewrite Delete/Change OuterN to delete empty pairs
