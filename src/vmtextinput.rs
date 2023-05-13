@@ -226,7 +226,7 @@ impl<'a> VMTextInput {
                                         if let Some(next_end) = self.text.next_word_end_offset(self.index) {
                                             if let Some(after) = self.text.next_grapheme_offset(next_end) {
                                                 self.text.edit(self.index..after, "");
-                                                self.index = self.text.len();
+                                                // self.index = self.text.len();
                                             }
                                         }
                                     },

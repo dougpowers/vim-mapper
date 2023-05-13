@@ -218,6 +218,7 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 | a                   | Edit           | Enter Insert mode, advancing the carat one character to the right                                                       |
 | I                   | Edit           | Enter Insert mode, placing the carat at the beginning of the text                                                       |
 | A                   | Edit           | Enter Insert mode, placing the carat at the end of the text                                                             |
+| s                   | Edit           | Remove the character under the carat and enter Insert mode                                                              |
 | l / Right Arrow     | Edit (Movement)| Advance the carat one character to the right                                                                            |
 | h / Left Arrow      | Edit (Movement)| Advance the carat one character to the left                                                                             |
 | w                   | Edit (Movement)| Advance the carat to the beginning of the next word                                                                     |
@@ -226,12 +227,16 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 | $                   | Edit (Movement)| Move the carat to the end of the text                                                                                   |
 | t<char\>            | Edit (Movement)| Move the carat to the next occurrence of <char\>                                                                        |
 | f<char\>            | Edit (Movement)| Move the carat past the next occurrence of <char\>                                                                      |
+| r<char\>            | Edit           | Replace the character under the carat with <char\>                                                                      |
 | d<movement\>        | Edit           | Delete text from the current carat position to <movement\>                                                              |
 | di<delimiter\>      | Edit           | Delete text under the carat between two [delimiters](#delimiters)                                                       |
 | diw                 | Edit           | Delete the word underneath the carat and one leading or trailing whitespace character                                   |
 | c<movement\>        | Edit           | Delete text from the current carat position to <movement\> and enter Insert mode                                        |
 | ciw                 | Edit           | Delete the word underneath the carat and one leading or trailing whitespace character and enter Insert mode             |
 | ci<delimiter\>      | Edit           | Delete text under the carat between two [delimiters](#delimiters) and enter Insert mode                                 |
+|                     | Edit           |                                                                                                                         |
+|                     | Edit           |                                                                                                                         |
+|                     | Edit           |                                                                                                                         |
 
 > ❔**FAQ** - Where is my favorite vim command?  
 > _VimMapper is not intended for extensive text entry and therefore only emulates a subset of vim functionality. Currently, support for more movements and well as numerical counts, sentence objects, visual mode, and other operations is planned for future releases. However, fully emulating vim or even vi is outside the scope of the VimMapper project._

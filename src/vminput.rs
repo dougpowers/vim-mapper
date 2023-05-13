@@ -525,6 +525,28 @@ impl Default for VMInputManager {
                 },
                 Keybind { 
                     kb_type: KeybindType::Key, 
+                    key: Some(Key::Character(String::from("s"))),
+                    modifiers: None, 
+                    action_payloads: vec![
+                        Some(ActionPayload {
+                            action: Action::ExecuteTextAction,
+                            text_action: Some(TextAction {
+                                operation: TextOperation::DeleteText,
+                                text_motion: Some(TextMotion::ForwardCharacter),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        }),
+                        Some(ActionPayload {
+                            action: Action::ChangeMode,
+                            mode: Some(KeybindMode::Insert),
+                            ..Default::default()
+                    })],
+                    mode: (KeybindMode::Edit),
+					..Default::default()
+                },
+                Keybind { 
+                    kb_type: KeybindType::Key, 
                     key: Some(Key::Character(String::from("i"))),
                     modifiers: None, 
                     action_payloads: vec![Some(
@@ -2263,7 +2285,7 @@ impl VMInputManager {
                                 action: Action::ActivateTargetedNode,
                                 ..Default::default()
                             }
-                        )
+                        ),
                     ];
                 }
                 if key_event.key == Key::Escape {
