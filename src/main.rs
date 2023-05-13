@@ -22,6 +22,14 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{PathBuf, Path};
 use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(target_family = "windows")]
+use windows::{
+    core::{PCWSTR},
+    Win32::{
+        System::LibraryLoader::GetModuleHandleW,
+        UI::WindowsAndMessaging::{LoadImageW, IMAGE_ICON, LR_DEFAULTSIZE},
+    },
+};
 
 mod vmnode;
 
@@ -1186,6 +1194,18 @@ impl AppDelegate<AppState> for Delegate {
 
 #[allow(unused_must_use)]
 pub fn main() {
+    #[cfg(target_family = "windows")]
+    let _icon = unsafe {
+        LoadImageW(
+            GetModuleHandleW(None).unwrap(),
+            PCWSTR(1 as _),
+            IMAGE_ICON,
+            0,
+            0,  
+            LR_DEFAULTSIZE,
+        )
+    };
+
     let mut canvas;
     match VMConfigSerde::load() {
         Ok(config) => {
