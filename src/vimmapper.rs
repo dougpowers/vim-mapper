@@ -1363,7 +1363,6 @@ impl<'a> VimMapper {
                     self.scroll_node_into_view(node_idx);
                     self.invalidate_node_layouts();
                     self.set_node_as_active(node_idx);
-                    self.build_target_list_from_neighbors(node_idx);
                     self.input_manager.text_input.text = self.nodes.get(&node_idx).unwrap().label.clone();
                     ctx.request_layout();
                     ctx.set_handled();
