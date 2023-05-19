@@ -81,6 +81,7 @@ pub enum Action {
     Highlight,
     ExecuteTextAction,
     AcceptNodeText,
+    UndoNodeText,
     ToggleColorScheme,
     ToggleDebug,
     ToggleMenuVisible,
@@ -279,7 +280,7 @@ pub enum BuildState {
 pub struct VMInputManager {
     mode: KeybindMode,
     build_state: BuildState,
-    pub(crate) text_input: VMTextInput,
+    // pub(crate) text_input: VMTextInput,
     keybinds: Vec<Keybind>,
     input_string: String,
     outer_count: String,
@@ -306,7 +307,7 @@ impl Default for VMInputManager {
         let mut vim = VMInputManager {
             mode: KeybindMode::Start,
             build_state: BuildState::AwaitOuterCount,
-            text_input: VMTextInput::new(),
+            // text_input: VMTextInput::new(),
             mode_label: String::new(),
             input_string: String::new(),
             mode_prompt: String::new(),
@@ -1483,6 +1484,18 @@ impl Default for VMInputManager {
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
+                    key: Some(Key::Character("u".to_string())),
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::UndoNodeText,
+                            ..Default::default()
+                        }
+                    )],
+                    mode: KeybindMode::Edit,
+                    ..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
                     key: Some(Key::Character("P".to_string())),
                     action_payloads: vec![Some(
                         ActionPayload {
@@ -2472,13 +2485,13 @@ impl VMInputManager {
                 self.mode_prompt = String::from("");
             },
             KeybindMode::Edit => {
-                self.text_input.set_keybind_mode(mode);
+                // self.text_input.set_keybind_mode(mode);
                 self.mode_label = String::from("<edit>");
                 self.input_string = String::from("");
                 self.mode_prompt = String::from("");
             },
             KeybindMode::Visual => {
-                self.text_input.set_keybind_mode(mode);
+                // self.text_input.set_keybind_mode(mode);
                 self.mode_label = String::from("<visual>");
                 self.input_string = String::from("");
                 self.mode_prompt = String::from("");
@@ -2494,7 +2507,7 @@ impl VMInputManager {
                 self.mode_prompt = String::from("m");
             },
             KeybindMode::Insert => {
-                self.text_input.set_keybind_mode(mode);
+                // self.text_input.set_keybind_mode(mode);
                 self.mode_label = String::from("<insert>");
                 self.input_string = String::from("");
                 self.mode_prompt = String::from("");

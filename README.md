@@ -239,6 +239,8 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 | ciw                 | Edit           | Delete the word underneath the carat and one leading or trailing whitespace character and enter Insert mode             |
 | ci<delimiter\>      | Edit           | Delete text under the carat between two [delimiters](#delimiters) and enter Insert mode                                 |
 | S                   | Edit           | Delete all text and enter Insert mode                                                                                   |
+| Esc / jj            | Insert         | Exit Insert mode and enter Edit mode                                                                                    |
+| Enter               | Insert         | Exit Insert mode and enter Sheet mode                                                                                   |
 |                     | Edit           |                                                                                                                         |
 |                     | Edit           |                                                                                                                         |
 

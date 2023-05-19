@@ -147,14 +147,22 @@ impl From<VMSaveNoVersion> for VMSaveVersion4 {
                     ..Default::default()
                 }));
             }
-            nodes.insert(v.index, VMNode {
-                label: v.label.clone(), 
-                index: v.index, 
-                fg_index: fg_index, 
-                mark: v.mark.clone(),
-                is_active: v.is_active,
-                ..Default::default()
-            });
+            let node = VMNode::with_fields(
+                v.label.clone(),
+                v.index, 
+                fg_index, 
+                v.mark.clone(),
+                v.is_active
+            );
+            // nodes.insert(v.index, VMNode {
+            //     label: v.label.clone(), 
+            //     index: v.index, 
+            //     fg_index: fg_index, 
+            //     mark: v.mark.clone(),
+            //     is_active: v.is_active,
+            //     ..Default::default()
+            // });
+            nodes.insert(v.index, node);
         }
         for (_k,v) in &save.edges {
             graph.add_edge(
@@ -207,14 +215,13 @@ impl VMSaveSerde {
                         fg_index = n.index();
                     }
                 });
-                nodes.insert(v.index, VMNode {
-                    label: v.label.clone(), 
-                    index: v.index, 
-                    fg_index: Some(fg_index), 
-                    mark: v.mark,
-                    is_active: v.is_active,
-                    ..Default::default()
-                });
+                nodes.insert(v.index, VMNode::with_fields(
+                    v.label.clone(), 
+                    v.index, 
+                    Some(fg_index), 
+                    v.mark,
+                    v.is_active,
+                ));
             }
             let vm = VimMapper {
                 graph,
@@ -257,7 +264,7 @@ impl VMSaveSerde {
             vm.get_nodes().iter().for_each(|(index, node)| {
                 let pos = vm.get_node_pos(*index);
                 nodes.insert(*index, BareNodeVersion4 {
-                    label: node.label.clone(),
+                    label: node.get_label(),
                     index: node.index,
                     pos: (pos.x, pos.y),
                     is_active: node.is_active,

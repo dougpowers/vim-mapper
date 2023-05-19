@@ -146,7 +146,7 @@ impl VMGraphClip {
             target.graph.add_edge(target.nodes.get(&target_idx).unwrap().fg_index.unwrap(), *trans_map.get(&self.root_node.unwrap()).unwrap(), EdgeData{ user_data: 0 });
             target.build_target_list_from_neighbors(target_idx);
         } else if let Some(root_node) = self.root_node {
-            let external_node = target.add_external_node(self.nodes.get(&self.graph[root_node].data.user_data).unwrap().label.clone()).unwrap();
+            let external_node = target.add_external_node(self.nodes.get(&self.graph[root_node].data.user_data).unwrap().get_label().clone()).unwrap();
             let external_fg_index = target.get_nodes().get(&external_node).unwrap().fg_index.unwrap();
             target.set_node_as_active(external_node);
             if let Some(point) = pos {
@@ -195,8 +195,9 @@ impl VMGraphClip {
             let root_node = self.root_node.unwrap();
             let mut trans_map: HashMap<DefaultNodeIdx, DefaultNodeIdx> = HashMap::new(); 
             let mut target = VimMapper::new(config);
-            let label = self.nodes.get(&self.graph[root_node].data.user_data).unwrap().label.clone();
-            target.nodes.get_mut(&0).unwrap().label = label.clone();
+            let label = self.nodes.get(&self.graph[root_node].data.user_data).unwrap().get_label().clone();
+            // target.nodes.get_mut(&0).unwrap().label = label.clone();
+            target.nodes.get_mut(&0).unwrap().set_label(label.clone());
             let new_root_node = 0;
             let new_root_fg_index = target.get_nodes().get(&0).unwrap().fg_index.unwrap();
             target.set_node_as_active(new_root_node);

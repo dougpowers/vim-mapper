@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use druid::{Vec2, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
+use druid::{Vec2, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder, PietText}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
 use serde::{Serialize, Deserialize};
 use vm_force_graph_rs::{DefaultNodeIdx, ForceGraph};
 
-use crate::{constants::*, vmconfig::*};
+use crate::{constants::*, vmconfig::*, vmtextinput::VMTextInput};
 
 //Position on the node to paint a badge. Format YposXpos. Only corners are guaranteed to have space 
 // on the layout
@@ -43,13 +43,15 @@ struct RectDef {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VMNode {
-    pub label: String,
+    label: String,
     pub index: u32,
     pub fg_index: Option<DefaultNodeIdx>,
     pub is_active: bool,
     pub mark: Option<String>,
+    // #[serde(skip)]
+    // pub text_cursor_index: usize,
     #[serde(skip)]
-    pub text_cursor_index: usize,
+    pub text_input: VMTextInput,
     //Cached rect of the node, transformed to screen coords. Used to scroll node into view.
     #[serde(with = "RectDef")]
     pub node_rect: Rect,
@@ -59,12 +61,13 @@ impl Default for VMNode {
     fn default() -> Self {
         let label = DEFAULT_ROOT_LABEL.to_string();
         let node = VMNode {
-            label,
+            label: label.clone(),
             index: 0,
             fg_index: None,
             is_active: false,
             mark: None,
-            text_cursor_index: 0,
+            text_input: VMTextInput::new(label, None),
+            // text_cursor_index: 0,
             node_rect: Rect::new(0.,0.,0.,0.),
         };
         node
@@ -72,6 +75,54 @@ impl Default for VMNode {
 }
 
 impl VMNode {
+    pub fn new(label: String) -> Self {
+        let node = VMNode {
+            label: label.clone(),
+            index: 0,
+            fg_index: None,
+            is_active: false,
+            mark: None,
+            text_input: VMTextInput::new(label, None),
+            // text_cursor_index: 0,
+            node_rect: Rect::new(0.,0.,0.,0.),
+        };
+        node
+    }
+
+    pub fn with_fields(label: String, index: u32, fg_index: Option<DefaultNodeIdx>, mark: Option<String>, is_active: bool) -> Self {
+        VMNode {
+            label: label.clone(),
+            index,
+            fg_index,
+            mark,
+            is_active,
+            text_input: VMTextInput::new(label, None),
+            ..Default::default()
+        }
+    }
+
+    pub fn set_label(&mut self, label: String) {
+        self.label = label;
+    }
+
+    pub fn get_label(&self) -> String {
+        self.label.clone()
+    }
+
+    pub fn save_text(&mut self) {
+        self.label = self.text_input.get_text();
+        self.text_input.push_history();
+    }
+
+    pub fn undo(&mut self) {
+        self.text_input.undo();
+        self.label = self.text_input.get_text();
+    }
+
+    pub fn load_input_text(&mut self) {
+        self.text_input.set_text(self.label.clone());
+    }
+
     pub fn paint_node(
         &mut self, 
         ctx: &mut PaintCtx, 
@@ -80,7 +131,7 @@ impl VMNode {
         enabled: bool,
         //enable screen-space rect caching (don't do this if drawing as a list member) to avoid polluting the cache with incorrect coords
         set_rect: bool,
-        layout: &PietTextLayout,
+        provided_layout: Option<&PietTextLayout>,
         config: &VMConfigVersion4, 
         target: Option<u32>,
         pos: Vec2,
@@ -91,6 +142,12 @@ impl VMNode {
         ctx.with_save(|ctx| {
             // let label_size = self.enabled_layout.as_mut()
             // .expect("Node layout container was empty.").size();
+            let mut layout: &PietTextLayout;
+            if let Some(provided_layout) = provided_layout {
+                layout = provided_layout;
+            } else {
+                layout = &self.text_input.text_layout.as_ref().unwrap();
+            }
             let mut label_size = layout.size();
             if label_size.width < DEFAULT_MIN_NODE_WIDTH_DATA {
                 label_size.width = DEFAULT_MIN_NODE_WIDTH_DATA;

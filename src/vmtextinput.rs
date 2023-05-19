@@ -22,18 +22,6 @@ use unicode_segmentation::*;
 
 use circular_buffer::CircularBuffer;
 
-#[allow(unused)]
-pub struct VMTextInput {
-    pub(crate) text: String,
-    index: usize,
-    visual_anchor: Option<usize>,
-    unconfirmed_range: Option<Range<usize>>,
-    pub(crate) text_layout: Option<PietTextLayout>,
-    pub(crate) mode: KeybindMode,
-    history: CircularBuffer<TEXT_HISTORY_SIZE, (String, usize)>,
-    history_index: usize,
-}
-
 pub trait VMTextSearch {
     fn next_word_start_offset(&self, index: usize) -> Option<usize>;
     fn prev_word_start_offset(&self, index: usize) -> Option<usize>;
@@ -132,9 +120,21 @@ impl VMTextSearch for String {
     }
 }
 
-#[allow(unused_must_use)]
-impl<'a> VMTextInput {
-    pub fn new() -> Self {
+#[allow(unused)]
+#[derive(Debug, Clone)]
+pub struct VMTextInput {
+    text: String,
+    index: usize,
+    visual_anchor: Option<usize>,
+    unconfirmed_range: Option<Range<usize>>,
+    pub(crate) text_layout: Option<PietTextLayout>,
+    pub(crate) mode: KeybindMode,
+    history: CircularBuffer<TEXT_HISTORY_SIZE, (String, usize)>,
+    history_index: usize,
+}
+
+impl Default for VMTextInput {
+    fn default() -> Self {
         let text = String::new();
         let mut history = CircularBuffer::new();
         history.push_front((String::from(""), 0));
@@ -149,12 +149,63 @@ impl<'a> VMTextInput {
             history_index: 0,
         }
     }
+}
+
+#[allow(unused_must_use)]
+impl<'a> VMTextInput {
+    pub fn new(text: String, index: Option<usize>) -> Self {
+        let mut history = CircularBuffer::new();
+        if let Some(index) = index {
+            history.push_front((text.clone(), index));
+        } else {
+            history.push_front((text.clone(), 0));
+        }
+        VMTextInput {
+            text,
+            index: 0,
+            visual_anchor: None,
+            unconfirmed_range: None,
+            text_layout: None,
+            mode: KeybindMode::Edit,
+            history,
+            history_index: 0,
+        }
+    }
+
+    pub fn set_text(&mut self, text: String) {
+        self.text = text;
+    } 
+
+    pub fn get_text(&self) -> String {
+        self.text.clone()
+    }
 
     pub fn push_history(&mut self) {
         if self.text != self.history.get(self.history_index).unwrap().0 {
-            self.history.truncate_front(self.history_index+1);
-            self.history.push_front((self.text.clone(), self.index));
-            self.history_index += 1;
+            if self.history_index+1 != self.history.len() {
+                self.history.truncate_back(self.history_index+1);
+                if !self.history.is_full() {
+                    tracing::debug!("\nHistory stale\nHistory full");
+                    self.history_index += 1;
+                }
+                self.history.push_back((self.text.clone(), self.index));
+            } else {
+                if !self.history.is_full() {
+                    tracing::debug!("\nHistory up-to-date\nHistory full");
+                    self.history_index += 1;
+                }
+                self.history.push_back((self.text.clone(), self.index));
+            }
+            tracing::debug!("\nH: {:?}\nL: {}\ni: {}", self.history, self.history.len(), self.history_index);
+        }
+    }
+
+    pub fn undo(&mut self) {
+        if self.history_index > 0 {
+            self.history_index -= 1;
+            let (history_entry, history_index) = self.history.get(self.history_index).unwrap();
+            self.text = history_entry.clone();
+            let _ = self.set_cursor(Some(*history_index));
             tracing::debug!("H: {:?}\nL: {}\ni: {}", self.history, self.history.len(), self.history_index);
         }
     }
@@ -417,13 +468,13 @@ impl<'a> VMTextInput {
             } 
         ctx.request_layout();
         ctx.request_paint();
-        return (change_mode, 
-            if (self.mode == KeybindMode::Edit || self.mode == KeybindMode::Visual) && prev_text != self.text {
-                true
-            } else {
-                false
-            }
-        );
+        let mut append_history = false;
+        if Some(KeybindMode::Insert) == change_mode {
+            append_history = false;
+        } else if (self.mode == KeybindMode::Edit || self.mode == KeybindMode::Visual) && prev_text != self.text {
+            append_history = true;
+        }
+        return (change_mode, append_history);
     }
 
     pub fn cursor_forward(&mut self) -> Result<(), ()> {
