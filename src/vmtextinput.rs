@@ -191,18 +191,16 @@ impl<'a> VMTextInput {
             if self.history_index+1 != self.history.len() {
                 self.history.truncate_back(self.history_index+1);
                 if !self.history.is_full() {
-                    tracing::debug!("\nHistory stale\nHistory full");
                     self.history_index += 1;
                 }
                 self.history.push_back((self.get_text(), self.index));
             } else {
                 if !self.history.is_full() {
-                    tracing::debug!("\nHistory up-to-date\nHistory full");
                     self.history_index += 1;
                 }
                 self.history.push_back((self.get_text(), self.index));
             }
-            tracing::debug!("\nH: {:?}\nL: {}\ni: {}", self.history, self.history.len(), self.history_index);
+            // tracing::debug!("\nH: {:?}\nL: {}\ni: {}", self.history, self.history.len(), self.history_index);
         }
     }
 
@@ -212,7 +210,7 @@ impl<'a> VMTextInput {
             let (history_entry, history_index) = self.history.get(self.history_index).unwrap();
             self.text = history_entry.clone();
             let _ = self.set_cursor(Some(*history_index));
-            tracing::debug!("H: {:?}\nL: {}\ni: {}", self.history, self.history.len(), self.history_index);
+            // tracing::debug!("H: {:?}\nL: {}\ni: {}", self.history, self.history.len(), self.history_index);
         }
     }
 
@@ -222,7 +220,7 @@ impl<'a> VMTextInput {
             let (history_entry, history_index) = self.history.get(self.history_index).unwrap();
             self.text = history_entry.clone();
             let _ = self.set_cursor(Some(*history_index));
-            tracing::debug!("H: {:?}\nL: {}\ni: {}", self.history, self.history.len(), self.history_index);
+            // tracing::debug!("H: {:?}\nL: {}\ni: {}", self.history, self.history.len(), self.history_index);
         }
     }
 
