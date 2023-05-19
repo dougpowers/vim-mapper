@@ -243,7 +243,9 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 | S                   | Edit           | Delete all text and enter Insert mode                                                                                   |
 | Esc / jj            | Insert         | Exit Insert mode and enter Edit mode                                                                                    |
 | Enter               | Insert         | Exit Insert mode and enter Sheet mode                                                                                   |
-|                     | Edit           |                                                                                                                         |
+
+### Delimiters
+VimMapper recognizes `" ... "`, `' ... '`, `[ ... ]`, `( ... )`, `< ... >`, and `{ ... }` as valid delimiters.
 
 > ❔**FAQ** - Where is my favorite vim command?  
 > _VimMapper is not intended for extensive text entry and therefore only emulates a subset of vim functionality. Currently, support for more movements and well as numerical counts, sentence objects, visual mode, and other operations is planned for future releases. However, fully emulating vim or even vi is outside the scope of the VimMapper project._
@@ -251,13 +253,11 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 > ❔**FAQ** - What about text registers?  
 > _Text registers are planned for a future release._
 
-### ‼ Compatibility Warnings and Missing Features
+## ‼ Compatibility Warnings and Missing Features
+* VimMapper doesn't support Visual mode. This functionality is planned for a future release.
 * As in vim, `dw` and `cw` are the same operation as `de` and `ce`, respectively.
 * VimMapper currently uses the [unicode-segmentation](https://docs.rs/unicode-segmentation/1.10.1/unicode_segmentation/index.html) crate to determine words and whitespace. This behavior will differ in some ways to vim's words and WORDS.
 * While it does support Unicode, VimMapper does not support non-LTR languages. Likewise, it does not support some IMEs.
-
-### Delimiters
-VimMapper recognizes `"`, `'`, `[` and `]`, `(` and `)`, `<` and `>`, and `{` and `}` as valid delimiters.
 
 ## 📣 Acknowledgements
 VimMapper uses a forked version of the [force-graph-rs](https://github.com/t-mw/force-graph-rs) crate by [@tobmansf](https://twitter.com/tobmansf) to position and manage nodes. The [vm-force-graph-rs](https://github.com/dougpowers/vim-mapper/tree/main/vm-force-graph-rs) crate is not currently planned to be published on crates.io.

@@ -320,7 +320,7 @@ impl VMSaveSerde {
     pub(crate) fn save(save: &VMSaveVersion5, path: PathBuf) -> Result<String, String> {
         #[cfg(debug_assertions)]
         {
-            println!("Saving file to {}", path.display());
+            tracing::info!("Saving file to {}", path.display());
         }
         if let Ok(string) = serde_json::to_string::<VMSaveVersion5>(save) {
             if let Ok(_) = fs::write(path, string) {
