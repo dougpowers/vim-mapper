@@ -177,24 +177,30 @@ impl<'a> VMTextInput {
     } 
 
     pub fn get_text(&self) -> String {
-        self.text.clone()
+        if let Some(range) = &self.unconfirmed_range {
+            let mut confirmed_text = self.text.clone();
+            confirmed_text.edit(range.clone(), "");
+            confirmed_text
+        } else {
+            self.text.clone()
+        }
     }
 
     pub fn push_history(&mut self) {
-        if self.text != self.history.get(self.history_index).unwrap().0 {
+        if self.get_text() != self.history.get(self.history_index).unwrap().0 {
             if self.history_index+1 != self.history.len() {
                 self.history.truncate_back(self.history_index+1);
                 if !self.history.is_full() {
                     tracing::debug!("\nHistory stale\nHistory full");
                     self.history_index += 1;
                 }
-                self.history.push_back((self.text.clone(), self.index));
+                self.history.push_back((self.get_text(), self.index));
             } else {
                 if !self.history.is_full() {
                     tracing::debug!("\nHistory up-to-date\nHistory full");
                     self.history_index += 1;
                 }
-                self.history.push_back((self.text.clone(), self.index));
+                self.history.push_back((self.get_text(), self.index));
             }
             tracing::debug!("\nH: {:?}\nL: {}\ni: {}", self.history, self.history.len(), self.history_index);
         }
@@ -210,10 +216,20 @@ impl<'a> VMTextInput {
         }
     }
 
+    pub fn redo(&mut self) {
+        if self.history_index+1 != self.history.len() {
+            self.history_index += 1;
+            let (history_entry, history_index) = self.history.get(self.history_index).unwrap();
+            self.text = history_entry.clone();
+            let _ = self.set_cursor(Some(*history_index));
+            tracing::debug!("H: {:?}\nL: {}\ni: {}", self.history, self.history.len(), self.history_index);
+        }
+    }
+
     pub fn handle_action(&mut self, ctx: &mut EventCtx, payload: &ActionPayload) -> (Option<KeybindMode>, bool) {
         // Some text to test vim actions
         let mut change_mode = None;
-        let prev_text = self.text.clone();
+        let prev_text = self.get_text();
         match payload.action {
             Action::ExecuteTextAction => {
                 if let Some(text_action) = &payload.text_action {
@@ -471,7 +487,7 @@ impl<'a> VMTextInput {
         let mut append_history = false;
         if Some(KeybindMode::Insert) == change_mode {
             append_history = false;
-        } else if (self.mode == KeybindMode::Edit || self.mode == KeybindMode::Visual) && prev_text != self.text {
+        } else if (self.mode == KeybindMode::Edit || self.mode == KeybindMode::Visual) && prev_text != self.get_text() {
             append_history = true;
         }
         return (change_mode, append_history);
@@ -505,7 +521,10 @@ impl<'a> VMTextInput {
     }
 
     pub fn set_cursor(&mut self, index: Option<usize>) -> Result<(), ()> {
-        if let Some(i) = index {
+        if let Some(mut i) = index {
+            if self.mode != KeybindMode::Insert && i == self.text.len() && self.text.len() != 0 {
+                i -= 1;
+            }
             if let Some(_) = self.text.cursor(i) {
                 self.index = i;
                 Ok(())

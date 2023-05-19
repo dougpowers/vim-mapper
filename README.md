@@ -153,17 +153,17 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 ### Sheet and Node Operations
 | **Key Combination** | **Mode**     | **Description**                                                                                                         |
 |---------------------|--------------|-------------------------------------------------------------------------------------------------------------------------|
-| Ctrl-n              | Any          | Create new sheet, discarding the current sheet                                                                          |
-| Ctrl-o              | Any          | Open an existing sheet, discarding the current sheet                                                                    |
-| Ctrl-s              | Any          | Save sheet                                                                                                              |
-| Ctrl-Shift-s        | Any          | Open a dialog to save sheet to specific file                                                                            |
-| Alt-F4              | Any          | Close VimMapper (displays a confirmation dialog if the sheet has unsaved changes)                                      |
-| Ctrl-t              | Sheet        | Create a new tab                                                                                                        |
-| Ctrl-Shift-t        | Sheet        | Create and name a new tab                                                                                               |
-| Ctrl-Tab            | Sheet        | Select the next tab                                                                                                     |
-| Ctrl-Shift-Tab      | Sheet        | Select the previous tab                                                                                                 |
-| Ctrl-r              | Sheet        | Rename the active tab                                                                                                   |
-| Ctrl-w              | Sheet        | Delete the active tab                                                                                                   |
+| Ctrl+n              | Any          | Create new sheet, discarding the current sheet                                                                          |
+| Ctrl+o              | Any          | Open an existing sheet, discarding the current sheet                                                                    |
+| Ctrl+s              | Any          | Save sheet                                                                                                              |
+| Ctrl+Shift+s        | Any          | Open a dialog to save sheet to specific file                                                                            |
+| Alt+F4              | Any          | Close VimMapper (displays a confirmation dialog if the sheet has unsaved changes)                                      |
+| Ctrl+t              | Sheet        | Create a new tab                                                                                                        |
+| Ctrl+Shift+t        | Sheet        | Create and name a new tab                                                                                               |
+| Ctrl+Tab            | Sheet        | Select the next tab                                                                                                     |
+| Ctrl+Shift+Tab      | Sheet        | Select the previous tab                                                                                                 |
+| Ctrl+r              | Sheet        | Rename the active tab                                                                                                   |
+| Ctrl+w              | Sheet        | Delete the active tab                                                                                                   |
 | Enter               | Sheet        | Set targeted child node as active                                                                                       |
 | n                   | Sheet        | Cycle clockwise target through child nodes                                                                              |
 | N                   | Sheet        | Cycle counter-clockwise through child nodes                                                                             |
@@ -171,14 +171,14 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 | k / K               | Sheet        | Pan the viewport up by a little / a lot                                                                                 |
 | h / H               | Sheet        | Pan the viewport left by a little / a lot                                                                               |
 | l / L               | Sheet        | Pan the viewport right by a little / a lot                                                                              |
-| Ctrl-j              | Sheet        | Zoom the viewport out                                                                                                   |
-| Ctrl-k              | Sheet        | Zoom the viewport in                                                                                                    |
+| Ctrl+j              | Sheet        | Zoom the viewport out                                                                                                   |
+| Ctrl+k              | Sheet        | Zoom the viewport in                                                                                                    |
 | c                   | Sheet        | Enter Edit mode                                                                                                         |
 | I                   | Sheet        | Enter Insert mode, placing the caret at the beginning of the text                                                       |
 | A                   | Sheet        | Enter Insert mode, placing the caret at the end of the text                                                             |
 | o                   | Sheet        | Create new child node, set as active, and enter Insert mode                                                             |
 | O                   | Sheet        | Create new child node                                                                                                   |
-| Ctrl-Shift-o        | Sheet        | Create a new external root node and enter Move mode                                                                     |
+| Ctrl+Shift+o        | Sheet        | Create a new external root node and enter Move mode                                                                     |
 | i                   | Sheet        | Insert a new node between the active and target nodes                                                                   |
 | d                   | Sheet        | Cut node and any children radiating away from root (displays confirmation dialog if more than one node is to be removed)|
 | x                   | Sheet        | Cut a node with only two neighbors and join them together                                                               |
@@ -186,7 +186,7 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 | yi                  | Sheet        | Yank a single node                                                                                                      |
 | p                   | Sheet        | Attached a yanked node or node tree to the active node                                                                  |
 | P                   | Sheet        | Paste a yanked node or node tree as a new external tree                                                                 |
-| Ctrl-p              | Sheet        | Paste a yanked node or node tree as a new tab                                                                           |
+| Ctrl+p              | Sheet        | Paste a yanked node or node tree as a new tab                                                                           |
 | gg                  | Sheet        | Center viewport on the active node                                                                                      |
 | G                   | Sheet        | Center viewport on the default root node                                                                                |
 | /                   | Sheet        | Enter Search mode                                                                                                       |
@@ -221,6 +221,8 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 | I                   | Edit           | Enter Insert mode, placing the carat at the beginning of the text                                                       |
 | A                   | Edit           | Enter Insert mode, placing the carat at the end of the text                                                             |
 | s                   | Edit           | Remove the character under the carat and enter Insert mode                                                              |
+| u                   | Edit           | Undoes the last change to the the text                                                                                  |
+| Ctrl+r              | Edit           | If no changes have been made since the last undo, reverts the undo                                                      |
 | l / Right Arrow     | Edit (Movement)| Advance the carat one character to the right                                                                            |
 | h / Left Arrow      | Edit (Movement)| Advance the carat one character to the left                                                                             |
 | w                   | Edit (Movement)| Advance the carat to the beginning of the next word                                                                     |
@@ -241,7 +243,6 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 | S                   | Edit           | Delete all text and enter Insert mode                                                                                   |
 | Esc / jj            | Insert         | Exit Insert mode and enter Edit mode                                                                                    |
 | Enter               | Insert         | Exit Insert mode and enter Sheet mode                                                                                   |
-|                     | Edit           |                                                                                                                         |
 |                     | Edit           |                                                                                                                         |
 
 > ❔**FAQ** - Where is my favorite vim command?  

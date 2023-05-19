@@ -82,6 +82,7 @@ pub enum Action {
     ExecuteTextAction,
     AcceptNodeText,
     UndoNodeText,
+    RedoNodeText,
     ToggleColorScheme,
     ToggleDebug,
     ToggleMenuVisible,
@@ -1496,6 +1497,19 @@ impl Default for VMInputManager {
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
+                    key: Some(Key::Character("r".to_string())),
+                    modifiers: Some(Modifiers::CONTROL),
+                    action_payloads: vec![Some(
+                        ActionPayload {
+                            action: Action::RedoNodeText,
+                            ..Default::default()
+                        }
+                    )],
+                    mode: KeybindMode::Edit,
+                    ..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
                     key: Some(Key::Character("P".to_string())),
                     action_payloads: vec![Some(
                         ActionPayload {
@@ -2092,113 +2106,115 @@ impl VMInputManager {
                         } else {
                             return vec![None];
                         }
-                    }
+                                    }
                     Key::Backspace => {
-                        self.clear_build();
-                        return vec![
-                            Some(ActionPayload {
-                            action: Action::ExecuteTextAction,
-                            text_action: Some(TextAction {
-                                    operation: TextOperation::DeleteText,
-                                    text_motion: Some(TextMotion::BackwardCharacter),
-                                    ..Default::default()
-                                }),
-                            ..Default::default()
-                            }),
-                            Some(ActionPayload {
-                                action: Action::ConfirmInserts,
+                    self.clear_build();
+                    return vec![
+                        Some(ActionPayload {
+                        action: Action::ExecuteTextAction,
+                        text_action: Some(TextAction {
+                                operation: TextOperation::DeleteText,
+                                text_motion: Some(TextMotion::BackwardCharacter),
                                 ..Default::default()
                             }),
-                        ]
+                        ..Default::default()
+                        }),
+                        Some(ActionPayload {
+                            action: Action::ConfirmInserts,
+                            ..Default::default()
+                        }),
+                    ]
                     },
                     Key::Delete => {
-                        self.clear_build();
-                        return vec![
-                            Some(ActionPayload {
-                            action: Action::ExecuteTextAction,
-                            text_action: Some(TextAction {
-                                    operation: TextOperation::DeleteText,
-                                    text_motion: Some(TextMotion::ForwardCharacter),
-                                    ..Default::default()
-                                }),
-                            ..Default::default()
-                            }),
-                            Some(ActionPayload {
-                                action: Action::ConfirmInserts,
+                    self.clear_build();
+                    return vec![
+                        Some(ActionPayload {
+                        action: Action::ExecuteTextAction,
+                        text_action: Some(TextAction {
+                                operation: TextOperation::DeleteText,
+                                text_motion: Some(TextMotion::ForwardCharacter),
                                 ..Default::default()
-                            })
-                        ]
+                            }),
+                        ..Default::default()
+                        }),
+                        Some(ActionPayload {
+                            action: Action::ConfirmInserts,
+                            ..Default::default()
+                        })
+                    ]
                     },
                     Key::Enter => {
-                        self.clear_build();
-                        return vec![Some(ActionPayload {
-                            action: Action::AcceptNodeText,
-                            ..Default::default() 
-                        }), Some(ActionPayload {
-                            action: Action::ChangeMode,
-                            mode: Some(KeybindMode::Sheet),
-                            ..Default::default()
-                        })]
+                    self.clear_build();
+                    return vec![Some(ActionPayload {
+                        action: Action::AcceptNodeText,
+                        ..Default::default() 
+                    }), Some(ActionPayload {
+                        action: Action::ChangeMode,
+                        mode: Some(KeybindMode::Sheet),
+                        ..Default::default()
+                    })]
                     },
                     Key::Escape => {
-                        self.clear_build();
-                        return vec![Some(ActionPayload {
-                            action: Action::AcceptNodeText,
-                            ..Default::default()    
-                            }),
-                            Some(ActionPayload {
-                            action: Action::ChangeMode,
-                            mode: Some(KeybindMode::Edit),
-                            ..Default::default()
-                        })]
+                    self.clear_build();
+                    return vec![Some(ActionPayload {
+                        action: Action::AcceptNodeText,
+                        ..Default::default()    
+                        }),
+                        Some(ActionPayload {
+                        action: Action::ChangeMode,
+                        mode: Some(KeybindMode::Edit),
+                        ..Default::default()
+                    })]
                     },
                     Key::ArrowRight => {
-                        self.clear_build();
-                        return vec![
-                            Some(ActionPayload {
-                            action: Action::ExecuteTextAction,
-                            text_action: Some(TextAction {
-                                text_motion: Some(TextMotion::ForwardCharacter),
-                                    ..Default::default()
-                                }),
-                            ..Default::default()
+                    self.clear_build();
+                    return vec![
+                        Some(ActionPayload {
+                        action: Action::ExecuteTextAction,
+                        text_action: Some(TextAction {
+                            text_motion: Some(TextMotion::ForwardCharacter),
+                                ..Default::default()
                             }),
-                        ]
+                        ..Default::default()
+                        }),
+                    ]
                     },
                     Key::ArrowLeft => {
-                        self.clear_build();
-                        return vec![
-                            Some(ActionPayload {
-                            action: Action::ExecuteTextAction,
-                            text_action: Some(TextAction {
-                                text_motion: Some(TextMotion::BackwardCharacter),
-                                    ..Default::default()
-                                }),
-                            ..Default::default()
+                    self.clear_build();
+                    return vec![
+                        Some(ActionPayload {
+                        action: Action::ExecuteTextAction,
+                        text_action: Some(TextAction {
+                            text_motion: Some(TextMotion::BackwardCharacter),
+                                ..Default::default()
                             }),
-                        ]
+                        ..Default::default()
+                        }),
+                    ]
                     },
                     _ => {
-                        return vec![None];
+                    return vec![None];
                     }
                 }
             },
             KeybindMode::Edit => {
                 match &key_event.key {
                     Key::Character(character) => {
-                        self.input_string += &character;
-                        let ret = self.build_keybind_string(character.clone());
-                        if let Some(Ok(payloads)) = ret {
-                            return payloads;
-                        } else if let None = ret {
-                            return vec![None];
-                        } else if let Some(Err(_)) = ret {
-                            self.clear_build();
-                            if self.input_string.len() >= 1 {
-                                self.clear_build();
+                        if key_event.mods.is_empty() || key_event.mods.shift() {
+                            self.input_string += &character;
+                            let ret = self.build_keybind_string(character.clone());
+                            if let Some(Ok(payloads)) = ret {
+                                return payloads;
+                            } else if let None = ret {
                                 return vec![None];
+                            } else if let Some(Err(_)) = ret {
+                                self.clear_build();
+                                if self.input_string.len() >= 1 {
+                                    self.clear_build();
+                                    return vec![None];
+                                }
                             }
-                        }
+                        } 
                     }
                     Key::Escape => {
                         if self.build_state == BuildState::AwaitOuterCount && self.outer_count.len() == 0 {

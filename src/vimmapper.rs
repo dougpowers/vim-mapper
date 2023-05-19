@@ -1699,7 +1699,16 @@ impl<'a> VimMapper {
                     self.invalidate_node_layout(node_fg);
                 }
                 return Ok(());
-            }
+            },
+            Action::RedoNodeText => {
+                if let Some(active_idx) = self.get_active_node_idx() {
+                    let node = self.nodes.get_mut(&active_idx).unwrap();
+                    let node_fg = node.fg_index.unwrap();
+                    node.redo();
+                    self.invalidate_node_layout(node_fg);
+                }
+                return Ok(());
+            },
             Action::ExecuteTextAction |
             Action::InsertCharacterUnconfirmed |
             Action::ConfirmInserts |

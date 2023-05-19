@@ -119,6 +119,11 @@ impl VMNode {
         self.label = self.text_input.get_text();
     }
 
+    pub fn redo(&mut self) {
+        self.text_input.redo();
+        self.label = self.text_input.get_text();
+    }
+
     pub fn load_input_text(&mut self) {
         self.text_input.set_text(self.label.clone());
     }

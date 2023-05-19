@@ -278,6 +278,7 @@ impl VMCanvas {
                     Action::MoveActiveNodeRight |
                     Action::AcceptNodeText |
                     Action::UndoNodeText |
+                    Action::RedoNodeText |
                     Action::PanUp |
                     Action::PanDown |
                     Action::PanLeft |
