@@ -1407,8 +1407,6 @@ impl<'a> VimMapper {
                     self.scroll_node_into_view(node_idx);
                     self.invalidate_node_layouts();
                     self.set_node_as_active(node_idx);
-                    let active_node = self.nodes.get_mut(&node_idx).unwrap();
-                    // active_node.text_input.text = active_node.label.clone();
                     ctx.request_layout();
                     ctx.set_handled();
                 }
@@ -1777,7 +1775,6 @@ impl Widget<()> for VimMapper {
                                 if let Some(active_idx) = self.get_active_node_idx() {
                                     if let Some(target_idx) = self.get_target_node_idx() {
                                         if idx != active_idx {
-                                            let active_node = self.nodes.get_mut(&active_idx).unwrap();
                                             let _ = self.handle_action(ctx, &ActionPayload {
                                                 action: Action::ChangeMode,
                                                 mode: Some(KeybindMode::Sheet),
@@ -2214,7 +2211,6 @@ impl Widget<()> for VimMapper {
 
             let active_node_pos = self.get_node_pos(active_idx);
             let node = self.nodes.get_mut(&active_idx).unwrap();
-            let node_layout = &node.text_input.text_layout.as_mut().unwrap();
             node.paint_node(
                         ctx, 
                         0,

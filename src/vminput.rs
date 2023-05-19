@@ -19,7 +19,7 @@ use druid::{keyboard_types::Key, EventCtx, Modifiers, TimerToken, KeyEvent, RawM
 use unicode_segmentation::UnicodeSegmentation;
 use bitflags::bitflags;
 
-use crate::{constants::*, vmsave::VMSaveState, vmdialog::VMDialogParams, vmtextinput::VMTextInput};
+use crate::{constants::*, vmsave::VMSaveState, vmdialog::VMDialogParams};
 
 #[allow(dead_code)]
 #[derive(Data, Clone, Copy, PartialEq, Debug)]

@@ -628,6 +628,7 @@ impl<'a> VMTextInput {
         return self.mode;
     }
 
+    #[allow(dead_code)]
     pub fn get_cursor_index(&self) -> usize {
         return self.index;
     }

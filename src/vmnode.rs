@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use druid::{Vec2, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder, PietText}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
+use druid::{Vec2, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, Rect, PaintCtx, RenderContext, Affine, kurbo::TranslateScale, Point, FontFamily, FontWeight, Color};
 use serde::{Serialize, Deserialize};
 use vm_force_graph_rs::{DefaultNodeIdx, ForceGraph};
 
@@ -75,6 +75,7 @@ impl Default for VMNode {
 }
 
 impl VMNode {
+    #[allow(dead_code)]
     pub fn new(label: String) -> Self {
         let node = VMNode {
             label: label.clone(),
@@ -147,7 +148,7 @@ impl VMNode {
         ctx.with_save(|ctx| {
             // let label_size = self.enabled_layout.as_mut()
             // .expect("Node layout container was empty.").size();
-            let mut layout: &PietTextLayout;
+            let layout: &PietTextLayout;
             if let Some(provided_layout) = provided_layout {
                 layout = provided_layout;
             } else {

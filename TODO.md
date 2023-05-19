@@ -1,5 +1,6 @@
 ## Future Features
 ### Major
+- [ ] Add undo/redo functionality for sheets
 - [ ] Implement visual mode
 - [ ] Implement text registers
 - [ ] Multi-character subcommands
@@ -58,9 +59,10 @@
 - [x] Fix tab context delete option always deleting the active tab
 - [x] refactor vm_force_graph_rs deletion tree building logic
 - [x] Add search list rendering
-- [ ] Fix Edit mode cw and ce commands moving the carat incorrectly
+- [x] Rewrite README.md with modern template
+- [x] Fix Edit mode cw and ce commands moving the carat incorrectly
+- [x] Implement undo/redo functionality for text nodes
 - [ ] Rewrite vim-mapper.vmd
-- [ ] Rewrite README.md with modern template
 
 ### Minor
 - [x] Fix partial matches being falsely reported
