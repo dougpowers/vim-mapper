@@ -1,5 +1,6 @@
 /target
 /.vscode
+/release
 /vm-force-graph-rs/target
 /vm-force-graph-rs/Cargo.lock
 Cargo.lock
