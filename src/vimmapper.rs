@@ -986,13 +986,19 @@ impl<'a> VimMapper {
 
     pub fn toggle_node_anchor(&mut self, idx: u32) {
         if let Some(node) = self.nodes.get_mut(&idx) {
-            if self.graph.get_graph()[node.fg_index.unwrap()].data.is_anchor {
-                if !self.graph.is_sole_anchor_in_component(node.fg_index.unwrap()) {
-                    self.graph.get_graph_mut()[node.fg_index.unwrap()].toggle_anchor();
+            let fg_index = node.fg_index.unwrap();
+            for (_, root_index) in self.root_nodes.iter() {
+                if *root_index == fg_index {
+                    return;
+                }
+            }
+            if self.graph.get_graph()[fg_index].data.is_anchor {
+                if !self.graph.is_sole_anchor_in_component(fg_index) {
+                    self.graph.get_graph_mut()[fg_index].toggle_anchor();
                     self.animating = true;
                 }
             } else {
-                self.graph.get_graph_mut()[node.fg_index.unwrap()].toggle_anchor();
+                self.graph.get_graph_mut()[fg_index].toggle_anchor();
                 self.animating = true;
             }
         }
@@ -1290,8 +1296,10 @@ impl<'a> VimMapper {
                         self.set_node_as_active(new_idx);
                         if let Some(point) = payload.pos {
                             let node = self.nodes.get(&new_idx).unwrap().fg_index.unwrap();
-                            self.graph.get_graph_mut()[node].data.x = self.screen_point_to_canvas_point(point).x;
-                            self.graph.get_graph_mut()[node].data.y = self.screen_point_to_canvas_point(point).y;
+                            // self.graph.get_graph_mut()[node].data.x = self.screen_point_to_canvas_point(point).x;
+                            // self.graph.get_graph_mut()[node].data.y = self.screen_point_to_canvas_point(point).y;
+                            self.graph.get_graph_mut()[node].data.x = point.x;
+                            self.graph.get_graph_mut()[node].data.y = point.y;
                             ctx.request_layout();
                         } else {
                             ctx.submit_command(Command::new(
@@ -1639,9 +1647,11 @@ impl<'a> VimMapper {
                     let node = self.nodes.get_mut(&idx).unwrap();
                     let node_fg = node.fg_index.unwrap();
                     node.label = self.input_manager.text_input.text.clone();
+                    self.input_manager.text_input.push_history();
                     node.text_cursor_index = self.input_manager.text_input.get_cursor_index();
                     self.invalidate_node_layout(node_fg);
                     self.animating = true;
+                    tracing::debug!("size of object: {}", std::mem::size_of::<VimMapper>());
                 }
                 return Ok(());
             },
@@ -1657,8 +1667,13 @@ impl<'a> VimMapper {
                     self.invalidate_node_layouts();
                     self.animating = true;
                 }
-                if let Some(mode) = ret {
+                if let (Some(mode), _) = ret {
                     self.input_manager.set_keybind_mode(mode);
+                }
+                if let (_, change) = ret {
+                    if change {
+                        self.input_manager.text_input.push_history();
+                    }
                 }
                 return Ok(());
             },

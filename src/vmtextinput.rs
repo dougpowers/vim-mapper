@@ -16,9 +16,11 @@ use std::ops::Range;
 
 use druid::{EventCtx, LayoutCtx, piet::{PietTextLayout, TextLayout, Text, TextLayoutBuilder}, PaintCtx, RenderContext, Point, Rect, BoxConstraints, Size, text::{EditableText}, Color, FontFamily, Vec2, Affine};
 
-use crate::{vminput::{ActionPayload, Action, KeybindMode, TextOperation, TextObj, TextMotion}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH}, vimmapper::VimMapper};
+use crate::{vminput::{ActionPayload, Action, KeybindMode, TextOperation, TextObj, TextMotion}, vmconfig::{VMConfigVersion4, VMColor}, constants::{NODE_LABEL_MAX_CONSTRAINTS, DEFUALT_TEXT_CURSOR_WIDTH, TEXT_HISTORY_SIZE}, vimmapper::VimMapper};
 
 use unicode_segmentation::*;
+
+use circular_buffer::CircularBuffer;
 
 #[allow(unused)]
 pub struct VMTextInput {
@@ -28,6 +30,8 @@ pub struct VMTextInput {
     unconfirmed_range: Option<Range<usize>>,
     pub(crate) text_layout: Option<PietTextLayout>,
     pub(crate) mode: KeybindMode,
+    history: CircularBuffer<TEXT_HISTORY_SIZE, (String, usize)>,
+    history_index: usize,
 }
 
 pub trait VMTextSearch {
@@ -132,6 +136,8 @@ impl VMTextSearch for String {
 impl<'a> VMTextInput {
     pub fn new() -> Self {
         let text = String::new();
+        let mut history = CircularBuffer::new();
+        history.push_front((String::from(""), 0));
         VMTextInput {
             text,
             index: 0,
@@ -139,12 +145,24 @@ impl<'a> VMTextInput {
             unconfirmed_range: None,
             text_layout: None,
             mode: KeybindMode::Edit,
+            history,
+            history_index: 0,
         }
     }
 
-    pub fn handle_action(&mut self, ctx: &mut EventCtx, payload: &ActionPayload) -> Option<KeybindMode> {
+    pub fn push_history(&mut self) {
+        if self.text != self.history.get(self.history_index).unwrap().0 {
+            self.history.truncate_front(self.history_index+1);
+            self.history.push_front((self.text.clone(), self.index));
+            self.history_index += 1;
+            tracing::debug!("H: {:?}\nL: {}\ni: {}", self.history, self.history.len(), self.history_index);
+        }
+    }
+
+    pub fn handle_action(&mut self, ctx: &mut EventCtx, payload: &ActionPayload) -> (Option<KeybindMode>, bool) {
         // Some text to test vim actions
         let mut change_mode = None;
+        let prev_text = self.text.clone();
         match payload.action {
             Action::ExecuteTextAction => {
                 if let Some(text_action) = &payload.text_action {
@@ -184,27 +202,37 @@ impl<'a> VMTextInput {
                                         self.index = range.start;
                                     },
                                     TextObj::Inner(delimiters) => {
-                                        change_mode = None;
                                         if let Some(opening_index) = self.text.prev_occurrence(self.index, delimiters.slice(0..delimiters.next_grapheme_offset(0).unwrap()).unwrap().to_string()) {
                                             if let Some(opening_index_next) = self.text.next_grapheme_offset(opening_index) {
                                                 if let Some(closing_index) = self.text.next_occurrence(self.index, delimiters.slice(delimiters.prev_grapheme_offset(delimiters.len()).unwrap()..delimiters.len()).unwrap().to_string()) {
                                                     self.text.edit(opening_index_next..closing_index, "");
                                                     self.set_cursor(Some(opening_index_next));
-                                                    change_mode = Some(KeybindMode::Insert);
+                                                    // change_mode = Some(KeybindMode::Insert);
+                                                } else {
+                                                    change_mode = None;
                                                 }
+                                            } else {
+                                                change_mode = None;
                                             }
+                                        } else {
+                                            change_mode = None;
                                         }
                                     },
                                     TextObj::Outer(delimiters) => {
-                                        change_mode = None;
                                         if let Some(opening_index) = self.text.prev_occurrence(self.index, delimiters.slice(0..delimiters.next_grapheme_offset(0).unwrap()).unwrap().to_string()) {
                                             if let Some(closing_index) = self.text.next_occurrence(self.index, delimiters.slice(delimiters.prev_grapheme_offset(delimiters.len()).unwrap()..delimiters.len()).unwrap().to_string()) {
                                                 if let Some(closing_index) = self.text.next_grapheme_offset(closing_index) {
                                                     self.text.edit(opening_index..closing_index, "");
                                                     self.set_cursor(Some(opening_index));
-                                                    change_mode = Some(KeybindMode::Insert);
+                                                    // change_mode = Some(KeybindMode::Insert);
+                                                } else {
+                                                    change_mode = None;
                                                 }
+                                            } else {
+                                                change_mode = None;
                                             }
+                                        } else {
+                                            change_mode = None;
                                         }
                                     },
                                     _ => ()
@@ -282,6 +310,10 @@ impl<'a> VMTextInput {
                                     },
                                     TextMotion::EndLine => {
                                         self.text.edit(self.index..self.text.len(), "");
+                                    },
+                                    TextMotion::WholeLine => {
+                                        self.text.edit(0..self.text.len(), "");
+                                        self.set_cursor(Some(0));
                                     }
                                 }
                             }
@@ -336,6 +368,9 @@ impl<'a> VMTextInput {
                                     },
                                     TextMotion::EndLine => {
                                         self.set_cursor(Some(self.text.len()));
+                                    },
+                                    TextMotion::WholeLine => {
+
                                     }
                                 }
                             }
@@ -382,7 +417,13 @@ impl<'a> VMTextInput {
             } 
         ctx.request_layout();
         ctx.request_paint();
-        return change_mode;
+        return (change_mode, 
+            if (self.mode == KeybindMode::Edit || self.mode == KeybindMode::Visual) && prev_text != self.text {
+                true
+            } else {
+                false
+            }
+        );
     }
 
     pub fn cursor_forward(&mut self) -> Result<(), ()> {

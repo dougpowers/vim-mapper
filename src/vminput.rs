@@ -125,6 +125,7 @@ pub enum TextMotion {
     BackwardWithN,
     BeginningLine,
     EndLine,
+    WholeLine,
 }
 
 #[allow(dead_code)]
@@ -1186,6 +1187,33 @@ impl Default for VMInputManager {
                     accepts_outer_count: Some(true),
                     accepts_inner_count: Some(true),
                     mode: KeybindMode::Edit,
+					..Default::default()
+                },
+                Keybind { 
+                    kb_type: KeybindType::String, 
+                    string: Some("D".to_string()),
+                    operation: Some(TextOperation::DeleteText),
+                    motion: Some(TextMotion::EndLine),
+                    mode: KeybindMode::Edit,
+                    next: Some(BuildState::Complete),
+					..Default::default()
+                },
+                Keybind { 
+                    kb_type: KeybindType::String, 
+                    string: Some("C".to_string()),
+                    operation: Some(TextOperation::ChangeText),
+                    motion: Some(TextMotion::EndLine),
+                    mode: KeybindMode::Edit,
+                    next: Some(BuildState::Complete),
+					..Default::default()
+                },
+                Keybind { 
+                    kb_type: KeybindType::String, 
+                    string: Some("S".to_string()),
+                    operation: Some(TextOperation::ChangeText),
+                    motion: Some(TextMotion::WholeLine),
+                    mode: KeybindMode::Edit,
+                    next: Some(BuildState::Complete),
 					..Default::default()
                 },
                 Keybind {

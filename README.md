@@ -59,17 +59,19 @@ Compiled binaries will be located in `./target/release/`.
 ## 📋 Basic VimMapper Usage
 VimMapper presents a simple interface. All new sheets will start with a single tab and a single node named "Root". Subsequent nodes will connect back to this root node. 
 
+### Navigation
 VimMapper starts in Sheet mode. Keys pressed in this mode will navigate and manipulate whole nodes or node trees. The sheet can be panned by pressing `h`, `j`, `k`, or `l`. Holding `Shift` while pressing these will pan by a larger amount. `Ctrl-k` and `Ctrl-j` will zoom the sheet in or out.
 
 The current active node is outlined in blue. The current targeted child node is outlined in light red. Press the `n` key to cycle target clockwise or `N` to cycle counter-clockwise. Press `Enter` to activate the targeted node.
 
 Create a child to the active node by pressing `O`. To create and activate a child as well as switch to Insert mode, press `o`.
 
+To cut a node and its ancestors, press `d`. A confirmation dialog will be displayed if more than one node is to be removed. All cut nodes are automatically copied ("yanked") and can be pasted elsewhere if desired using `p`.
+
+### Editing Nodes
 To edit the active node, press `c` to enter Edit mode. This is analogous to vim's Normal mode. Common vim bindings to navigate and edit text are available in this mode.
 
 When in Edit mode, press `i` or `a` to enter Insert mode. Press `I` or `A` to enter Insert mode and place the caret at the beginning or end of the text, respectively.
-
-To cut a node and its ancestors, press `d`. A confirmation dialog will be displayed if more than one node is to be removed. All cut nodes are automatically copied ("yanked") and can be pasted elsewhere if desired using `p`.
 
 For a full list of keybindings, please see [Keybindings](#keybindings).
 
@@ -98,7 +100,7 @@ VimMapper includes the following modes:
 * Mark - Accessed by pressing `m`. Pressing a printable character after entering this mode will mark any non-root node. Pressing `Space` will remove a mark from a node. If a mark is already in use, reusing that mark will remove it from the old node and place it on the new node.
 * Jump - Accessed by press `'` (apostrophe). Pressing a non-numeric printable character after entering this mode will activate a node marked with that character. Pressing `0` will activate the default root node. Pressing `1`-`9` will jump to the root node of the corresponding tree index.
 
-### Cutting, Yanking, and Pasting
+### Cutting, Yanking, and Pasting Node Trees
 VimMapper supports copying ("yanking" in vim parlance) and pasting of nodes and node trees. A node and all its descendants can be yanked by pressing `yy`. A single node can be yanked by pressing `yi`.
 
 Any node deletion operation is also a yank operation. This allows for quickly moving nodes or node trees around the sheet. Be aware of this behavior when performing yank and cut operations consecutively as yanked nodes in the clipboard may be inadvertently overwritten by deleted ones.
@@ -193,7 +195,7 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 | n                   | Select       | Cycle forward through search results                                                                                    |
 | N                   | Select       | Cycle backward through search results                                                                                   |
 | Enter               | Select       | Activate selected search result                                                                                         |
-| Esc                 | Select       | Cancel Select mode and return to Sheet mode                                                                            |
+| Esc                 | Select       | Cancel Select mode and return to Sheet mode                                                                             |
 | `                   | Sheet        | Enter Move mode for the active node and anchor it                                                                       |
 | j / J               | Move         | Move the node down by a little / a lot                                                                                  |
 | k / K               | Move         | Move the node up by a little / a lot                                                                                    |
@@ -228,13 +230,15 @@ VimMapper stores its configuration in JSON format at `~/AppData/Roaming/vim-mapp
 | t<char\>            | Edit (Movement)| Move the carat to the next occurrence of <char\>                                                                        |
 | f<char\>            | Edit (Movement)| Move the carat past the next occurrence of <char\>                                                                      |
 | r<char\>            | Edit           | Replace the character under the carat with <char\>                                                                      |
+| D                   | Edit           | Delete text from the carat position to the end of the line                                                              |
 | d<movement\>        | Edit           | Delete text from the current carat position to <movement\>                                                              |
 | di<delimiter\>      | Edit           | Delete text under the carat between two [delimiters](#delimiters)                                                       |
 | diw                 | Edit           | Delete the word underneath the carat and one leading or trailing whitespace character                                   |
+| C                   | Edit           | Delete text from the carat position to the end of the line and enter Insert mode                                        |
 | c<movement\>        | Edit           | Delete text from the current carat position to <movement\> and enter Insert mode                                        |
 | ciw                 | Edit           | Delete the word underneath the carat and one leading or trailing whitespace character and enter Insert mode             |
 | ci<delimiter\>      | Edit           | Delete text under the carat between two [delimiters](#delimiters) and enter Insert mode                                 |
-|                     | Edit           |                                                                                                                         |
+| S                   | Edit           | Delete all text and enter Insert mode                                                                                   |
 |                     | Edit           |                                                                                                                         |
 |                     | Edit           |                                                                                                                         |
 

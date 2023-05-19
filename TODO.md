@@ -2,7 +2,8 @@
 ### Major
 - [ ] Implement visual mode
 - [ ] Implement text registers
-    - [ ] Implement system copy/paste
+- [ ] Multi-character subcommands
+    - [ ] Implement system clipboard copy/paste
 - [ ] Add merge tab feature, placing root node tree into register before deleting tab
 - [ ] Implement global and local counts
 - [ ] Implement :commands

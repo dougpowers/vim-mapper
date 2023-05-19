@@ -21,6 +21,7 @@ dirs = "4.0.0"
 dark-light = "0.2.3"
 common_macros = "0.1.1"
 bitflags = { version = "2.0.2", features = ["serde"]}
+circular-buffer = "0.1.1"
 
 [dependencies.windows]
 version = "0.43.0"
