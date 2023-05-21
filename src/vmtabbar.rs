@@ -58,7 +58,7 @@ impl VMTabBar {
         self.active_tab = active_tab;
     }
 
-    fn build_menu(&mut self, tab_index: usize) -> Menu<AppState> {
+    pub fn build_menu(&self, tab_index: usize) -> Menu<AppState> {
         let mut menu = Menu::<AppState>::empty();
         menu = menu.entry(
             MenuItem::new("New Tab").command(Command::new(EXECUTE_ACTION,
@@ -82,6 +82,33 @@ impl VMTabBar {
         );
         if self.tabs.len() > 1 {
             menu = menu.separator();
+            if tab_index != self.tabs.len()-1 {
+                menu = menu.entry(
+                    MenuItem::new("Move Tab Right").command(Command::new(EXECUTE_ACTION,
+                        ActionPayload {
+                            action: Action::MoveTabRight,
+                            tab_index: Some(tab_index),
+                            ..Default::default()
+                        },
+                        Target::Global
+                    ))
+                );
+            }
+            if tab_index != 0 {
+                menu = menu.entry(
+                    MenuItem::new("Move Tab Left").command(Command::new(EXECUTE_ACTION,
+                        ActionPayload {
+                            action: Action::MoveTabLeft,
+                            tab_index: Some(tab_index),
+                            ..Default::default()
+                        },
+                        Target::Global
+                    ))
+                );
+            }
+            if tab_index != self.tabs.len()-1 || tab_index != 0 {
+                menu = menu.separator();
+            }
             menu = menu.entry(
                 MenuItem::new("Delete Tab").command(Command::new(EXECUTE_ACTION,
                     ActionPayload {

@@ -1682,6 +1682,12 @@ impl<'a> VimMapper {
                     let node = self.nodes.get_mut(&idx).unwrap();
                     let node_fg = node.fg_index.unwrap();
                     // node.label = self.input_manager.text_input.text.clone();
+                    node.text_input.handle_action(ctx, 
+                        &ActionPayload {
+                            action: Action::ConfirmInserts,
+                            ..Default::default()
+                        }   
+                    );
                     node.save_text();
                     // node.text_cursor_index = self.input_manager.text_input.get_cursor_index();
                     self.invalidate_node_layout(node_fg);

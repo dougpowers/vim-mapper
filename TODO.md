@@ -62,7 +62,7 @@
 - [x] Rewrite README.md with modern template
 - [x] Fix Edit mode cw and ce commands moving the carat incorrectly
 - [x] Implement undo/redo functionality for text nodes
-- [ ] Rewrite vim-mapper.vmd
+- [x] Rewrite vim-mapper.vmd
 
 ### Minor
 - [x] Fix partial matches being falsely reported

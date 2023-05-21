@@ -602,6 +602,15 @@ impl<'a> VMTextInput {
     }
 
     pub fn set_keybind_mode(&mut self, mode: KeybindMode) {
+        //cleanup from leaving self.mode
+        match self.mode {
+            KeybindMode::Insert => {
+                // self.unconfirmed_range = None;
+            }
+            _ => {
+
+             }
+        }
         match mode {
             KeybindMode::Insert => {
                 self.visual_anchor = None;

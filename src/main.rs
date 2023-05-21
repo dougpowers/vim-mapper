@@ -72,6 +72,9 @@ struct VMCanvas {
     start_input_manager: VMInputManager,
     graph_clip_registers: HashMap<String, VMGraphClip>,
     debug_data: bool,
+    // Workaround for erroneous MouseUp mouse_event.pos when right-clicking tab bar, causing context menus
+    // to break. Set on MouseDown, used and then unset on MouseUp.
+    last_mouse_down_on_tab_bar: bool,
 }
 
 pub struct VMTab {
@@ -94,6 +97,7 @@ impl VMCanvas {
             start_input_manager: VMInputManager::new(),
             graph_clip_registers: HashMap::new(),
             debug_data: false,
+            last_mouse_down_on_tab_bar: false,
         }
     }
 
@@ -147,6 +151,17 @@ impl VMCanvas {
         ctx.children_changed();
         ctx.request_layout();
         ctx.set_handled();
+        let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
+        self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
+    }
+
+    fn move_tab(&mut self, _ctx: &mut EventCtx, old_index: usize, new_index: usize) {
+        if self.active_tab == old_index {
+            self.active_tab = new_index;
+        } else if self.active_tab == new_index {
+            self.active_tab = old_index;
+        }
+        self.tabs.swap(old_index, new_index);
         let tab_names: Vec<String> = self.tabs.iter().map(|v| -> String {return v.tab_name.clone()}).collect();
         self.tab_bar.widget_mut().update_tabs(&tab_names, self.active_tab);
     }
@@ -252,6 +267,8 @@ impl VMCanvas {
                     Action::CreateNewNode |
                     Action::CreateNewNodeAndEdit |
                     Action::CreateNewTab |
+                    Action::MoveTabLeft |
+                    Action::MoveTabRight |
                     Action::DeleteActiveTab |
                     Action::RenameTab |
                     Action::GoToNextTab |
@@ -533,6 +550,32 @@ impl VMCanvas {
                             self.new_tab(ctx, format!("Tab {}", self.tabs.len() + 1))
                         } else {
                             self.new_tab(ctx, payload.string.clone().unwrap());
+                        }
+                        return Ok(());
+                    },
+                    Action::MoveTabLeft => {
+                        if let Some(tab_index) = payload.tab_index {
+                            if tab_index != 0 {
+                                self.move_tab(ctx, tab_index, tab_index-1);
+                            }
+                        } else {
+                            let tab_index = self.active_tab;
+                            if tab_index != 0 {
+                                self.move_tab(ctx, tab_index, tab_index-1);
+                            }
+                        }
+                        return Ok(());
+                    },
+                    Action::MoveTabRight => {
+                        if let Some(tab_index) = payload.tab_index {
+                            if tab_index != self.tabs.len()-1 {
+                                self.move_tab(ctx, tab_index, tab_index+1);
+                            }
+                        } else {
+                            let tab_index = self.active_tab;
+                            if tab_index != self.tabs.len()-1 {
+                                self.move_tab(ctx, tab_index, tab_index+1);
+                            }
                         }
                         return Ok(());
                     },
@@ -951,7 +994,7 @@ impl Widget<AppState> for VMCanvas {
                         }
                     } 
                 }
-            }
+            },
             Event::Timer(token) => {
                 let mut im = &mut self.start_input_manager;
                 if let Some(tab) = self.tabs.get_mut(self.active_tab) {
@@ -962,18 +1005,19 @@ impl Widget<AppState> for VMCanvas {
                 } else if Some(*token) == im.get_timeout_build_token() {
                     im.build_timeout(ctx);
                 }
-            }
+            },
             Event::WindowConnected => {
                 ctx.request_focus();
                 if let Some(menu_visible) = self.config.menu_shown {
                     data.menu_visible = menu_visible;
                 }
-            }
+            },
             Event::MouseDown(mouse_event) => {
                 if self.dialog_visible {
                     self.dialog.event(ctx, event, &mut data.dialog_input_text, env);
                 } else if self.tab_bar.layout_rect().contains(mouse_event.pos) {
                     self.tab_bar.event(ctx, event, &mut (), env);
+                    self.last_mouse_down_on_tab_bar = true;
                 } else if let Some(tab) = self.tabs.get_mut(self.active_tab) {
                     let inner = &mut tab.vm;
                     if let Some(register) = self.graph_clip_registers.get("0") {
@@ -981,6 +1025,21 @@ impl Widget<AppState> for VMCanvas {
                     }
                     inner.event(ctx, event, &mut (), env);
                 }
+            },
+            Event::MouseUp(_mouse_event) => {
+                if self.dialog_visible {
+                    self.dialog.event(ctx, event, &mut data.dialog_input_text, env);
+                } else if self.last_mouse_down_on_tab_bar {
+                    self.tab_bar.event(ctx, event, &mut (), env);
+                    self.last_mouse_down_on_tab_bar = false;
+                } else if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+                    let inner = &mut tab.vm;
+                    if let Some(register) = self.graph_clip_registers.get("0") {
+                        inner.widget_mut().default_paste_register_count = register.get_graph().node_count();
+                    }
+                    inner.event(ctx, event, &mut (), env);
+                }
+                self.last_mouse_down_on_tab_bar = false;
             }
             _ => {
                 if self.dialog_visible {

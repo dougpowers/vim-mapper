@@ -90,6 +90,8 @@ pub enum Action {
     PrintToLogInfo,
     CreateNewTab,
     OpenNewTabInput,
+    MoveTabLeft,
+    MoveTabRight,
     DeleteActiveTab,
     DeleteTab,
     OpenDeleteTabPrompt,
@@ -1131,6 +1133,28 @@ impl Default for VMInputManager {
                 },
                 Keybind {
                     kb_type: KeybindType::Key,
+                    key: Some(Key::ArrowRight),
+                    modifiers: Some(Modifiers::CONTROL),
+                    action_payloads: vec![Some(ActionPayload {
+                        action: Action::MoveTabRight,
+                        ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
+					..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
+                    key: Some(Key::ArrowLeft),
+                    modifiers: Some(Modifiers::CONTROL),
+                    action_payloads: vec![Some(ActionPayload {
+                        action: Action::MoveTabLeft,
+                        ..Default::default()
+                    })],
+                    mode: KeybindMode::Sheet,
+					..Default::default()
+                },
+                Keybind {
+                    kb_type: KeybindType::Key,
                     key: Some(Key::Character(String::from("t"))),
                     modifiers: Some(Modifiers::CONTROL),
                     action_payloads: vec![Some(ActionPayload {
@@ -2078,9 +2102,10 @@ impl VMInputManager {
                         let ret = self.build_keybind_string(character.clone());
                         if let Some(Ok(mut payloads)) = ret {
                             self.clear_build();
-                            payloads.push(Some(ActionPayload {
-                                action: Action::RollBackInserts,
-                                ..Default::default()
+                            payloads.insert(0,
+                                Some(ActionPayload {
+                                    action: Action::RollBackInserts,
+                                    ..Default::default()
                             }));
                             return payloads;
                         } else if let None = ret {
