@@ -2010,6 +2010,8 @@ impl Widget<()> for VimMapper {
                     } else {
                         graph_clip.append_node_clip(self, None, register, external_point);
                     }
+                    self.invalidate_node_layouts();
+                    ctx.request_layout();
                 }
             }
             Event::Command(command) if command.is(EXECUTE_ACTION) && !ctx.is_handled() => {

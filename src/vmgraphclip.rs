@@ -108,7 +108,17 @@ impl VMGraphClip {
     pub fn append_node_clip(&self, target: &mut VimMapper, target_idx: Option<u32>, _register: String, pos: Option<Point>) {
         let mut trans_map: HashMap<DefaultNodeIdx, DefaultNodeIdx> = HashMap::new(); 
         if let Some(target_idx) = target_idx {
-            let target_node = &target.graph.get_graph()[target.nodes.get(&target_idx).unwrap().fg_index.unwrap()];
+            let mut replace_node = false;
+            if target.nodes.get(&target_idx).unwrap().get_label() == "" {
+                replace_node = true;
+                let text = self.nodes.get(&self.graph[self.root_node.unwrap()].data.user_data).unwrap().get_label();
+                tracing::debug!("replacement text {}", text);
+                target.nodes.get_mut(&target_idx).unwrap().set_label(
+                    text
+                );
+                target.nodes.get_mut(&target_idx).unwrap().load_input_text();
+            }
+            let target_node = &target.graph.get_graph()[target.nodes.get(&target_idx).unwrap().fg_index.unwrap()].clone();
             let target_node_pos = Vec2::new(target_node.x(), target_node.y());
             let angle = target_node_pos.atan2();
             let rotation = Affine::rotate(angle);
@@ -117,33 +127,43 @@ impl VMGraphClip {
                 (rotation * Vec2::new(target_node.data.repel_distance, target_node.data.repel_distance).to_point()).y,
             );
             for old_fg_index in self.graph.node_indices() {
-                let node = self.graph[old_fg_index].clone();
-                let new_index = target.increment_node_idx();
-                let new_node_pos = (rotation * Vec2::new(node.data.x, node.data.y).to_point()) + new_node_offset;
-                let new_fg_index = target.graph.add_node(NodeData {
-                    x: new_node_pos.x,
-                    y: new_node_pos.y,
-                    mass: node.data.mass,
-                    repel_distance: node.data.repel_distance,
-                    is_anchor: node.data.is_anchor,
-                    user_data: new_index,
-                });
-                let mut vm_node = self.nodes.get(&node.data.user_data).unwrap().clone();
-                if let Some(mark) = vm_node.mark.clone() {
-                    if mark.contains(char::is_numeric) {
-                        vm_node.mark = None;
+                if replace_node && old_fg_index == self.root_node.unwrap() {
+                    tracing::debug!("replaced index is {:?}", target_node.index());
+                    trans_map.insert(old_fg_index, target_node.index());
+                } else {
+                    let node = self.graph[old_fg_index].clone();
+                    let new_index = target.increment_node_idx();
+                    let new_node_pos = (rotation * Vec2::new(node.data.x, node.data.y).to_point()) + new_node_offset;
+                    let new_fg_index = target.graph.add_node(NodeData {
+                        x: new_node_pos.x,
+                        y: new_node_pos.y,
+                        mass: node.data.mass,
+                        repel_distance: node.data.repel_distance,
+                        is_anchor: node.data.is_anchor,
+                        user_data: new_index,
+                    });
+                    let mut vm_node = self.nodes.get(&node.data.user_data).unwrap().clone();
+                    if let Some(mark) = vm_node.mark.clone() {
+                        if mark.contains(char::is_numeric) {
+                            vm_node.mark = None;
+                        }
                     }
+                    vm_node.index = new_index;
+                    vm_node.is_active = false;
+                    vm_node.fg_index = Some(new_fg_index);
+                    target.nodes.insert(new_index, vm_node);
+                    trans_map.insert(old_fg_index, new_fg_index);
                 }
-                vm_node.index = new_index;
-                vm_node.is_active = false;
-                vm_node.fg_index = Some(new_fg_index);
-                target.nodes.insert(new_index, vm_node);
-                trans_map.insert(old_fg_index, new_fg_index);
             }
             for edge in self.graph.edge_references() {
-                target.graph.add_edge(*trans_map.get(&edge.source()).unwrap(), *trans_map.get(&edge.target()).unwrap(), EdgeData { user_data: 0 });
+                let n1 = *trans_map.get(&edge.source()).unwrap();
+                let n2 = *trans_map.get(&edge.target()).unwrap();
+                tracing::debug!("Adding edge between {:?} and {:?}", n1, n2);
+                target.graph.add_edge(n1, n2, EdgeData { user_data: 0 });
             }
-            target.graph.add_edge(target.nodes.get(&target_idx).unwrap().fg_index.unwrap(), *trans_map.get(&self.root_node.unwrap()).unwrap(), EdgeData{ user_data: 0 });
+            if !replace_node {
+                target.graph.add_edge(target.nodes.get(&target_idx).unwrap().fg_index.unwrap(), *trans_map.get(&self.root_node.unwrap()).unwrap(), EdgeData{ user_data: 0 });
+            }
             target.build_target_list_from_neighbors(target_idx);
         } else if let Some(root_node) = self.root_node {
             let external_node = target.add_external_node(self.nodes.get(&self.graph[root_node].data.user_data).unwrap().get_label().clone()).unwrap();
